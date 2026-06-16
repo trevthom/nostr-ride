@@ -11,8 +11,10 @@ import { useApp } from "../../state/AppContext.jsx";
 import { useGeolocation } from "../../lib/useGeolocation.js";
 import { publishRideLocation } from "../../nostr/live.js";
 import { relay } from "../../nostr/relay.js";
+import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { getProfile } from "../../nostr/profiles.js";
 import { fullNpub } from "../../nostr/keys.js";
+import { THEME } from "../../theme.js";
 import Screen from "../../ui/Screen.jsx";
 import Button from "../../ui/Button.jsx";
 import MapView from "../../ui/MapView.jsx";
@@ -20,9 +22,13 @@ import MapView from "../../ui/MapView.jsx";
 const SEND_EVERY_MS = 6000;
 
 export default function DriverActiveRideScreen() {
-  const { user, setView, selectedRequest } = useApp();
+  const { user, setView, selectedRequest, publish, refreshData, openProfile } = useApp();
   const [sharing, setSharing] = useState(true);
   const [lastSent, setLastSent] = useState(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [showRating, setShowRating] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [review, setReview] = useState("");
   const { pos, error } = useGeolocation(sharing);
   const posRef = useRef(null);
 
@@ -51,17 +57,76 @@ export default function DriverActiveRideScreen() {
   const req = JSON.parse(selectedRequest.content);
   const riderProfile = getProfile(riderPubkey);
 
+  // Driver cancels: mark the request cancelled + publish a cancel event,
+  // then offer an OPTIONAL review of the rider.
+  const handleCancel = () => {
+    publish(
+      EVENT_KINDS.RIDE_REQUEST,
+      { ...req, status: "cancelled", driverPubkey: user.publicKey },
+      selectedRequest.tags
+    );
+    publish(
+      EVENT_KINDS.RIDE_CANCEL,
+      { requestId: selectedRequest.id, reason: "Cancelled by driver" },
+      [["e", selectedRequest.id], ["d", "cancel-" + selectedRequest.id], ["t", "ride-cancel"]]
+    );
+    refreshData();
+    setShowRating(true);
+  };
+
+  const submitRating = () => {
+    publish(
+      EVENT_KINDS.RATING,
+      { rating, review, rideId: selectedRequest.id },
+      [["p", riderPubkey], ["e", selectedRequest.id], ["d", "rating-" + selectedRequest.id], ["t", "rating"]]
+    );
+    setView("my-rides");
+  };
+
+  // ── Optional review sub-view (after a cancel) ──
+  if (showRating) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: THEME.pageBg }}>
+        <div className="w-full max-w-sm text-center">
+          <h2 className="text-white text-xl font-bold mb-1 font-display">Review the rider?</h2>
+          <p className="text-white/40 text-sm mb-6">Optional — this ride was cancelled.</p>
+          <div className="flex justify-center gap-2 mb-6">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button key={star} onClick={() => setRating(star)} className={`text-3xl ${star <= rating ? "text-amber-400" : "text-white/20"}`}>★</button>
+            ))}
+          </div>
+          <textarea
+            value={review}
+            onChange={(e) => setReview(e.target.value)}
+            placeholder={rating < 5 ? "Please explain (required under 5 stars)" : "How was the rider? (optional)"}
+            rows={3}
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-cyan-500/50 text-sm resize-none mb-2"
+          />
+          {rating < 5 && !review.trim() && (
+            <p className="text-amber-400/80 text-xs mb-3">An explanation is required for ratings under 5 stars.</p>
+          )}
+          <Button onClick={submitRating} disabled={rating < 5 && !review.trim()}>Submit Review</Button>
+          <button onClick={() => setView("my-rides")} className="w-full py-3 text-white/40 text-sm mt-2">Skip</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Screen title="Active Ride" onBack={() => setView("my-rides")}>
       <div className="space-y-4">
         <MapView pickup={req.pickup} dropoff={req.dropoff} />
 
-        <div className="bg-white/5 rounded-xl border border-white/10 p-4">
+        <button
+          onClick={() => riderPubkey && openProfile(riderPubkey)}
+          className="w-full text-left bg-white/5 rounded-xl border border-white/10 p-4 hover:border-cyan-500/30 transition-colors"
+        >
           <p className="text-white/40 text-xs uppercase tracking-wider mb-1">Rider</p>
           {riderProfile?.name && <p className="text-white font-bold text-sm">{riderProfile.name}</p>}
           <p className="text-white/50 text-xs font-mono break-all">{fullNpub(riderPubkey)}</p>
           <p className="text-white/40 text-sm mt-2">{req.pickup.name} → {req.dropoff.name}</p>
-        </div>
+          <span className="text-cyan-400 text-xs">View profile →</span>
+        </button>
 
         {/* Location sharing control */}
         <div
@@ -114,10 +179,38 @@ export default function DriverActiveRideScreen() {
           Your exact location is encrypted and only the rider can read it.
         </p>
 
-        <Button variant="ghost" onClick={() => setView("my-rides")}>
-          End ride
-        </Button>
+        <div className="flex gap-3">
+          <Button variant="ghost" onClick={() => setView("my-rides")} className="flex-1">
+            End ride
+          </Button>
+          <button
+            onClick={() => setConfirmCancel(true)}
+            className="py-3 px-5 rounded-xl font-semibold text-rose-400 text-sm border border-rose-500/20 bg-rose-500/5"
+          >
+            Cancel ride
+          </button>
+        </div>
       </div>
+
+      {confirmCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="w-full max-w-xs rounded-2xl border border-white/10 p-5 text-center" style={{ background: "#0b1220" }}>
+            <p className="text-white font-semibold mb-1">Cancel this ride?</p>
+            <p className="text-white/40 text-sm mb-4">This ends the ride for both you and the rider.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmCancel(false)} className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-white/10 text-white">
+                Keep ride
+              </button>
+              <button
+                onClick={() => { setConfirmCancel(false); handleCancel(); }}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-rose-500/20 text-rose-400 border border-rose-500/30"
+              >
+                Cancel ride
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Screen>
   );
 }

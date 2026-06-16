@@ -77,6 +77,25 @@ export default function UserModal() {
 
         <p className="text-white/40 text-[11px] font-mono break-all mt-4">{fullNpub(profileModalPubkey)}</p>
 
+        {p?.vehicle && (p.vehicle.make || p.vehicle.model || p.vehicle.plateNumber || p.vehicle.picture) && (
+          <div className="mt-4 border-t border-white/10 pt-4 text-left">
+            <p className="text-white/40 text-[11px] uppercase tracking-wider mb-2 text-center">Vehicle</p>
+            {p.vehicle.picture && (
+              <img src={p.vehicle.picture} alt="Vehicle" className="w-full h-28 object-cover rounded-lg border border-white/10 mb-2" />
+            )}
+            {(p.vehicle.year || p.vehicle.make || p.vehicle.model) && (
+              <p className="text-white/80 text-sm text-center">
+                {[p.vehicle.year, p.vehicle.make, p.vehicle.model].filter(Boolean).join(" ")}
+              </p>
+            )}
+            {p.vehicle.plateState && p.vehicle.plateNumber && (
+              <p className="text-white/40 text-xs text-center mt-0.5">
+                Plate: {p.vehicle.plateState} · {p.vehicle.plateNumber}
+              </p>
+            )}
+          </div>
+        )}
+
         <button
           onClick={closeProfile}
           className="mt-5 w-full py-2.5 rounded-lg text-sm font-medium bg-white/10 text-white"

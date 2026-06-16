@@ -18,6 +18,10 @@ import RelayEditor from "../../ui/RelayEditor.jsx";
 import WalletSection from "./WalletSection.jsx";
 import KeysSection from "./KeysSection.jsx";
 
+const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: CURRENT_YEAR + 1 - 1900 + 1 }, (_, i) => CURRENT_YEAR + 1 - i); // newest first
+
 export default function ProfileScreen() {
   const { user, setUser, logout, notifyNearby, setNotifyNearby, notifyRadius, setNotifyRadius } = useApp();
   const relays = useRelays();
@@ -97,6 +101,11 @@ export default function ProfileScreen() {
     setTimeout(() => setSavedVeh(false), 1500);
   };
 
+  // Removing a required value (face photo or vehicle detail) revokes
+  // driving until it's re-added (isDriveReady recomputes from these).
+  const removeFace = () => saveProfile({ picture: "" });
+  const removeVehiclePhoto = () => setVeh((s) => ({ ...s, picture: "" }));
+
   const driveReady = isDriveReady({ ...user, vehicle: veh });
 
   return (
@@ -113,8 +122,11 @@ export default function ProfileScreen() {
                 {user.name[0]}
               </div>
             )}
-            <span className="block text-cyan-400 text-[11px] mb-2">{user.picture ? "Change photo" : "Add photo"}</span>
+            <span className="block text-cyan-400 text-[11px]">{user.picture ? "Change photo" : "Add photo"}</span>
           </label>
+          {user.picture && (
+            <button onClick={removeFace} className="block mx-auto text-rose-400/80 text-[11px] mb-2">Remove photo</button>
+          )}
           <h3 className="text-white font-bold text-lg">{user.name}</h3>
           <div className="flex justify-center gap-8 mt-3">
             <div className="text-center">
@@ -179,39 +191,51 @@ export default function ProfileScreen() {
               </div>
             )}
           </label>
+          {veh.picture && (
+            <button onClick={removeVehiclePhoto} className="text-rose-400/80 text-[11px] -mt-1">Remove vehicle photo</button>
+          )}
 
+          {/* Line 1: State · Plate number · Year */}
           <div className="flex gap-2">
-            <input
+            <select
               value={veh.plateState}
-              onChange={(e) => setVeh((s) => ({ ...s, plateState: e.target.value.toUpperCase().slice(0, 3) }))}
-              placeholder="State"
-              className="w-20 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
-            />
+              onChange={(e) => setVeh((s) => ({ ...s, plateState: e.target.value }))}
+              className="w-20 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              style={{ colorScheme: "dark" }}
+            >
+              <option value="">State</option>
+              {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
             <input
               value={veh.plateNumber}
               onChange={(e) => setVeh((s) => ({ ...s, plateNumber: e.target.value.toUpperCase() }))}
-              placeholder="Plate number"
-              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              placeholder="Plate #"
+              className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
             />
-          </div>
-          <div className="flex gap-2">
-            <input
+            <select
               value={veh.year}
-              onChange={(e) => setVeh((s) => ({ ...s, year: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
-              placeholder="Year"
-              className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
-            />
+              onChange={(e) => setVeh((s) => ({ ...s, year: e.target.value }))}
+              className="w-24 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              style={{ colorScheme: "dark" }}
+            >
+              <option value="">Year</option>
+              {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+
+          {/* Line 2: Make · Model (roomier) */}
+          <div className="flex gap-2">
             <input
               value={veh.make}
               onChange={(e) => setVeh((s) => ({ ...s, make: e.target.value }))}
               placeholder="Make"
-              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
             />
             <input
               value={veh.model}
               onChange={(e) => setVeh((s) => ({ ...s, model: e.target.value }))}
               placeholder="Model"
-              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
             />
           </div>
           <button
@@ -221,7 +245,8 @@ export default function ProfileScreen() {
             {savedVeh ? "Saved" : "Save vehicle info"}
           </button>
           <p className="text-white/30 text-[11px]">
-            Your face photo and these details are shared with other users so riders know who's picking them up.
+            Your face photo and these details are shared with other users so riders know who's picking
+            them up. Removing any required item turns off driving until it's added back.
           </p>
         </div>
         {user.comm?.length > 0 && (

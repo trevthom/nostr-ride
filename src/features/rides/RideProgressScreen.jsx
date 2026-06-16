@@ -16,7 +16,7 @@ import Button from "../../ui/Button.jsx";
 import MapView from "../../ui/MapView.jsx";
 
 export default function RideProgressScreen() {
-  const { user, publish, setView, activeRide, setActiveRide, refreshData } = useApp();
+  const { user, publish, setView, activeRide, setActiveRide, refreshData, openProfile } = useApp();
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(5);
   const [review, setReview] = useState("");
@@ -73,7 +73,8 @@ export default function RideProgressScreen() {
   };
 
   const handleCancel = () => {
-    // Fully cancel: mark the request cancelled AND publish a cancel event.
+    // Fully cancel: mark the request cancelled AND publish a cancel event,
+    // then offer an OPTIONAL review of the driver.
     publish(
       EVENT_KINDS.RIDE_REQUEST,
       { ...req, status: "cancelled" },
@@ -84,9 +85,8 @@ export default function RideProgressScreen() {
       { requestId: activeRide.request.id, reason: "Cancelled by rider" },
       [["e", activeRide.request.id], ["d", "cancel-" + activeRide.request.id], ["t", "ride-cancel"]]
     );
-    setActiveRide(null);
     refreshData();
-    setView("my-rides");
+    setShowRating(true);
   };
 
   // ── Rating sub-view ──
@@ -160,23 +160,38 @@ export default function RideProgressScreen() {
         </div>
 
         {offer && (
-          <div className="bg-white/5 rounded-xl border border-white/10 p-4">
+          <button
+            onClick={() => driverPubkey && openProfile(driverPubkey)}
+            className="w-full text-left bg-white/5 rounded-xl border border-white/10 p-4 hover:border-cyan-500/30 transition-colors"
+          >
             <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Your Driver</p>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
-                {(driver?.name || "D")[0]}
-              </div>
+              {driver?.picture ? (
+                <img src={driver.picture} alt={driver?.name || "Driver"} className="w-10 h-10 rounded-full object-cover" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
+                  {(driver?.name || "D")[0]}
+                </div>
+              )}
               <div>
                 <p className="text-white font-medium text-sm">{driver?.name || "Driver"}</p>
-                <p className="text-white/30 text-xs">{offer.vehicle}</p>
+                <p className="text-white/40 text-xs">
+                  {driver?.vehicle && (driver.vehicle.make || driver.vehicle.model)
+                    ? [driver.vehicle.year, driver.vehicle.make, driver.vehicle.model].filter(Boolean).join(" ")
+                    : offer.vehicle}
+                </p>
+                {driver?.vehicle?.plateState && driver?.vehicle?.plateNumber && (
+                  <p className="text-white/30 text-[11px]">Plate: {driver.vehicle.plateState} · {driver.vehicle.plateNumber}</p>
+                )}
               </div>
+              <span className="ml-auto text-cyan-400 text-xs">View →</span>
             </div>
             {driver?.comm?.length > 0 && (
               <p className="text-white/30 text-xs mt-2">
                 Contact: {driver.comm.map((m) => `${m.platform}: ${m.handle}`).join(", ")}
               </p>
             )}
-          </div>
+          </button>
         )}
 
         <div className="flex gap-3">

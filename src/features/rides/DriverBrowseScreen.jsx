@@ -24,7 +24,7 @@ const SORTS = [
 ];
 
 export default function DriverBrowseScreen() {
-  const { user, setView, rideRequests, setSelectedRequest, pullRecent, driverOnline, setDriverOnline, myPosition, geoError } = useApp();
+  const { user, setView, rideRequests, setSelectedRequest, pullRecent, driverOnline, setDriverOnline, setLocating, myPosition, geoError } = useApp();
   const [refreshing, setRefreshing] = useState(false);
   const [sort, setSort] = useState("newest");
   const driveReady = isDriveReady(user);
@@ -42,6 +42,12 @@ export default function DriverBrowseScreen() {
     const id = setInterval(() => pullRecent(), 12000);
     return () => clearInterval(id);
   }, [pullRecent]);
+
+  // Warm up GPS while on this tab so "Go online" can require a real fix.
+  useEffect(() => {
+    setLocating(true);
+    return () => setLocating(false);
+  }, [setLocating]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -106,7 +112,15 @@ export default function DriverBrowseScreen() {
         </div>
       ) : (
         <>
-          <OnlineToggle online={driverOnline} onToggle={() => setDriverOnline((v) => !v)} />
+          <OnlineToggle
+            online={driverOnline}
+            canGoOnline={!!myPosition}
+            geoError={geoError}
+            onToggle={() => {
+              if (!driverOnline && !myPosition) return; // need a real fix to go online
+              setDriverOnline((v) => !v);
+            }}
+          />
 
           <LiveDrivers
             drivers={mapDrivers}
@@ -224,16 +238,17 @@ function RequestCard({ req, isMine, onOffer }) {
 // Online/offline presence toggle. When ON, the driver will appear on
 // the nearby-drivers map (coming soon). Turning it OFF does NOT stop
 // you from making offers — it only controls map visibility.
-function OnlineToggle({ online, onToggle }) {
+function OnlineToggle({ online, onToggle, canGoOnline, geoError }) {
+  const blocked = !online && !canGoOnline; // can't go online without a location fix
   return (
     <div
-      onClick={onToggle}
+      onClick={blocked ? undefined : onToggle}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onToggle(); }}
+      onKeyDown={(e) => { if (!blocked && (e.key === "Enter" || e.key === " ")) onToggle(); }}
       className="rounded-2xl border p-4 mb-4 flex items-center gap-3"
       style={{
-        cursor: "pointer",
+        cursor: blocked ? "default" : "pointer",
         background: online
           ? "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.06))"
           : "rgba(255,255,255,0.02)",
@@ -250,6 +265,10 @@ function OnlineToggle({ online, onToggle }) {
         <p className="text-white/40 text-xs mt-0.5">
           {online
             ? "Your vehicle is visible to nearby riders."
+            : geoError
+            ? `${geoError} Location is required to go online.`
+            : blocked
+            ? "Finding your location… you can go online once it's known."
             : "Tap to go online and share your location."}
         </p>
       </div>
@@ -258,7 +277,8 @@ function OnlineToggle({ online, onToggle }) {
           size and is tappable even before/without Tailwind. */}
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        onClick={(e) => { e.stopPropagation(); if (!blocked) onToggle(); }}
+        disabled={blocked}
         aria-pressed={online}
         style={{
           flexShrink: 0,
@@ -267,12 +287,13 @@ function OnlineToggle({ online, onToggle }) {
           fontSize: 13,
           fontWeight: 600,
           border: "none",
-          cursor: "pointer",
+          cursor: blocked ? "not-allowed" : "pointer",
+          opacity: blocked ? 0.5 : 1,
           color: online ? "#022c22" : "#ffffff",
           background: online ? "#34d399" : "rgba(255,255,255,0.12)",
         }}
       >
-        {online ? "Go offline" : "Go online"}
+        {online ? "Go offline" : blocked ? "Locating…" : "Go online"}
       </button>
     </div>
   );

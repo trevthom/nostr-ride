@@ -68,6 +68,7 @@ export function AppProvider({ children }) {
   }, []);
   const [wallet, setWallet] = useState(emptyWalletState()); // connected NWC wallet
   const [driverOnline, setDriverOnline] = useState(false); // "offering rides" presence toggle
+  const [locating, setLocating] = useState(false); // request GPS while on the Drive tab
 
   // Driver "notify me of nearby ride requests" preference (persisted).
   const [notifyNearby, setNotifyNearbyState] = useState(() => getSetting("notifyNearby", false));
@@ -77,7 +78,7 @@ export function AppProvider({ children }) {
 
   // Watch the device location while online OR while nearby-notifications
   // are on, and (when online) broadcast presence to relays every 15s.
-  const { pos: myPosition, error: geoError } = useGeolocation(driverOnline || notifyNearby);
+  const { pos: myPosition, error: geoError } = useGeolocation(driverOnline || notifyNearby || locating);
   const posRef = useRef(null);
   useEffect(() => { posRef.current = myPosition; }, [myPosition]);
   useEffect(() => {
@@ -242,6 +243,7 @@ export function AppProvider({ children }) {
     setWallet,
     driverOnline,
     setDriverOnline,
+    setLocating,
     myPosition,
     geoError,
     liveTick,
