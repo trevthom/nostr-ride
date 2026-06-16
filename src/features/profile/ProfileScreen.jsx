@@ -4,7 +4,7 @@
 //  the editable+saved relay list, and the user's keys.
 // ════════════════════════════════════════════════════════════
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
@@ -13,6 +13,7 @@ import { reputation } from "../../lib/rides.js";
 import { isDriveReady } from "../../lib/profile.js";
 import { resizeImage } from "../../lib/image.js";
 import { useRelays, setRelays } from "../../config/relays.js";
+import { CONTACT_PLATFORMS } from "../../config/settings.js";
 import Screen from "../../ui/Screen.jsx";
 import RelayEditor from "../../ui/RelayEditor.jsx";
 import WalletSection from "./WalletSection.jsx";
@@ -21,13 +22,20 @@ import KeysSection from "./KeysSection.jsx";
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CURRENT_YEAR + 1 - 1900 + 1 }, (_, i) => CURRENT_YEAR + 1 - i); // newest first
+const OPT = { color: "#fff", background: "#0b1220" }; // legible dropdown options
 
 export default function ProfileScreen() {
   const { user, setUser, logout, notifyNearby, setNotifyNearby, notifyRadius, setNotifyRadius } = useApp();
   const relays = useRelays();
   const [nameDraft, setNameDraft] = useState(user.name);
-  const [savedName, setSavedName] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [lightbox, setLightbox] = useState("");
+  const faceInputRef = useRef(null);
   const rep = reputation(user.publicKey);
+
+  const comm = user.comm || [];
+  const [draftPlatform, setDraftPlatform] = useState(CONTACT_PLATFORMS[0]);
+  const [draftHandle, setDraftHandle] = useState("");
 
   const v = user.vehicle || {};
   const [veh, setVeh] = useState({
@@ -65,9 +73,15 @@ export default function ProfileScreen() {
 
   const saveName = () => {
     saveProfile({ name: nameDraft.trim() || "Anonymous Rider" });
-    setSavedName(true);
-    setTimeout(() => setSavedName(false), 1500);
+    setEditingName(false);
   };
+
+  const addContact = () => {
+    if (!draftHandle.trim()) return;
+    saveProfile({ comm: [...comm, { platform: draftPlatform, handle: draftHandle.trim() }] });
+    setDraftHandle("");
+  };
+  const removeContact = (i) => saveProfile({ comm: comm.filter((_, idx) => idx !== i) });
 
   // Face photo (required) — resized small so it fits in profile metadata.
   const onFacePick = async (e) => {
@@ -113,61 +127,65 @@ export default function ProfileScreen() {
       <div className="space-y-5">
         {/* Identity header */}
         <div className="text-center py-2">
-          <label className="cursor-pointer inline-block relative">
-            <input type="file" accept="image/*" onChange={onFacePick} className="hidden" />
+          <div className="relative inline-block">
+            <input ref={faceInputRef} type="file" accept="image/*" onChange={onFacePick} className="hidden" />
             {user.picture ? (
-              <img src={user.picture} alt="You" className="w-20 h-20 rounded-full object-cover mx-auto mb-1 border border-white/10" />
+              <img
+                src={user.picture}
+                alt="You"
+                onClick={() => setLightbox(user.picture)}
+                className="w-20 h-20 rounded-full object-cover mx-auto border border-white/10 cursor-zoom-in"
+              />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center mx-auto mb-1 text-white text-2xl font-bold">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center mx-auto text-white text-2xl font-bold">
                 {user.name[0]}
               </div>
             )}
-            <span className="block text-cyan-400 text-[11px]">{user.picture ? "Change photo" : "Add photo"}</span>
-          </label>
-          {user.picture && (
-            <button onClick={removeFace} className="block mx-auto text-rose-400/80 text-[11px] mb-2">Remove photo</button>
+            {!user.picture && (
+              <span className="absolute -bottom-1 -right-1 text-[10px] bg-amber-500/90 text-black px-1.5 py-0.5 rounded-full font-semibold">
+                Required
+              </span>
+            )}
+          </div>
+          <div className="flex items-center justify-center gap-3 mt-1">
+            <button onClick={() => faceInputRef.current?.click()} className="text-cyan-400 text-[11px]">
+              {user.picture ? "Change photo" : "Add photo"}
+            </button>
+            {user.picture && <button onClick={removeFace} className="text-rose-400/80 text-[11px]">Remove</button>}
+          </div>
+          <p className="text-white/30 text-[11px] mb-2">📷 A face photo is required to drive</p>
+
+          {/* Name with pencil edit */}
+          {editingName ? (
+            <div className="flex gap-2 justify-center items-center mt-1">
+              <input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveName(); } if (e.key === "Escape") setEditingName(false); }}
+                autoFocus
+                className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              />
+              <button onClick={saveName} className="text-cyan-400 text-sm font-medium">Save</button>
+              <button onClick={() => { setNameDraft(user.name); setEditingName(false); }} className="text-white/40 text-sm">Cancel</button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <h3 className="text-white font-bold text-lg">{user.name}</h3>
+              <button onClick={() => { setNameDraft(user.name); setEditingName(true); }} aria-label="Edit name" className="text-white/40 hover:text-cyan-400 text-sm">✏️</button>
+            </div>
           )}
-          <h3 className="text-white font-bold text-lg">{user.name}</h3>
+
           <div className="flex justify-center gap-8 mt-3">
             <div className="text-center">
               <p className="text-white/40 text-[11px] uppercase tracking-wider">As Rider</p>
-              <p className="text-white/80 text-sm mt-0.5">
-                {rep.rides} Rides · {rep.riderReviews.count} Reviews
-              </p>
-              {rep.riderReviews.avg != null && (
-                <p className="text-amber-400 text-xs">★ {rep.riderReviews.avg.toFixed(1)}</p>
-              )}
+              <p className="text-white/80 text-sm mt-0.5">{rep.rides} Rides · {rep.riderReviews.count} Reviews</p>
+              {rep.riderReviews.avg != null && <p className="text-amber-400 text-xs">★ {rep.riderReviews.avg.toFixed(1)}</p>}
             </div>
             <div className="text-center">
               <p className="text-white/40 text-[11px] uppercase tracking-wider">As Driver</p>
-              <p className="text-white/80 text-sm mt-0.5">
-                {rep.drives} Drives · {rep.driverReviews.count} Reviews
-              </p>
-              {rep.driverReviews.avg != null && (
-                <p className="text-amber-400 text-xs">★ {rep.driverReviews.avg.toFixed(1)}</p>
-              )}
+              <p className="text-white/80 text-sm mt-0.5">{rep.drives} Drives · {rep.driverReviews.count} Reviews</p>
+              {rep.driverReviews.avg != null && <p className="text-amber-400 text-xs">★ {rep.driverReviews.avg.toFixed(1)}</p>}
             </div>
-          </div>
-        </div>
-
-        {/* Display name */}
-        <div className="bg-white/5 rounded-xl border border-white/10 p-4">
-          <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Display Name</p>
-          <div className="flex gap-2">
-            <input
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveName(); } }}
-              placeholder="Your name"
-              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
-            />
-            <button
-              onClick={saveName}
-              disabled={nameDraft.trim() === user.name}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 disabled:opacity-40"
-            >
-              {savedName ? "Saved" : "Save"}
-            </button>
           </div>
           {imgErr && <p className="text-rose-400 text-xs mt-2">{imgErr}</p>}
         </div>
@@ -201,10 +219,10 @@ export default function ProfileScreen() {
               value={veh.plateState}
               onChange={(e) => setVeh((s) => ({ ...s, plateState: e.target.value }))}
               className="w-20 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
-              style={{ colorScheme: "dark" }}
+              style={{ backgroundColor: "#0b1220", color: "#fff" }}
             >
-              <option value="">State</option>
-              {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              <option value="" style={OPT}>State</option>
+              {US_STATES.map((s) => <option key={s} value={s} style={OPT}>{s}</option>)}
             </select>
             <input
               value={veh.plateNumber}
@@ -216,10 +234,10 @@ export default function ProfileScreen() {
               value={veh.year}
               onChange={(e) => setVeh((s) => ({ ...s, year: e.target.value }))}
               className="w-24 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
-              style={{ colorScheme: "dark" }}
+              style={{ backgroundColor: "#0b1220", color: "#fff" }}
             >
-              <option value="">Year</option>
-              {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+              <option value="" style={OPT}>Year</option>
+              {YEARS.map((y) => <option key={y} value={y} style={OPT}>{y}</option>)}
             </select>
           </div>
 
@@ -249,14 +267,44 @@ export default function ProfileScreen() {
             them up. Removing any required item turns off driving until it's added back.
           </p>
         </div>
-        {user.comm?.length > 0 && (
-          <div className="bg-white/5 rounded-xl border border-white/10 p-4">
-            <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Contact Methods</p>
-            {user.comm.map((c, i) => (
-              <p key={i} className="text-white/70 text-sm">{c.platform}: {c.handle}</p>
-            ))}
+        {/* Contact methods — add as many as you like */}
+        <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-3">
+          <p className="text-white/40 text-xs uppercase tracking-wider">Contact Methods</p>
+          {comm.length > 0 && (
+            <div className="space-y-2">
+              {comm.map((c, i) => (
+                <div key={i} className="flex items-center justify-between bg-white/[0.03] rounded-lg px-3 py-2">
+                  <p className="text-white/70 text-sm">{c.platform}: {c.handle}</p>
+                  <button onClick={() => removeContact(i)} className="text-rose-400/80 text-xs">Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <select
+              value={draftPlatform}
+              onChange={(e) => setDraftPlatform(e.target.value)}
+              className="min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+              style={{ backgroundColor: "#0b1220", color: "#fff" }}
+            >
+              {CONTACT_PLATFORMS.map((p) => <option key={p} value={p} style={OPT}>{p}</option>)}
+            </select>
+            <input
+              value={draftHandle}
+              onChange={(e) => setDraftHandle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addContact(); } }}
+              placeholder="Handle or number"
+              className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-cyan-500/50"
+            />
+            <button
+              onClick={addContact}
+              disabled={!draftHandle.trim()}
+              className="px-3 py-2 rounded-lg text-sm font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 disabled:opacity-40"
+            >
+              Add
+            </button>
           </div>
-        )}
+        </div>
 
         {/* Lightning wallet (Nostr Wallet Connect) */}
         <WalletSection />
@@ -320,6 +368,16 @@ export default function ProfileScreen() {
           Log out
         </button>
       </div>
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.92)", zIndex: 10060 }}
+          onClick={() => setLightbox("")}
+        >
+          <img src={lightbox} alt="Photo" className="max-w-[92vw] max-h-[85vh] object-contain rounded-lg" />
+        </div>
+      )}
     </Screen>
   );
 }

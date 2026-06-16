@@ -20,6 +20,7 @@ export const EVENT_KINDS = {
   RIDE_OFFER: 30079, // A driver offering to take a request
   RIDE_ACCEPT: 30080, // A rider accepting one offer
   RIDE_CANCEL: 30081, // A cancelled ride
+  RIDE_COMPLETE: 30084, // A completed ride (published by the driver)
   RATING: 30082, // A star rating + review
   DRIVER_ROUTE: 30083, // (removed feature; kept for back-compat)
 

@@ -30,6 +30,7 @@ const APP_EVENT_KINDS = new Set([
   EVENT_KINDS.RIDE_OFFER,
   EVENT_KINDS.RIDE_ACCEPT,
   EVENT_KINDS.RIDE_CANCEL,
+  EVENT_KINDS.RIDE_COMPLETE,
   EVENT_KINDS.RATING,
 ]);
 
@@ -45,6 +46,22 @@ export function AppProvider({ children }) {
   const [selectedRequest, setSelectedRequest] = useState(null); // request in focus
   const [activeRide, setActiveRide] = useState(null); // ride in progress
   const [profileModalPubkey, setProfileModalPubkey] = useState(null); // user-info modal
+  const [notices, setNotices] = useState([]); // transient swipe-away banners
+
+  // Show a transient banner. Also fires a system notification when the app
+  // isn't the focused tab, so users hear about it off-screen.
+  const pushNotice = useCallback((message) => {
+    const id = Math.random().toString(36).slice(2);
+    setNotices((list) => [...list, { id, message }]);
+    try {
+      if (typeof document !== "undefined" && document.hidden &&
+          typeof Notification !== "undefined" && Notification.permission === "granted") {
+        new Notification("NostrRide", { body: message });
+      }
+    } catch { /* ignore */ }
+    return id;
+  }, []);
+  const dismissNotice = useCallback((id) => setNotices((list) => list.filter((n) => n.id !== id)), []);
   const [notifications, setNotifications] = useState([]); // driver/rider alerts
   const [liveTick, setLiveTick] = useState(0); // bumped on incoming relay events to re-render
 
@@ -159,17 +176,39 @@ export function AppProvider({ children }) {
     [publish, refreshData]
   );
 
-  // Watch for new events that should refresh the UI. Any incoming ride
-  // event bumps liveTick so screens re-read the cache; new/updated
-  // requests refresh the list.
+  // Watch for new events that should refresh the UI and notify the user.
   useEffect(() => {
     if (!user) return;
     const unsub = relay.onEvent((_subId, event) => {
       if (event.kind === EVENT_KINDS.RIDE_REQUEST) refreshData();
       if (APP_EVENT_KINDS.has(event.kind)) setLiveTick((t) => t + 1);
+      if (event.pubkey === user.publicKey) return; // don't notify about our own actions
+
+      const pTags = event.tags.filter((t) => t[0] === "p").map((t) => t[1]);
+      const c = (() => { try { return JSON.parse(event.content); } catch { return null; } })();
+
+      if (event.kind === EVENT_KINDS.RIDE_OFFER && pTags.includes(user.publicKey)) {
+        pushNotice("New offer on your ride request.");
+      } else if (event.kind === EVENT_KINDS.RIDE_REQUEST && c?.status === "in_progress" && c?.driverPubkey === user.publicKey) {
+        pushNotice("Your offer was accepted — the ride has started.");
+      } else if (event.kind === EVENT_KINDS.RIDE_COMPLETE && pTags.includes(user.publicKey)) {
+        pushNotice("Your driver marked the ride complete.");
+      } else if (event.kind === EVENT_KINDS.RIDE_CANCEL && pTags.includes(user.publicKey)) {
+        pushNotice("The other rider/driver cancelled the ride.");
+      }
     });
     return unsub;
-  }, [user, refreshData]);
+  }, [user, refreshData, pushNotice]);
+
+  // Best-effort: ask for system-notification permission once logged in.
+  useEffect(() => {
+    if (!user) return;
+    try {
+      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+      }
+    } catch { /* ignore */ }
+  }, [user?.publicKey]);
 
   // Open ride requests near the driver (for the Drive-tab notification
   // bubble). Empty unless notifications are on and we have a location.
@@ -227,6 +266,9 @@ export function AppProvider({ children }) {
     openProfile,
     closeProfile,
     profileModalPubkey,
+    notices,
+    pushNotice,
+    dismissNotice,
     view,
     setView,
     rideRequests,

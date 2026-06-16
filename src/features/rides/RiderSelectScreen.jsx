@@ -4,6 +4,7 @@
 //  and moves the rider to payment.
 // ════════════════════════════════════════════════════════════
 
+import { useEffect } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
@@ -67,6 +68,7 @@ export default function RiderSelectScreen() {
 // One driver offer with price, ETA, rating, and an Accept button.
 function OfferCard({ offer, onAccept }) {
   const { btcUsd, openProfile } = useApp();
+  useEffect(() => { relay.fetchProfile(offer.pubkey); }, [offer.pubkey]);
   const c = JSON.parse(offer.content);
   const profile = getProfile(offer.pubkey);
   const ratings = relay.query({ kinds: [EVENT_KINDS.RATING], "#p": [offer.pubkey] });
@@ -81,12 +83,20 @@ function OfferCard({ offer, onAccept }) {
       style={{ background: "linear-gradient(180deg, rgba(251,191,36,0.04), rgba(255,255,255,0.01))" }}
     >
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
-          {(profile?.name || "?")[0]}
-        </div>
+        {profile?.picture ? (
+          <img src={profile.picture} alt={profile?.name || "Driver"} className="w-10 h-10 rounded-full object-cover" />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
+            {(profile?.name || "?")[0]}
+          </div>
+        )}
         <div className="flex-1">
           <button onClick={() => openProfile(offer.pubkey)} className="text-white font-medium text-sm hover:text-cyan-400 text-left">{profile?.name || shortNpub(offer.pubkey)}</button>
-          <p className="text-white/30 text-xs">{c.vehicle}</p>
+          <p className="text-white/30 text-xs">
+            {profile?.vehicle && (profile.vehicle.make || profile.vehicle.model)
+              ? [profile.vehicle.year, profile.vehicle.make, profile.vehicle.model].filter(Boolean).join(" ")
+              : "Tap name for details"}
+          </p>
         </div>
         {avgRating && <span className="text-amber-400 text-xs font-medium">★ {avgRating}</span>}
       </div>

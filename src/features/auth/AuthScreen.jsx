@@ -19,8 +19,6 @@ import RelayEditor from "../../ui/RelayEditor.jsx";
 export default function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState("new"); // "new" | "import"
   const [name, setName] = useState("");
-  const [platform, setPlatform] = useState(CONTACT_PLATFORMS[0]);
-  const [handle, setHandle] = useState("");
   const [nsec, setNsec] = useState("");
   const [error, setError] = useState("");
   const [showRelays, setShowRelays] = useState(false); // collapsed by default
@@ -28,17 +26,16 @@ export default function AuthScreen({ onLogin }) {
 
   // Publish the profile (signed) and finish login with the given keypair.
   const finishLogin = (keys) => {
-    const comm = handle ? [{ platform, handle }] : [];
     const displayName = name || "Anonymous Rider";
     relay.publish(
       buildSignedEvent(
         EVENT_KINDS.METADATA,
-        { name: displayName, about: "NostrRide user", communication: comm },
+        { name: displayName, about: "NostrRide user", communication: [] },
         [],
         keys.sk
       )
     );
-    onLogin({ ...keys, name: displayName, comm });
+    onLogin({ ...keys, name: displayName, comm: [] });
   };
 
   const handleGenerate = () => finishLogin(generateKeypair());
@@ -92,27 +89,6 @@ export default function AuthScreen({ onLogin }) {
               placeholder="Your name or alias"
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-cyan-500/50"
             />
-          </Field>
-
-          <Field label="Contact Method">
-            <div className="flex gap-2">
-              <select
-                value={platform}
-                onChange={(e) => setPlatform(e.target.value)}
-                className="bg-white/5 border border-white/10 rounded-xl px-3 py-3 text-white focus:outline-none focus:border-cyan-500/50"
-              >
-                {CONTACT_PLATFORMS.map((p) => (
-                  <option key={p} value={p} style={{ color: "#000", background: "#fff" }}>{p}</option>
-                ))}
-              </select>
-              <input
-                value={handle}
-                onChange={(e) => setHandle(e.target.value)}
-                onKeyDown={onEnter}
-                placeholder="Handle or number"
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-cyan-500/50"
-              />
-            </div>
           </Field>
 
           {/* Import-only field */}

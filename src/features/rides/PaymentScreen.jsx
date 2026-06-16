@@ -127,7 +127,6 @@ export default function PaymentScreen() {
 
         <div className="bg-white/5 rounded-2xl border border-white/10 p-6 mb-6 space-y-3">
           <Row label="Driver" value={driver?.name || "Driver"} />
-          <Row label="Vehicle" value={offer.vehicle} />
           <div className="border-t border-white/10 pt-3 flex justify-between text-sm">
             <span className="text-white/40">Total fare</span>
             <SatsAmount sats={total} className="text-white" usdClassName="text-white/30" />

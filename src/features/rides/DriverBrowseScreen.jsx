@@ -11,7 +11,7 @@ import { getProfile } from "../../nostr/profiles.js";
 import { shortNpub } from "../../nostr/keys.js";
 import { subscribePresence } from "../../nostr/live.js";
 import { haversineDistance } from "../../lib/geo.js";
-import { isRideExpired, reputation } from "../../lib/rides.js";
+import { isRideExpired, reputation, rideStatus } from "../../lib/rides.js";
 import { isDriveReady, missingDriveInfo } from "../../lib/profile.js";
 import Screen from "../../ui/Screen.jsx";
 import MapView from "../../ui/MapView.jsx";
@@ -66,8 +66,7 @@ export default function DriverBrowseScreen() {
   const openRequests = rideRequests
     .filter((r) => {
       const c = JSON.parse(r.content);
-      if (c.status === "accepted") return true;
-      if (c.status !== "requested") return false;
+      if (rideStatus(r) !== "requested") return false; // hide started/ended rides
       return !isRideExpired(c, r.created_at); // hide expired open requests
     })
     .sort((a, b) => {

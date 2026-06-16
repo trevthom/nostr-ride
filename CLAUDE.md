@@ -106,6 +106,25 @@ src/
   (kind, pubkey, d). Offers/accepts/ratings carry a `d` tag scoped to the request
   (`offer-<reqId>`, `accept-<reqId>`, `rating-<rideId>`) so they don't overwrite
   each other on relays. Read replaceable lists through `latestVersions()`.
+- **Completion is driver-driven**: the rider's Ride In Progress has only "Cancel
+  Ride"; the DRIVER's Active Ride has "Complete Ride" + "Cancel Ride". Because the
+  driver can't replace the rider-signed request, completion/cancellation are explicit
+  events — `RIDE_COMPLETE` (30084, by driver) and `RIDE_CANCEL` (30081, by either) —
+  and effective state is derived via `rideStatus(request)` / `rideEnding(request)` in
+  lib/rides.js (matches a complete/cancel event e-tagging any version of the request).
+  MyRides, DriverBrowse, and reputation all use `rideStatus`. Both sides land on an
+  OPTIONAL review afterward (Skip allowed; <5★ still needs a reason). Past rows show
+  the review the user left.
+- **No vehicle on offers**: offers no longer carry a `vehicle` field; the driver's
+  vehicle/photo come from their profile (kind 0) and show via the username modal /
+  ride screens. All "No vehicle specified" wording removed.
+- **Notifications**: `pushNotice(msg)` (context) → swipe-away auto-dismiss banners
+  (`ui/NoticeBanner.jsx`, swipe up/left/right, 3s timeout) + a system Notification when
+  the tab is hidden (permission requested on login). Wired for offer-received,
+  offer-accepted, ride-complete, ride-cancel, and driver-vehicle-change (detected in
+  RideProgress).
+- **Profile photos** are byte-budgeted (~20 KB) in lib/image.js so relays don't reject
+  the metadata event. Tap any photo (modal or Account) to expand.
 - **Accept-on-pay**: selecting an offer no longer accepts the ride. RiderSelect just
   sets `activeRide={request,offer,status:"selecting"}` and routes to PaymentScreen, which
   has a "← Back to offers" escape. Only `finishPaid` publishes RIDE_ACCEPT + flips the

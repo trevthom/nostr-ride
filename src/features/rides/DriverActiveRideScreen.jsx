@@ -27,6 +27,7 @@ export default function DriverActiveRideScreen() {
   const [lastSent, setLastSent] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [showRating, setShowRating] = useState(false);
+  const [endReason, setEndReason] = useState("completed");
   const [rating, setRating] = useState(5);
   const [review, setReview] = useState("");
   const { pos, error } = useGeolocation(sharing);
@@ -57,20 +58,28 @@ export default function DriverActiveRideScreen() {
   const req = JSON.parse(selectedRequest.content);
   const riderProfile = getProfile(riderPubkey);
 
-  // Driver cancels: mark the request cancelled + publish a cancel event,
-  // then offer an OPTIONAL review of the rider.
-  const handleCancel = () => {
+  // Driver completes the ride → publish a RIDE_COMPLETE (the rider's screen
+  // reacts to it). Then offer an OPTIONAL review of the rider.
+  const handleComplete = () => {
     publish(
-      EVENT_KINDS.RIDE_REQUEST,
-      { ...req, status: "cancelled", driverPubkey: user.publicKey },
-      selectedRequest.tags
+      EVENT_KINDS.RIDE_COMPLETE,
+      { requestId: selectedRequest.id },
+      [["e", selectedRequest.id], ["p", riderPubkey], ["d", "complete-" + selectedRequest.id], ["t", "ride-complete"]]
     );
+    refreshData();
+    setEndReason("completed");
+    setShowRating(true);
+  };
+
+  // Driver cancels → publish a RIDE_CANCEL, then an OPTIONAL rider review.
+  const handleCancel = () => {
     publish(
       EVENT_KINDS.RIDE_CANCEL,
       { requestId: selectedRequest.id, reason: "Cancelled by driver" },
-      [["e", selectedRequest.id], ["d", "cancel-" + selectedRequest.id], ["t", "ride-cancel"]]
+      [["e", selectedRequest.id], ["p", riderPubkey], ["d", "cancel-" + selectedRequest.id], ["t", "ride-cancel"]]
     );
     refreshData();
+    setEndReason("cancelled");
     setShowRating(true);
   };
 
@@ -83,13 +92,15 @@ export default function DriverActiveRideScreen() {
     setView("my-rides");
   };
 
-  // ── Optional review sub-view (after a cancel) ──
+  // ── Optional review sub-view (after complete/cancel) ──
   if (showRating) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: THEME.pageBg }}>
         <div className="w-full max-w-sm text-center">
-          <h2 className="text-white text-xl font-bold mb-1 font-display">Review the rider?</h2>
-          <p className="text-white/40 text-sm mb-6">Optional — this ride was cancelled.</p>
+          <h2 className="text-white text-xl font-bold mb-1 font-display">
+            {endReason === "completed" ? "Ride completed" : "Ride cancelled"}
+          </h2>
+          <p className="text-white/40 text-sm mb-6">Leave an optional review for your rider.</p>
           <div className="flex justify-center gap-2 mb-6">
             {[1, 2, 3, 4, 5].map((star) => (
               <button key={star} onClick={() => setRating(star)} className={`text-3xl ${star <= rating ? "text-amber-400" : "text-white/20"}`}>★</button>
@@ -180,14 +191,12 @@ export default function DriverActiveRideScreen() {
         </p>
 
         <div className="flex gap-3">
-          <Button variant="ghost" onClick={() => setView("my-rides")} className="flex-1">
-            End ride
-          </Button>
+          <Button onClick={handleComplete} className="flex-1">Complete Ride</Button>
           <button
             onClick={() => setConfirmCancel(true)}
             className="py-3 px-5 rounded-xl font-semibold text-rose-400 text-sm border border-rose-500/20 bg-rose-500/5"
           >
-            Cancel ride
+            Cancel Ride
           </button>
         </div>
       </div>

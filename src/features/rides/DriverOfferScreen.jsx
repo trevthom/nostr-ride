@@ -17,7 +17,6 @@ export default function DriverOfferScreen() {
   const [price, setPrice] = useState("");
   const [upfront, setUpfront] = useState("");
   const [eta, setEta] = useState("10");
-  const [vehicle, setVehicle] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
@@ -40,7 +39,6 @@ export default function DriverOfferScreen() {
         priceSats: total,
         upfrontSats: deposit, // required from the rider on acceptance
         etaMinutes: parseInt(eta),
-        vehicle: vehicle || "No vehicle specified",
         message: "",
       },
       [
@@ -132,16 +130,9 @@ export default function DriverOfferScreen() {
           </div>
         </div>
 
-        <div>
-          <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">Vehicle</label>
-          <input
-            value={vehicle}
-            onChange={(e) => setVehicle(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && price) { e.preventDefault(); handleSubmit(); } }}
-            placeholder="e.g. Blue Honda Civic"
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-amber-500/50"
-          />
-        </div>
+        <p className="text-white/30 text-xs">
+          Your vehicle and plate (from your Account) are shown to the rider automatically.
+        </p>
 
         {error && <p className="text-rose-400 text-xs">{error}</p>}
 

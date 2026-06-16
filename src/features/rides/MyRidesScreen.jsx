@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
-import { isRideExpired } from "../../lib/rides.js";
+import { isRideExpired, rideStatus } from "../../lib/rides.js";
 import Screen from "../../ui/Screen.jsx";
 import Collapsible from "../../ui/Collapsible.jsx";
 import SatsAmount from "../../ui/SatsAmount.jsx";
@@ -18,7 +18,6 @@ const DAY = 86400000;
 const parse = (e) => { try { return JSON.parse(e.content); } catch { return null; } };
 const dtagOf = (e) => (e.tags.find((t) => t[0] === "d") || [])[1];
 const fmtTime = (sec) => new Date(sec * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-const vehicleLabel = (v) => (!v || v === "Not specified" ? "No vehicle specified" : v);
 
 export default function MyRidesScreen() {
   const { user, setView, rideRequests, pullRecent, cancelRequest, setSelectedRequest, setActiveRide } = useApp();
@@ -32,7 +31,7 @@ export default function MyRidesScreen() {
 
   const now = Date.now();
   const mine = (r) => r.pubkey === user.publicKey;
-  const statusOf = (r) => parse(r)?.status;
+  const statusOf = (r) => rideStatus(r);
 
   // Rider side
   const activeRequests = rideRequests
@@ -68,7 +67,7 @@ export default function MyRidesScreen() {
     const orig = reqById[reqId];
     const d = orig ? dtagOf(orig) : null;
     const latest = (d && latestByDtag[d]) || orig;
-    return latest ? parse(latest)?.status : "requested";
+    return latest ? rideStatus(latest) : "requested";
   };
   const myOffers = relay.query({ kinds: [EVENT_KINDS.RIDE_OFFER], authors: [user.publicKey] });
   const pendingOffers = myOffers.filter((o) => offerRideStatus(o) === "requested");
@@ -125,7 +124,7 @@ export default function MyRidesScreen() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-white/80 text-sm"><SatsAmount sats={c.priceSats} /> · {c.etaMinutes}m ETA</p>
-                      <p className="text-white/30 text-xs">{vehicleLabel(c.vehicle)}</p>
+                      {c.upfrontSats > 0 && <p className="text-white/30 text-xs">{c.upfrontSats} sats upfront</p>}
                     </div>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400">Pending</span>
                   </div>
@@ -167,24 +166,49 @@ function Section({ label, children }) {
   );
 }
 
-// A past ride/drive (completed or cancelled) with its date & time.
+// A past ride/drive (completed or cancelled) with its date & time, plus
+// the review the user left for the other party (if any).
 function PastRow({ req, role }) {
+  const { user } = useApp();
   const c = parse(req);
   if (!c) return null;
-  const completed = c.status === "completed";
+  const completed = rideStatus(req) === "completed";
+
+  // The review THIS user wrote for the ride (match any version id).
+  const d = dtagOf(req);
+  const versionIds = new Set(
+    relay.query({ kinds: [EVENT_KINDS.RIDE_REQUEST] }).filter((e) => dtagOf(e) === d).map((e) => e.id)
+  );
+  versionIds.add(req.id);
+  const myReview = relay
+    .query({ kinds: [EVENT_KINDS.RATING], authors: [user.publicKey] })
+    .find((r) => versionIds.has((r.tags.find((t) => t[0] === "e") || [])[1]));
+  const rc = myReview ? parse(myReview) : null;
+
   return (
     <div className="rounded-xl border border-white/10 p-4 mb-2 bg-white/[0.02]">
       <div className="flex items-center justify-between mb-1">
         <p className="text-white/70 text-sm">{c.pickup.name} → {c.dropoff.name}</p>
         <span className={`text-xs px-2 py-0.5 rounded-full ${completed ? "bg-emerald-500/15 text-emerald-400" : "bg-white/10 text-white/40"}`}>
-          {c.status}
+          {completed ? "completed" : "cancelled"}
         </span>
       </div>
       <p className="text-white/30 text-xs">
         {completed ? "Completed" : "Cancelled"} {fmtTime(req.created_at)}
         {role === "driver" && completed ? " · you drove" : ""}
       </p>
-      {role === "driver" && completed && <RateRider req={req} />}
+
+      {rc && (
+        <div className="mt-2 border-t border-white/10 pt-2">
+          <p className="text-amber-400 text-xs">
+            {"★".repeat(rc.rating)}<span className="text-white/15">{"★".repeat(5 - rc.rating)}</span>
+            <span className="text-white/40 ml-2">your review</span>
+          </p>
+          {rc.review && <p className="text-white/50 text-xs mt-1">{rc.review}</p>}
+        </div>
+      )}
+
+      {role === "driver" && completed && !rc && <RateRider req={req} />}
     </div>
   );
 }

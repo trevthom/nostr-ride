@@ -21,6 +21,7 @@ import { AppProvider, useApp } from "./state/AppContext.jsx";
 import BottomNav from "./ui/BottomNav.jsx";
 import ErrorBoundary from "./ui/ErrorBoundary.jsx";
 import UserModal from "./ui/UserModal.jsx";
+import NoticeBanner from "./ui/NoticeBanner.jsx";
 
 import AuthScreen from "./features/auth/AuthScreen.jsx";
 import RiderRequestScreen from "./features/rides/RiderRequestScreen.jsx";
@@ -62,6 +63,7 @@ function Router() {
       </ErrorBoundary>
       <BottomNav />
       <UserModal />
+      <NoticeBanner />
     </div>
   );
 }
