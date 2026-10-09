@@ -37,7 +37,7 @@ src/
     eventKinds.js         # EVENT_KINDS constants
     keys.js               # REAL keys via nostr-tools: generateKeypair, keypairFromNsec, shortNpub
     events.js             # createNostrEvent (unsigned, demo/local cache) + buildSignedEvent (REAL signed, via finalizeEvent, for relays)
-    relay.js              # REAL relays (SimplePool) + local cache: publish (cache+relays), publishLocal (cache only, demo), query (sync, from cache), onEvent, startSync
+    relay.js              # REAL relays (SimplePool) + local cache: publish (cache+relays), publishLocal (cache only, demo), query (sync, from cache), onEvent, startSync, fetchRecent (24 h), fetchHistory(pubkey) (all time, throttled)
     replaceable.js        # latestVersions(): collapse replaceable events by (kind,pubkey,d-tag)
     profiles.js           # getProfile(pubkey) -> {name, comm, picture, vehicle} (sanitized); getMetadata(pubkey) -> raw newest kind-0 (merge base for writes)
     wallet.js             # REAL NIP-47 client: parseNwcUri, getBalance, listTransactions, payInvoice, makeInvoice (talks to the user's wallet over their relay)
@@ -196,13 +196,19 @@ rider's `in_progress` version also carries `driverPubkey`.
   (localStorage), edited via `RelayEditor` in both the login screen (collapsed)
   and Account. `relay.js` and `live.js` read `getRelays()` and re-subscribe on
   `onRelaysChange`, so edits take effect live. Defaults are the 5 free relays in DEFAULT_RELAYS (no paid relays).
+- **History = fetchHistory(pubkey)**: the live sync and `fetchRecent` cover only the
+  last 24 h. Past Rides and reputation need `relay.fetchHistory(pubkey)` (the user's own
+  + p-tagged events, the rides they point at with every version, and those rides'
+  cancels/completions/ratings). Called on login, Activity, UserModal, OfferCard, and
+  RequestCard; throttled to once per 5 min per pubkey.
 - **Refresh = pull from relays**: `relay.fetchRecent()` (SimplePool `querySync`)
   pulls recent app events into the cache; exposed as `pullRecent()` in context.
   The Drive screen calls it on open, on the Refresh button, and on a 12s poll, so
   other people's requests appear even if the live subscription missed them.
 - **Activity tab**: my requests sorted newest-first; a request with status
-  `cancelled` is hidden 24h after its cancel time (`created_at`), with a note on
-  the card telling the user it will disappear.
+  `cancelled` is hidden 24h after its cancel time (`created_at`). A ride still
+  `in_progress` 24 h after its last version is treated as abandoned and not listed
+  as active.
 - **Trips = completed only**: the Account trip count is rides whose
   `rideStatus` is `completed` and where the user is the rider (author) or the
   assigned driver (`driverPubkey`). Completion comes from the driver's

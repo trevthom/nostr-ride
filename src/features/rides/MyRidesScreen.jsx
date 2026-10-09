@@ -25,19 +25,23 @@ export default function MyRidesScreen() {
   const { user, setView, rideRequests, pullRecent, cancelRequest, setSelectedRequest, setActiveRide } = useApp();
 
   // Pull on open + poll so the other party's actions show up quickly.
+  // History (older than 24 h) loads once, throttled inside fetchHistory.
   useEffect(() => {
+    relay.fetchHistory(user.publicKey);
     pullRecent();
     const id = setInterval(() => pullRecent(), 10000);
     return () => clearInterval(id);
-  }, [pullRecent]);
+  }, [pullRecent, user.publicKey]);
 
   const now = Date.now();
   const mine = (r) => r.pubkey === user.publicKey;
   const statusOf = (r) => rideStatus(r);
+  // A ride still "in progress" a day later was abandoned; don't list it as active.
+  const fresh = (r) => statusOf(r) !== "in_progress" || now - r.created_at * 1000 < DAY;
 
   // Rider side
   const activeRequests = rideRequests
-    .filter((r) => mine(r) && ["requested", "accepted", "in_progress"].includes(statusOf(r)))
+    .filter((r) => mine(r) && ["requested", "accepted", "in_progress"].includes(statusOf(r)) && fresh(r))
     // Hide expired open requests (ASAP after 1h; Timed 1h after pickup time).
     .filter((r) => statusOf(r) !== "requested" || !isRideExpired(parse(r), r.created_at))
     .sort((a, b) => b.created_at - a.created_at);
@@ -49,7 +53,7 @@ export default function MyRidesScreen() {
   // Driver side
   const driving = (r) => parse(r)?.driverPubkey === user.publicKey;
   const drivingNow = rideRequests
-    .filter((r) => driving(r) && statusOf(r) === "in_progress")
+    .filter((r) => driving(r) && statusOf(r) === "in_progress" && fresh(r))
     .sort((a, b) => b.created_at - a.created_at);
   const pastDrives = rideRequests
     .filter((r) => driving(r) && statusOf(r) === "completed")

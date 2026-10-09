@@ -17,7 +17,10 @@ export default function UserModal() {
   const [zoom, setZoom] = useState(false);
 
   useEffect(() => {
-    if (profileModalPubkey) relay.fetchProfile(profileModalPubkey);
+    if (profileModalPubkey) {
+      relay.fetchProfile(profileModalPubkey);
+      relay.fetchHistory(profileModalPubkey); // reputation beyond the last 24 h
+    }
     setZoom(false);
   }, [profileModalPubkey]);
 

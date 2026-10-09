@@ -49,6 +49,7 @@ class NostrRelay {
     this.listeners = new Set();
     this.sub = null;
     this.syncing = false;
+    this.historyAt = new Map(); // pubkey -> ms of last fetchHistory
     // If the relay list changes (added/removed in-app), reconnect.
     onRelaysChange(() => { if (this.syncing) this._resubscribe(); });
   }
@@ -83,6 +84,45 @@ class NostrRelay {
       events.forEach((e) => this._ingest(e)); // METADATA is exempt from the app-tag check
     } catch {
       /* ignore */
+    }
+  }
+
+  // A user's FULL ride history (the live sync only covers 24 h): what
+  // they wrote, what was addressed to them, every version of the rides
+  // those events point at, and the cancels/completions/ratings on those
+  // rides. Feeds Past Rides and reputation. At most once per 5 min per
+  // pubkey unless `force`. Resolves when done (never rejects).
+  async fetchHistory(pubkey, { force = false } = {}) {
+    if (!pubkey) return;
+    if (!force && Date.now() - (this.historyAt.get(pubkey) || 0) < 300000) return;
+    this.historyAt.set(pubkey, Date.now());
+    const q = (f) => this.pool.querySync(getRelays(), { "#t": [APP_TAG], limit: 500, ...f }).catch(() => []);
+    const take = (evs) => evs.forEach((e) => this._ingest(e));
+    const chunks = (arr, n = 100) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
+    const tagVals = (evs, name) => [...new Set(evs.flatMap((e) => e.tags.filter((t) => t[0] === name).map((t) => t[1])))];
+    try {
+      // 1) Everything they wrote, and everything addressed to them.
+      const first = (await Promise.all([q({ kinds: APP_KINDS, authors: [pubkey] }), q({ kinds: APP_KINDS, "#p": [pubkey] })])).flat();
+      take(first);
+      // 2) The rides those events point at, then every version of each.
+      const missing = tagVals(first, "e").filter((id) => !this.seen.has(id));
+      for (const ids of chunks(missing)) take(await q({ ids }));
+      const refs = new Set([...tagVals(first, "e"), ...first.map((e) => e.id)]);
+      const rides = this.query({ kinds: [EVENT_KINDS.RIDE_REQUEST] }).filter((e) => refs.has(e.id));
+      const authors = [...new Set(rides.map((e) => e.pubkey))];
+      for (const ds of chunks(tagVals(rides, "d"))) {
+        if (authors.length) take(await q({ kinds: [EVENT_KINDS.RIDE_REQUEST], authors, "#d": ds }));
+      }
+      // 3) How each ride ended, and its ratings.
+      const dset = new Set(tagVals(rides, "d"));
+      const versionIds = this.query({ kinds: [EVENT_KINDS.RIDE_REQUEST], authors })
+        .filter((e) => dset.has((e.tags.find((t) => t[0] === "d") || [])[1]))
+        .map((e) => e.id);
+      for (const ids of chunks(versionIds)) {
+        take(await q({ kinds: [EVENT_KINDS.RIDE_CANCEL, EVENT_KINDS.RIDE_COMPLETE, EVENT_KINDS.RATING], "#e": ids }));
+      }
+    } catch (e) {
+      console.error("History fetch failed:", e);
     }
   }
 

@@ -171,6 +171,8 @@ export default function DriverBrowseScreen() {
 // A single ride-request card with map, route, and an Offer button.
 function RequestCard({ req, isMine, onOffer }) {
   const { openProfile } = useApp();
+  // The rider's full reputation (throttled per pubkey inside fetchHistory).
+  useEffect(() => { relay.fetchHistory(req.pubkey); }, [req.pubkey]);
   const c = JSON.parse(req.content);
   const profile = getProfile(req.pubkey);
   const rep = reputation(req.pubkey);

@@ -70,7 +70,10 @@ export default function RiderSelectScreen() {
 // One driver offer with price, ETA, rating, and an Accept button.
 function OfferCard({ offer, onAccept }) {
   const { user, btcUsd, openProfile } = useApp();
-  useEffect(() => { relay.fetchProfile(offer.pubkey); }, [offer.pubkey]);
+  useEffect(() => {
+    relay.fetchProfile(offer.pubkey);
+    relay.fetchHistory(offer.pubkey); // full reputation, not just 24 h
+  }, [offer.pubkey]);
   const c = JSON.parse(offer.content);
   const profile = getProfile(offer.pubkey);
   const plate = offerPlate(offer, user); // sent privately to this rider

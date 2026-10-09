@@ -243,6 +243,12 @@ export function AppProvider({ children }) {
     setView("rider-request");
   }, []);
 
+  // On login, pull our full ride history (the live sync covers only 24 h)
+  // so Past Rides and our reputation are complete.
+  useEffect(() => {
+    if (user?.publicKey) relay.fetchHistory(user.publicKey);
+  }, [user?.publicKey]);
+
   // On login, pull our own profile from relays and restore the photo +
   // vehicle info (so a returning driver keeps their setup across sessions).
   useEffect(() => {
