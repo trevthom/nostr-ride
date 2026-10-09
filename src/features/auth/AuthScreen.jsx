@@ -2,7 +2,8 @@
 //  AUTH SCREEN — First screen. Two ways to sign in:
 //    1. Generate a brand-new Nostr keypair.
 //    2. Paste an existing "nsec1..." secret key.
-//  Either way it publishes a profile and logs the user in.
+//  A new key publishes a fresh profile. An imported key keeps its
+//  existing Nostr profile (we never overwrite it with a blank one).
 // ════════════════════════════════════════════════════════════
 
 import { useState } from "react";
@@ -10,7 +11,7 @@ import { generateKeypair, keypairFromNsec } from "../../nostr/keys.js";
 import { buildSignedEvent } from "../../nostr/events.js";
 import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
-import { CONTACT_PLATFORMS } from "../../config/settings.js";
+import { getMetadata, getProfile } from "../../nostr/profiles.js";
 import { useRelays, setRelays } from "../../config/relays.js";
 import { THEME } from "../../theme.js";
 import Button from "../../ui/Button.jsx";
@@ -21,6 +22,7 @@ export default function AuthScreen({ onLogin }) {
   const [name, setName] = useState("");
   const [nsec, setNsec] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false); // loading an imported key's profile
   const [showRelays, setShowRelays] = useState(false); // collapsed by default
   const relays = useRelays();
 
@@ -40,13 +42,35 @@ export default function AuthScreen({ onLogin }) {
 
   const handleGenerate = () => finishLogin(generateKeypair());
 
-  const handleImport = () => {
+  // Kind 0 is shared by every Nostr app. Publishing a fresh one for an
+  // imported key would wipe the user's real name, photo, and other fields
+  // on every relay. So load what exists and keep it; only write when the
+  // user typed a new name (merged into the old profile).
+  const handleImport = async () => {
+    if (busy) return;
     setError("");
+    let keys;
     try {
-      finishLogin(keypairFromNsec(nsec));
+      keys = keypairFromNsec(nsec);
     } catch (e) {
       setError(e.message || "Invalid nsec key.");
+      return;
     }
+    setBusy(true);
+    await relay.fetchProfile(keys.publicKey);
+    setBusy(false);
+    const existing = getMetadata(keys.publicKey);
+    const typed = name.trim();
+    if (!existing) {
+      if (typed) finishLogin(keys);
+      else onLogin({ ...keys, name: "Anonymous Rider", comm: [] });
+      return;
+    }
+    const p = getProfile(keys.publicKey);
+    if (typed && typed !== p.name) {
+      relay.publish(buildSignedEvent(EVENT_KINDS.METADATA, { ...existing, name: typed }, [], keys.sk));
+    }
+    onLogin({ ...keys, name: typed || p.name || "Anonymous Rider", comm: p.comm, picture: p.picture, vehicle: p.vehicle });
   };
 
   // Pressing Enter in a field triggers the screen's primary action.
@@ -110,7 +134,7 @@ export default function AuthScreen({ onLogin }) {
           {mode === "new" ? (
             <Button onClick={handleGenerate}>Generate Keys &amp; Enter</Button>
           ) : (
-            <Button onClick={handleImport} disabled={!nsec}>Import &amp; Enter</Button>
+            <Button onClick={handleImport} disabled={!nsec || busy}>{busy ? "Loading your profile…" : "Import & Enter"}</Button>
           )}
 
           <p className="text-white/20 text-xs text-center leading-relaxed mt-4">

@@ -25,6 +25,11 @@ const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTR = "© OpenStreetMap contributors";
 const DEFAULT_CENTER = [SAMPLE_LOCATIONS[0].lat, SAMPLE_LOCATIONS[0].lng]; // [lat, lng]
 
+// Popup HTML is set as innerHTML, and driver names/vehicles come from
+// untrusted relay events — so escape them to block script injection.
+const esc = (s) =>
+  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
 // A colored dot marker (no image assets needed → bundler-safe).
 function dot(lat, lng, color) {
   return L.circleMarker([lat, lng], {
@@ -101,7 +106,7 @@ export default function MapView({ pickup, dropoff, waypoints, drivers, height = 
         const latlngs = [];
         drivers.forEach((d) => {
           carMarker(d)
-            .bindPopup(`<b>${d.self ? "You" : d.name || "Driver"}</b>${d.vehicle ? " · " + d.vehicle : ""}`)
+            .bindPopup(`<b>${esc(d.self ? "You" : d.name || "Driver")}</b>${d.vehicle ? " · " + esc(d.vehicle) : ""}`)
             .addTo(group);
           latlngs.push([d.lat, d.lng]);
         });

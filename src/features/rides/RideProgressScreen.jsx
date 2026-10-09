@@ -11,13 +11,11 @@ import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { getProfile } from "../../nostr/profiles.js";
 import { subscribeRideLocation } from "../../nostr/live.js";
-import { rideStatus, rideEnding } from "../../lib/rides.js";
+import { rideStatus, rideEnding, rideVersions } from "../../lib/rides.js";
 import { THEME } from "../../theme.js";
 import Screen from "../../ui/Screen.jsx";
 import Button from "../../ui/Button.jsx";
 import MapView from "../../ui/MapView.jsx";
-
-const dtagOf = (e) => (e.tags.find((t) => t[0] === "d") || [])[1];
 
 export default function RideProgressScreen() {
   const { user, publish, setView, activeRide, setActiveRide, refreshData, openProfile, pullRecent, pushNotice } = useApp();
@@ -42,26 +40,25 @@ export default function RideProgressScreen() {
     return () => clearInterval(id);
   }, [pullRecent]);
 
-  if (!activeRide) return null;
-  const req = JSON.parse(activeRide.request.content);
-
-  // Latest version of this request (for derived status).
-  const d = dtagOf(activeRide.request);
-  const versions = relay.query({ kinds: [EVENT_KINDS.RIDE_REQUEST] }).filter((e) => dtagOf(e) === d);
-  const liveReq = versions.sort((a, b) => b.created_at - a.created_at)[0] || activeRide.request;
-  const status = rideStatus(liveReq);
-  const ending = rideEnding(liveReq);
-  const ended = status === "completed" || status === "cancelled";
-
   const driver = driverPubkey ? getProfile(driverPubkey) : null;
 
   // Notify the rider if the driver changes vehicle details mid-ride.
+  // (All hooks must run before the early return below.)
   const vehStr = JSON.stringify(driver?.vehicle || null);
   useEffect(() => {
     if (!driver?.vehicle) return;
     if (vehRef.current === null) { vehRef.current = vehStr; return; }
     if (vehStr !== vehRef.current) { vehRef.current = vehStr; pushNotice("Your driver updated their vehicle details."); }
   }, [vehStr]); // eslint-disable-line
+
+  if (!activeRide) return null;
+  const req = JSON.parse(activeRide.request.content);
+
+  // Latest version of this request (for derived status).
+  const liveReq = rideVersions(activeRide.request)[0];
+  const status = rideStatus(liveReq);
+  const ending = rideEnding(liveReq);
+  const ended = status === "completed" || status === "cancelled";
 
   const handleCancel = () => {
     publish(

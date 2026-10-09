@@ -24,8 +24,10 @@ import { getSetting, setSetting } from "../config/relays.js";
 
 const AppContext = createContext(null);
 
-// Kinds whose arrival should refresh on-screen data.
+// Kinds whose arrival should refresh on-screen data. METADATA is here so
+// names/photos appear as soon as relay.fetchProfile() pulls them in.
 const APP_EVENT_KINDS = new Set([
+  EVENT_KINDS.METADATA,
   EVENT_KINDS.RIDE_REQUEST,
   EVENT_KINDS.RIDE_OFFER,
   EVENT_KINDS.RIDE_ACCEPT,
@@ -149,7 +151,8 @@ export function AppProvider({ children }) {
       if (!user?.sk) return;
       // Tag every event so other devices can tell our events apart from
       // unrelated apps that reuse the same kind numbers on public relays.
-      const tagged = [...tags, ["t", APP_TAG]];
+      // (Re-published requests copy their old tags, so drop the old one.)
+      const tagged = [...tags.filter((t) => !(t[0] === "t" && t[1] === APP_TAG)), ["t", APP_TAG]];
       relay.publish(buildSignedEvent(kind, content, tagged, user.sk));
     },
     [user]
@@ -226,13 +229,16 @@ export function AppProvider({ children }) {
       : [];
   const nearbyRequestCount = nearbyRequests.length;
 
-  // Log out: clear the session and return to the login screen.
+  // Log out: clear the session and return to the login screen. The wallet
+  // must go too, or the next person on this device could spend from it.
   const logout = useCallback(() => {
     setUser(null);
     setActiveRide(null);
     setSelectedRequest(null);
     setDriverOnline(false);
     setProfileModalPubkey(null);
+    setWallet(emptyWalletState());
+    setNotices([]);
     setView("rider-request");
   }, []);
 

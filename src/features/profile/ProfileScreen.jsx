@@ -9,6 +9,7 @@ import { useApp } from "../../state/AppContext.jsx";
 import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { buildSignedEvent } from "../../nostr/events.js";
+import { getMetadata } from "../../nostr/profiles.js";
 import { reputation } from "../../lib/rides.js";
 import { isDriveReady } from "../../lib/profile.js";
 import { resizeImage } from "../../lib/image.js";
@@ -50,16 +51,20 @@ export default function ProfileScreen() {
   const [imgErr, setImgErr] = useState("");
 
   // Merge a patch into the user and republish the full profile (kind 0)
-  // so other users see the latest name/photo/vehicle.
+  // so other users see the latest name/photo/vehicle. Kind 0 is shared
+  // with every Nostr app, so start from the newest one we have and keep
+  // fields we don't manage (about, lud16, nip05, banner…).
   const saveProfile = (patch) => {
     const next = { ...user, ...patch };
     setUser(next);
+    const base = getMetadata(next.publicKey) || {};
     relay.publish(
       buildSignedEvent(
         EVENT_KINDS.METADATA,
         {
+          ...base,
           name: next.name,
-          about: "NostrRide user",
+          about: base.about ?? "NostrRide user",
           communication: next.comm || [],
           picture: next.picture || "",
           vehicle: next.vehicle || {},

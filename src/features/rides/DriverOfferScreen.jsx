@@ -29,6 +29,14 @@ export default function DriverOfferScreen() {
     if (!price) return;
     const total = parseInt(price);
     const deposit = parseInt(upfront) || 0;
+    if (!(total > 0)) {
+      setError("The price must be more than 0 sats.");
+      return;
+    }
+    if (deposit < 0) {
+      setError("Upfront cost can't be negative.");
+      return;
+    }
     if (deposit > total) {
       setError("Upfront cost can't be more than the total fare.");
       return;
@@ -84,7 +92,7 @@ export default function DriverOfferScreen() {
           <input
             type="number"
             value={price}
-            onChange={(e) => setPrice(e.target.value)}
+            onChange={(e) => { setPrice(e.target.value); setError(""); }}
             onKeyDown={(e) => { if (e.key === "Enter" && price) { e.preventDefault(); handleSubmit(); } }}
             placeholder="e.g. 5000"
             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-amber-500/50"

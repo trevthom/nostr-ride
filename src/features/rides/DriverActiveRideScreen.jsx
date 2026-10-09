@@ -14,6 +14,7 @@ import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { getProfile } from "../../nostr/profiles.js";
 import { fullNpub } from "../../nostr/keys.js";
+import { rideStatus } from "../../lib/rides.js";
 import { THEME } from "../../theme.js";
 import Screen from "../../ui/Screen.jsx";
 import Button from "../../ui/Button.jsx";
@@ -22,7 +23,7 @@ import MapView from "../../ui/MapView.jsx";
 const SEND_EVERY_MS = 6000;
 
 export default function DriverActiveRideScreen() {
-  const { user, setView, selectedRequest, publish, refreshData, openProfile } = useApp();
+  const { user, setView, selectedRequest, publish, refreshData, openProfile, liveTick } = useApp();
   const [sharing, setSharing] = useState(true);
   const [lastSent, setLastSent] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -39,6 +40,17 @@ export default function DriverActiveRideScreen() {
 
   // Pull the rider's profile so we can show their name (if any).
   useEffect(() => { if (riderPubkey) relay.fetchProfile(riderPubkey); }, [riderPubkey]);
+
+  // If the RIDER ends the ride, stop sending them our location and move
+  // to the review view. (liveTick re-runs this when a cancel arrives.)
+  void liveTick;
+  const status = selectedRequest ? rideStatus(selectedRequest) : null;
+  useEffect(() => {
+    if (status !== "cancelled" && status !== "completed") return;
+    setSharing(false);
+    setEndReason(status);
+    setShowRating(true);
+  }, [status]);
 
   // Broadcast encrypted location to the rider on an interval.
   useEffect(() => {
@@ -67,6 +79,7 @@ export default function DriverActiveRideScreen() {
       [["e", selectedRequest.id], ["p", riderPubkey], ["d", "complete-" + selectedRequest.id], ["t", "ride-complete"]]
     );
     refreshData();
+    setSharing(false); // the ride is over: stop broadcasting location
     setEndReason("completed");
     setShowRating(true);
   };
@@ -79,6 +92,7 @@ export default function DriverActiveRideScreen() {
       [["e", selectedRequest.id], ["p", riderPubkey], ["d", "cancel-" + selectedRequest.id], ["t", "ride-cancel"]]
     );
     refreshData();
+    setSharing(false);
     setEndReason("cancelled");
     setShowRating(true);
   };

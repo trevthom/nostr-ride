@@ -39,9 +39,9 @@ src/
     events.js             # createNostrEvent (unsigned, demo/local cache) + buildSignedEvent (REAL signed, via finalizeEvent, for relays)
     relay.js              # REAL relays (SimplePool) + local cache: publish (cache+relays), publishLocal (cache only, demo), query (sync, from cache), onEvent, startSync
     replaceable.js        # latestVersions(): collapse replaceable events by (kind,pubkey,d-tag)
-    profiles.js           # getProfile(pubkey) -> {name, comm}
+    profiles.js           # getProfile(pubkey) -> {name, comm, picture, vehicle} (sanitized); getMetadata(pubkey) -> raw newest kind-0 (merge base for writes)
     wallet.js             # REAL NIP-47 client: parseNwcUri, getBalance, listTransactions, payInvoice, makeInvoice (talks to the user's wallet over their relay)
-    live.js               # REAL relays (SimplePool) for live location: publishPresence/subscribePresence (public, coarsened) + publishRideLocation/subscribeRideLocation (NIP-44 encrypted to the matched rider). Ephemeral kinds, not stored.
+    live.js               # REAL relays (SimplePool) for live location: publishPresence/subscribePresence (public, coarsened, addressable kind 30090 + expiration) + publishRideLocation/subscribeRideLocation (NIP-44 encrypted to the matched rider, ephemeral kind 21100).
     demoData.js           # seed users/requests/route (gated by USE_DEMO_DATA)
   lib/
     geo.js                # haversineDistance, isNearRoute
@@ -49,6 +49,9 @@ src/
     routing.js            # getDrivingRoute(points) -> {coordinates,distanceMeters,durationSeconds} via OSRM
     useGeolocation.js     # React hook around navigator.geolocation.watchPosition -> {pos,error}
     locations.js          # SAMPLE_LOCATIONS (map default center + demo data), MAP_BOUNDS
+    rides.js              # rideStatus/rideEnding/rideVersions/reputation — enforce the trust rules (see Invariants)
+    profile.js            # isDriveReady/missingDriveInfo (drive gating)
+    image.js              # resizeImage -> small JPEG data URL for kind-0
   state/AppContext.jsx    # useApp(); holds user/view/rideRequests/activeRide/notifications/wallet/driverOnline/myPosition/geoError; cancelRequest(); refreshData(); broadcasts presence while online
   ui/
     Screen.jsx            # page wrapper: sticky header, optional onBack, optional right slot
@@ -56,7 +59,7 @@ src/
     MapView.jsx           # REAL map: Leaflet + OSM raster tiles (NO WebGL — works in any browser), draws OSRM driving routes. Props: pickup/dropoff/waypoints/drivers/height. `drivers` mode plots live markers. Use only ONE per screen.
     AddressInput.jsx      # type-to-search address picker via Nominatim geocoding; onSelect({name,lat,lng}). Used by RiderRequest & DriverRoutes.
     LocationRow.jsx       # pickup/dropoff pill
-    BottomNav.jsx         # 5 tabs: rider-request, driver-browse, my-rides, driver-routes, profile
+    BottomNav.jsx         # 4 tabs: rider-request, driver-browse, my-rides, profile
     QRCode.jsx            # wraps qrcode.react QRCodeSVG
     ErrorBoundary.jsx     # class component; wraps each screen so a crash shows a fallback, not a blank app
   features/
@@ -69,7 +72,7 @@ src/
     rides/PaymentScreen.jsx       # Lightning payment (SIMULATED)
     rides/RideProgressScreen.jsx  # rider's active ride; complete (rate) / cancel; shows the driver's live location when shared
     rides/DriverActiveRideScreen.jsx # driver's active ride ("driver-active" view); broadcasts encrypted live location to the rider
-    routes/DriverRoutesScreen.jsx # recurring routes (Routes tab)
+    routes/DriverRoutesScreen.jsx # UNUSED: not in App.jsx SCREENS (routes feature removed)
     profile/ProfileScreen.jsx     # the "Account" tab: header + completed-trip count + WalletSection + driver-notify toggle + RelayEditor + KeysSection
     profile/WalletSection.jsx     # NWC connect, balance, history, send/receive
     profile/KeysSection.jsx       # npub + nsec (hidden by default)
@@ -80,17 +83,30 @@ src/
 |---|---|---|---|
 | 0 | METADATA | — | `{name, about, communication[]}` |
 | 30078 | RIDE_REQUEST | `d`(id), `t` | `{pickup, dropoff, time, notes, status}` |
-| 30079 | RIDE_OFFER | `e`(request), `p`(rider), `t` | `{priceSats, etaMinutes, vehicle, message}` |
+| 30079 | RIDE_OFFER | `e`(request), `p`(rider), `d`, `t` | `{priceSats, upfrontSats, etaMinutes, message}` |
 | 30080 | RIDE_ACCEPT | `e`(offer), `e`(request), `p`(driver), `t` | `{offerId, requestId}` |
 | 30081 | RIDE_CANCEL | `e`(request), `t` | `{requestId, reason}` |
-| 30082 | RATING | `p`(ratee), `e`(ride), `t` | `{rating, review, rideId}` |
-| 30083 | DRIVER_ROUTE | `d`(id), `t` | `{name, waypoints[], schedule, radiusMiles}` |
-| 20100 | PRESENCE (ephemeral) | `t`, `expiration` | `{name, npub, vehicle, lat, lng, ts}` — public, coarsened location |
+| 30082 | RATING | `p`(ratee), `e`(ride), `d`, `t` | `{rating, review, rideId}` |
+| 30083 | DRIVER_ROUTE | `d`(id), `t` | unused (feature removed) |
+| 30084 | RIDE_COMPLETE | `e`(request), `p`(rider), `d`, `t` | `{requestId}` — by the assigned driver |
+| 30090 | PRESENCE (addressable) | `d`="presence", `t`, `expiration` | `{name, npub, vehicle, lat, lng, ts}` — public, coarsened location |
 | 21100 | RIDE_LOCATION (ephemeral) | `p`(rider), `expiration` | NIP-44 encrypted `{lat, lng, ts}` — exact, to rider only |
 
-`status` ∈ `requested | accepted | in_progress | cancelled`.
+`status` ∈ `requested | accepted | in_progress | completed | cancelled`. The
+rider's `in_progress` version also carries `driverPubkey`.
 
 ## Invariants & gotchas (read before editing)
+- **Trust rules (lib/rides.js)**: relay events are signed, but anyone can sign
+  one. A ride's versions are requests with the same **author + d-tag** (never
+  d-tag alone). A RIDE_CANCEL counts only from the rider or the assigned driver;
+  a RIDE_COMPLETE only from the assigned driver; a RATING only from the other
+  party of that ride (one per rater per ride). Always go through
+  `rideVersions`/`rideStatus`/`rideEnding`/`reputation` — don't re-derive.
+- **Kind 0 is shared with every Nostr app**: never publish a fresh kind-0 over
+  an existing one. Writes start from `getMetadata(pubkey)` and merge (Account
+  `saveProfile`); importing an nsec keeps the existing profile.
+- **Untrusted text into HTML**: React escapes JSX, but Leaflet `bindPopup`
+  strings are raw HTML — escape relay-sourced values (`esc` in MapView).
 - **Events store `pubkey` as hex**, never npub. Convert for display only via
   `shortNpub(hex)` (keys.js). Public/secret bech32 = `user.npub` / `user.nsec`.
 - **Replaceable events**: RIDE_REQUEST and DRIVER_ROUTE carry a `d` tag and are
@@ -173,17 +189,18 @@ src/
 - **Activity tab**: my requests sorted newest-first; a request with status
   `cancelled` is hidden 24h after its cancel time (`created_at`), with a note on
   the card telling the user it will disappear.
-- **Trips = completed only**: the Account trip count is RIDE_REQUESTs whose latest
-  version has `status: "completed"` and where the user is the rider (author) or the
-  assigned driver (`driverPubkey`). Completion is published when the rider finishes
-  (RideProgress `handleSubmitRating`). Don't count raw requests/offers.
+- **Trips = completed only**: the Account trip count is rides whose
+  `rideStatus` is `completed` and where the user is the rider (author) or the
+  assigned driver (`driverPubkey`). Completion comes from the driver's
+  RIDE_COMPLETE (DriverActiveRide `handleComplete`). Don't count raw requests/offers.
 - **Driver nearby-request badge**: `notifyNearby`/`notifyRadius` (persisted via
   getSetting/setSetting) enable geolocation; `nearbyRequestCount` in context =
   open ("requested") requests within radius of the driver, not their own. Shown as
   a badge on the Drive tab in BottomNav; it clears automatically when a request is
   cancelled or taken (status leaves "requested").
 - **No StrictMode** (see main.jsx): it double-mounts the map in dev and caused
-  crashes. Keep it off.
+  crashes. Keep it off. Without it, rules-of-hooks slips are easy: keep every
+  hook above a screen's early `return null`.
 - **`createNostrEvent` does NOT sign** — only for demo/local cache, which isn't
   verified. User-facing events must be signed (above).
 - **Wallet is live, not faked**: balance/transactions come from the user's real
@@ -195,8 +212,8 @@ src/
 - **Maps/geocoding/routing use free public dev endpoints**: OSM tiles,
   Nominatim (geocode.js), OSRM (routing.js). These are rate-limited and not for
   production — swap to paid/self-hosted services (keep the return shapes). Render
-  only ONE `<MapView>` at a time; each uses a WebGL context, so never put one in
-  a list row (that's why DriverBrowse cards show text, not maps).
+  few `<MapView>`s; each is a Leaflet map that fetches tiles and an OSRM route, so
+  never put one in a list row (that's why DriverBrowse cards show text, not maps).
 - **The whole app is on REAL relays now** (`nostr/relay.js` + `nostr/live.js`).
   Ride requests/offers/accepts/ratings/routes AND live location all sync across
   devices. The local cache is just a fast read layer + offline fallback. Presence

@@ -38,32 +38,32 @@ On the first screen you can either:
   identity.
 
 Either way these are **real Nostr keys**. Your `npub` (public) and `nsec`
-(secret, hidden by default) are visible later under the **Profile** tab.
+(secret, hidden by default) are visible later under the **Account** tab.
 
 > **This is now a real multi-user app.** Ride requests, offers, acceptances,
-> ratings, routes, and live location all travel over public Nostr relays (listed
-> in `src/config/settings.js`), so they sync **across devices and people**. Open
+> ratings, and live location all travel over public Nostr relays (listed in
+> `src/config/relays.js`, and editable in the app), so they sync **across devices
+> and people**. Open
 > the app on two devices to see one create a request and the other respond. (The
 > small set of preloaded demo requests stays local to each device and isn't sent
 > to relays.) Reloading the page logs you out and clears the local cache.
 
 ---
 
-## 3. The five tabs
+## 3. The four tabs
 
 | Tab | What it does |
 |---|---|
 | **Ride** | Create a ride request by **typing real pickup/dropoff addresses** (live search), with a map showing the **driving route**. |
 | **Drive** | Toggle online/offline at the top, browse open requests, and make offers (the offer screen shows the route on a map). |
 | **Activity** | Your requests (with **Cancel**) and the offers you've made. |
-| **Routes** | Define recurring driver routes (for match notifications). |
-| **Profile** | Identity, ratings, **Lightning wallet**, relays, and your keys. |
+| **Account** | Identity, photo + vehicle, ratings, **Lightning wallet**, relays, and your keys. |
 
 **Full ride flow:** Ride → publish → (as a driver from another browser/profile)
 Drive → Offer → back as the rider → Activity → View offers → Accept → pay with
 Lightning → Ride In Progress → Complete → rate.
 
-**Wallet:** Profile → paste a **real** Nostr Wallet Connect string
+**Wallet:** Account → paste a **real** Nostr Wallet Connect string
 (`nostr+walletconnect://...`) from a wallet that supports NWC (e.g. Alby Hub,
 Coinos). The app reads your **real balance and transactions** from that wallet
 and can send (pay an invoice) or receive (generate an invoice shown as text +
@@ -105,8 +105,8 @@ The driver can stop sharing anytime, and only the matched rider can decrypt it.
 - The map uses **Leaflet** with OpenStreetMap tiles — it renders with normal page
   elements and needs **no WebGL**, so it works in essentially any browser.
 - Location needs `https://` or `http://localhost`, so `npm run dev` works fine.
-- These use the public relays in `src/config/settings.js`. Edit that list to use
-  your own relays.
+- These use the relays in `src/config/relays.js`. Edit them in the app (Account
+  → Nostr Relays) or change `DEFAULT_RELAYS` in that file.
 - Going online shares your approximate location publicly while online. Turning the
   toggle off stops all broadcasting immediately.
 - Browsers stop GPS updates when the tab is backgrounded or the screen is off —
@@ -119,7 +119,8 @@ The driver can stop sharing anytime, and only the matched rider can decrypt it.
 
 | I want to change... | Open this file |
 |---|---|
-| Match radius, relay list, demo data on/off, contact options | `src/config/settings.js` |
+| Match radius, demo data on/off, contact options | `src/config/settings.js` |
+| Default relay list | `src/config/relays.js` |
 | Colors and gradients | `src/theme.js` |
 | Map locations / the city | `src/lib/locations.js` |
 | What a button looks like (everywhere) | `src/ui/Button.jsx` |
@@ -155,15 +156,14 @@ Then open the folder with Claude Code and ask for changes. It will read
 
 ## 6. Going from "demo" to "real"
 
-Each upgrade is isolated to one file (each marked with a `── TO ... ──`
-comment inside it):
+Most of the app is already real: relays (`src/nostr/relay.js`), signed events
+(`src/nostr/events.js`), keys (`src/nostr/keys.js`), the Lightning wallet
+(`src/nostr/wallet.js`, NIP-47), and the maps (Leaflet + OpenStreetMap tiles +
+OSRM routing + Nominatim address search).
 
-1. **Real relays (multi-user)** — `src/nostr/relay.js`
-2. **Signed events** — `src/nostr/events.js` (`finalizeEvent`)
-
-Keys (`src/nostr/keys.js`), the Lightning wallet (`src/nostr/wallet.js`, NIP-47),
-and the maps (MapLibre + OpenStreetMap tiles + OSRM routing + Nominatim address
-search) are already real.
+What is still simulated: the **ride payment** in
+`src/features/rides/PaymentScreen.jsx`. No money moves from the rider to the
+driver yet.
 
 > **About the map services:** the app uses free public endpoints — OpenStreetMap
 > tiles, Nominatim (address search), and OSRM (driving routes). These are great

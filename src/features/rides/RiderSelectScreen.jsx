@@ -11,6 +11,7 @@ import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { getProfile } from "../../nostr/profiles.js";
 import { shortNpub } from "../../nostr/keys.js";
 import { latestVersions } from "../../nostr/replaceable.js";
+import { reputation } from "../../lib/rides.js";
 import { satsToUsd, formatUsd } from "../../ui/SatsAmount.jsx";
 import { THEME } from "../../theme.js";
 import Screen from "../../ui/Screen.jsx";
@@ -71,11 +72,10 @@ function OfferCard({ offer, onAccept }) {
   useEffect(() => { relay.fetchProfile(offer.pubkey); }, [offer.pubkey]);
   const c = JSON.parse(offer.content);
   const profile = getProfile(offer.pubkey);
-  const ratings = relay.query({ kinds: [EVENT_KINDS.RATING], "#p": [offer.pubkey] });
-  const ratingVals = ratings
-    .map((r) => { try { return JSON.parse(r.content).rating; } catch { return null; } })
-    .filter((v) => typeof v === "number");
-  const avgRating = ratingVals.length > 0 ? (ratingVals.reduce((s, v) => s + v, 0) / ratingVals.length).toFixed(1) : null;
+  // Driver-role reviews only, and only from that ride's real rider
+  // (reputation() rejects ratings anyone else signs).
+  const { avg } = reputation(offer.pubkey).driverReviews;
+  const avgRating = avg != null ? avg.toFixed(1) : null;
 
   return (
     <div

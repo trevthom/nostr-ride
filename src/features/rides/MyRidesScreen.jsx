@@ -9,14 +9,13 @@ import { useEffect, useState } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
-import { isRideExpired, rideStatus } from "../../lib/rides.js";
+import { isRideExpired, rideStatus, rideEnding, rideVersions } from "../../lib/rides.js";
 import Screen from "../../ui/Screen.jsx";
 import Collapsible from "../../ui/Collapsible.jsx";
 import SatsAmount from "../../ui/SatsAmount.jsx";
 
 const DAY = 86400000;
 const parse = (e) => { try { return JSON.parse(e.content); } catch { return null; } };
-const dtagOf = (e) => (e.tags.find((t) => t[0] === "d") || [])[1];
 const fmtTime = (sec) => new Date(sec * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
 
 export default function MyRidesScreen() {
@@ -54,20 +53,12 @@ export default function MyRidesScreen() {
     .sort((a, b) => b.created_at - a.created_at);
 
   // Pending offers = my offers whose ride is still open ("requested").
-  const allReqs = relay.query({ kinds: [EVENT_KINDS.RIDE_REQUEST] });
   const reqById = {};
-  const latestByDtag = {};
-  allReqs.forEach((e) => {
-    reqById[e.id] = e;
-    const d = dtagOf(e);
-    if (d && (!latestByDtag[d] || e.created_at > latestByDtag[d].created_at)) latestByDtag[d] = e;
-  });
+  relay.query({ kinds: [EVENT_KINDS.RIDE_REQUEST] }).forEach((e) => { reqById[e.id] = e; });
   const offerRideStatus = (offer) => {
     const reqId = (offer.tags.find((t) => t[0] === "e") || [])[1];
     const orig = reqById[reqId];
-    const d = orig ? dtagOf(orig) : null;
-    const latest = (d && latestByDtag[d]) || orig;
-    return latest ? rideStatus(latest) : "requested";
+    return orig ? rideStatus(rideVersions(orig)[0]) : "requested";
   };
   const myOffers = relay.query({ kinds: [EVENT_KINDS.RIDE_OFFER], authors: [user.publicKey] });
   const pendingOffers = myOffers.filter((o) => offerRideStatus(o) === "requested");
@@ -173,13 +164,11 @@ function PastRow({ req, role }) {
   const c = parse(req);
   if (!c) return null;
   const completed = rideStatus(req) === "completed";
+  // When it ended: the complete/cancel event's time, else the request's.
+  const endedAt = rideEnding(req)?.at || req.created_at;
 
   // The review THIS user wrote for the ride (match any version id).
-  const d = dtagOf(req);
-  const versionIds = new Set(
-    relay.query({ kinds: [EVENT_KINDS.RIDE_REQUEST] }).filter((e) => dtagOf(e) === d).map((e) => e.id)
-  );
-  versionIds.add(req.id);
+  const versionIds = new Set(rideVersions(req).map((e) => e.id));
   const myReview = relay
     .query({ kinds: [EVENT_KINDS.RATING], authors: [user.publicKey] })
     .find((r) => versionIds.has((r.tags.find((t) => t[0] === "e") || [])[1]));
@@ -194,7 +183,7 @@ function PastRow({ req, role }) {
         </span>
       </div>
       <p className="text-white/30 text-xs">
-        {completed ? "Completed" : "Cancelled"} {fmtTime(req.created_at)}
+        {completed ? "Completed" : "Cancelled"} {fmtTime(endedAt)}
         {role === "driver" && completed ? " · you drove" : ""}
       </p>
 
