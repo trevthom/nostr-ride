@@ -46,7 +46,8 @@ Either way these are **real Nostr keys**. Your `npub` (public) and `nsec`
 > and people**. Open
 > the app on two devices to see one create a request and the other respond. (The
 > small set of preloaded demo requests stays local to each device and isn't sent
-> to relays.) Reloading the page logs you out and clears the local cache.
+> to relays.) With **Remember me** your key is saved on the device, encrypted with your password,
+> so a reload only asks for that password.
 
 ---
 

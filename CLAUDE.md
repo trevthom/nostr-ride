@@ -35,7 +35,8 @@ src/
   config/relays.js        # relay list source of truth: DEFAULT_RELAYS (5 reputable free relays), getRelays/setRelays/onRelaysChange/useRelays, getSetting/setSetting — persisted to localStorage, editable in Account + login
   nostr/
     eventKinds.js         # EVENT_KINDS constants
-    keys.js               # REAL keys via nostr-tools: generateKeypair, keypairFromNsec, shortNpub
+    keys.js               # REAL keys via nostr-tools: generateKeypair, keypairFromNsec, keypairFromSecretKey, shortNpub
+    keystore.js           # optional "remember me": key saved ONLY as NIP-49 ncryptsec (password) in localStorage; forgetKey on logout
     events.js             # createNostrEvent (unsigned, demo/local cache) + buildSignedEvent (REAL signed, via finalizeEvent, for relays)
     relay.js              # REAL relays (SimplePool) + local cache: publish (cache+relays), publishLocal (cache only, demo), query (sync, from cache), onEvent, startSync, fetchRecent (24 h), fetchHistory(pubkey) (all time, throttled)
     replaceable.js        # latestVersions(): collapse replaceable events by (kind,pubkey,d-tag)
@@ -65,7 +66,8 @@ src/
     QRCode.jsx            # wraps qrcode.react QRCodeSVG
     ErrorBoundary.jsx     # class component; wraps each screen so a crash shows a fallback, not a blank app
   features/
-    auth/AuthScreen.jsx           # generate new key OR import nsec
+    auth/AuthScreen.jsx           # generate new key (+ backup step) OR import nsec OR unlock a saved key
+    auth/AuthSteps.jsx            # UnlockView + BackupStep
     rides/RiderRequestScreen.jsx  # create request (Ride tab; default screen)
     rides/DriverBrowseScreen.jsx  # browse open requests (Drive tab)
     rides/DriverOfferScreen.jsx   # submit an offer (sub-screen)
@@ -252,7 +254,10 @@ rider's `in_progress` version also carries `driverPubkey`.
   names won't show unless we fetch their kind-0 metadata (we don't sync the global
   kind-0 firehose), so they appear as `shortNpub`. The logged-in user and demo
   users show names fine.
-- **No persistence**: reloading the page logs the user out and clears the local cache.
+- **Login persistence**: with "Remember me" (on by default) the key is saved encrypted
+  with the user's password (NIP-49); a reload shows the Unlock view. Never store the
+  key in clear. Logout removes the saved key. The event cache and the NWC wallet
+  connection are still in memory only (cleared on reload).
 - **Tailwind via CDN** → arbitrary/dynamic class strings work, but there is no
   build-time purge. Keep using `THEME` (theme.js) for gradients/bg colors.
 - Semantic colors: emerald=pickup, rose=dropoff, amber=driver/offers, cyan=primary/rider.
@@ -279,4 +284,5 @@ rider's `in_progress` version also carries `driverPubkey`.
 - One feature per folder; files stay under ~300 lines; each starts with a
   comment block explaining its purpose.
 - Don't introduce a state library, router, or CSS framework build step.
-- Don't commit secrets. `user.nsec`/`user.sk` are in-memory only.
+- Don't commit secrets. `user.nsec`/`user.sk` live in memory; on disk only as the
+  password-encrypted ncryptsec (keystore.js).

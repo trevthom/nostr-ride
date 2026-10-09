@@ -20,6 +20,7 @@ import { haversineDistance } from "../lib/geo.js";
 import { isRideExpired } from "../lib/rides.js";
 import { getProfile } from "../nostr/profiles.js";
 import { myVehicle } from "../lib/privacy.js";
+import { forgetKey } from "../nostr/keystore.js";
 import { DEFAULT_NOTIFY_RADIUS_MILES } from "../config/settings.js";
 import { getSetting, setSetting } from "../config/relays.js";
 
@@ -231,8 +232,10 @@ export function AppProvider({ children }) {
   const nearbyRequestCount = nearbyRequests.length;
 
   // Log out: clear the session and return to the login screen. The wallet
-  // must go too, or the next person on this device could spend from it.
+  // must go too, or the next person on this device could spend from it,
+  // and so does the saved (encrypted) key.
   const logout = useCallback(() => {
+    forgetKey();
     setUser(null);
     setActiveRide(null);
     setSelectedRequest(null);

@@ -379,6 +379,9 @@ export default function ProfileScreen() {
         >
           Log out
         </button>
+        <p className="text-white/50 text-[11px] text-center -mt-3">
+          Logging out also removes your saved key from this device. Make sure you have a copy of your nsec.
+        </p>
       </div>
 
       {lightbox && (
