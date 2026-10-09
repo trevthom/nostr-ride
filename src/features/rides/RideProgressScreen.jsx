@@ -133,21 +133,21 @@ export default function RideProgressScreen() {
           <p className="text-white/50 text-sm mb-6">Leave an optional review for your driver.</p>
           <div className="flex justify-center gap-2 mb-6">
             {[1, 2, 3, 4, 5].map((star) => (
-              <button key={star} onClick={() => setRating(star)} className={`text-3xl ${star <= rating ? "text-amber-400" : "text-white/20"}`}>★</button>
+              <button key={star} onClick={() => setRating(star)} aria-label={`${star} star${star > 1 ? "s" : ""}`} aria-pressed={star <= rating} className={`text-3xl ${star <= rating ? "text-amber-400" : "text-white/50"}`}>★</button>
             ))}
           </div>
-          <textarea
+          <textarea aria-label="Review"
             value={review}
             onChange={(e) => setReview(e.target.value)}
             placeholder={rating < 5 ? "Please explain (required under 5 stars)" : "How was the ride? (optional)"}
             rows={3}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-cyan-500/50 text-sm resize-none mb-2"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-cyan-500/50 text-sm resize-none mb-2"
           />
           {rating < 5 && !review.trim() && (
             <p className="text-amber-400/80 text-xs mb-3">An explanation is required for ratings under 5 stars.</p>
           )}
           <Button onClick={submitRating} disabled={rating < 5 && !review.trim()}>Submit Review</Button>
-          <button onClick={leave} className="w-full py-3 text-white/40 text-sm mt-2">Skip</button>
+          <button onClick={leave} className="w-full py-3 text-white/60 text-sm mt-2">Skip</button>
         </div>
       </div>
     );
@@ -165,7 +165,7 @@ export default function RideProgressScreen() {
             <div className="flex items-center gap-2 mb-2">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
               <p className="text-cyan-400 text-xs uppercase tracking-wider">Driver location (live)</p>
-              <span className="text-white/30 text-[10px] ml-auto">updated {new Date(driverLoc.ts).toLocaleTimeString()}</span>
+              <span className="text-white/50 text-[11px] ml-auto">updated {new Date(driverLoc.ts).toLocaleTimeString()}</span>
             </div>
             <MapView drivers={[{ pubkey: driverPubkey, lat: driverLoc.lat, lng: driverLoc.lng, name: "Driver" }]} height={200} />
           </div>
@@ -176,8 +176,8 @@ export default function RideProgressScreen() {
             <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
           </div>
           <p className="text-emerald-400 font-semibold">In Progress</p>
-          <p className="text-white/40 text-sm mt-1">{req.pickup.name} → {req.dropoff.name}</p>
-          <p className="text-white/30 text-xs mt-2">Your driver will mark the ride complete on arrival.</p>
+          <p className="text-white/60 text-sm mt-1">{req.pickup.name} → {req.dropoff.name}</p>
+          <p className="text-white/50 text-xs mt-2">Your driver will mark the ride complete on arrival.</p>
         </div>
 
         {driverPubkey && (
@@ -185,7 +185,7 @@ export default function RideProgressScreen() {
             onClick={() => openProfile(driverPubkey)}
             className="w-full text-left bg-white/5 rounded-xl border border-white/10 p-4 hover:border-cyan-500/30 transition-colors"
           >
-            <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Your Driver</p>
+            <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Your Driver</p>
             <div className="flex items-center gap-3">
               {driver?.picture ? (
                 <img src={driver.picture} alt={driver?.name || "Driver"} className="w-10 h-10 rounded-full object-cover" />
@@ -197,7 +197,7 @@ export default function RideProgressScreen() {
               <div>
                 <p className="text-white font-medium text-sm">{driver?.name || "Driver"}</p>
                 {driver?.vehicle && (driver.vehicle.make || driver.vehicle.model) && (
-                  <p className="text-white/40 text-xs">{[driver.vehicle.year, driver.vehicle.make, driver.vehicle.model].filter(Boolean).join(" ")}</p>
+                  <p className="text-white/60 text-xs">{[driver.vehicle.year, driver.vehicle.make, driver.vehicle.model].filter(Boolean).join(" ")}</p>
                 )}
                 {plate && (
                   <p className="text-white/50 text-[11px]">Plate: {plate.plateState} · {plate.plateNumber}</p>
@@ -217,10 +217,10 @@ export default function RideProgressScreen() {
       </div>
 
       {confirmCancel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,0.6)" }}>
+        <div role="dialog" aria-modal="true" aria-label="Cancel this ride?" className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,0.6)" }}>
           <div className="w-full max-w-xs rounded-2xl border border-white/10 p-5 text-center" style={{ background: "#0b1220" }}>
             <p className="text-white font-semibold mb-1">Cancel this ride?</p>
-            <p className="text-white/40 text-sm mb-4">Any upfront deposit you paid is non-refundable.</p>
+            <p className="text-white/60 text-sm mb-4">Any upfront deposit you paid is non-refundable.</p>
             <div className="flex gap-2">
               <button onClick={() => setConfirmCancel(false)} className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-white/10 text-white">Keep ride</button>
               <button onClick={() => { setConfirmCancel(false); handleCancel(); }} className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-rose-500/20 text-rose-400 border border-rose-500/30">Cancel ride</button>

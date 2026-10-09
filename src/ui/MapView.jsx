@@ -170,7 +170,7 @@ export default function MapView({ pickup, dropoff, waypoints, drivers, height = 
         style={{ height }}
         className="w-full rounded-xl border border-white/10 flex items-center justify-center bg-white/[0.02]"
       >
-        <p className="text-white/40 text-xs px-4 text-center">Map couldn't load in this browser.</p>
+        <p className="text-white/60 text-xs px-4 text-center">Map couldn't load in this browser.</p>
       </div>
     );
   }

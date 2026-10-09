@@ -49,15 +49,15 @@ export default function RelayEditor({ relays, onChange }) {
             </div>
           );
         })}
-        {relays.length === 0 && <p className="text-white/30 text-xs">No relays — add at least one.</p>}
+        {relays.length === 0 && <p className="text-white/50 text-xs">No relays — add at least one.</p>}
       </div>
       <div className="flex gap-2 mt-2">
-        <input
+        <input aria-label="New relay URL"
           value={newRelay}
           onChange={(e) => setNewRelay(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           placeholder="wss://relay.example.com"
-          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono placeholder-white/20 focus:outline-none focus:border-cyan-500/50"
+          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono placeholder-white/50 focus:outline-none focus:border-cyan-500/50"
         />
         <button
           onClick={add}

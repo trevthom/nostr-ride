@@ -122,7 +122,7 @@ export default function MyRidesScreen() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-white/80 text-sm"><SatsAmount sats={c.priceSats} /> · {c.etaMinutes}m ETA</p>
-                      {c.upfrontSats > 0 && <p className="text-white/30 text-xs">{c.upfrontSats} sats upfront</p>}
+                      {c.upfrontSats > 0 && <p className="text-white/50 text-xs">{c.upfrontSats} sats upfront</p>}
                     </div>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400">Pending</span>
                   </div>
@@ -146,8 +146,8 @@ export default function MyRidesScreen() {
 
         {nothing && (
           <div className="pt-16 text-center">
-            <p className="text-white/30 text-lg mb-2">No activity yet</p>
-            <p className="text-white/20 text-sm">Request a ride or offer one to get started.</p>
+            <p className="text-white/50 text-lg mb-2">No activity yet</p>
+            <p className="text-white/50 text-sm">Request a ride or offer one to get started.</p>
           </div>
         )}
       </div>
@@ -158,7 +158,7 @@ export default function MyRidesScreen() {
 function Section({ label, children }) {
   return (
     <div>
-      <p className="text-white/30 text-xs uppercase tracking-widest mb-2">{label}</p>
+      <p className="text-white/50 text-xs uppercase tracking-widest mb-2">{label}</p>
       {children}
     </div>
   );
@@ -185,11 +185,11 @@ function PastRow({ req, role }) {
     <div className="rounded-xl border border-white/10 p-4 mb-2 bg-white/[0.02]">
       <div className="flex items-center justify-between mb-1">
         <p className="text-white/70 text-sm">{c.pickup.name} → {c.dropoff.name}</p>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${completed ? "bg-emerald-500/15 text-emerald-400" : "bg-white/10 text-white/40"}`}>
+        <span className={`text-xs px-2 py-0.5 rounded-full ${completed ? "bg-emerald-500/15 text-emerald-400" : "bg-white/10 text-white/60"}`}>
           {completed ? "completed" : "cancelled"}
         </span>
       </div>
-      <p className="text-white/30 text-xs">
+      <p className="text-white/50 text-xs">
         {completed ? "Completed" : "Cancelled"} {fmtTime(endedAt)}
         {role === "driver" && completed ? " · you drove" : ""}
       </p>
@@ -197,8 +197,8 @@ function PastRow({ req, role }) {
       {rc && (
         <div className="mt-2 border-t border-white/10 pt-2">
           <p className="text-amber-400 text-xs">
-            {"★".repeat(rc.rating)}<span className="text-white/15">{"★".repeat(5 - rc.rating)}</span>
-            <span className="text-white/40 ml-2">your review</span>
+            {"★".repeat(rc.rating)}<span className="text-white/50">{"★".repeat(5 - rc.rating)}</span>
+            <span className="text-white/60 ml-2">your review</span>
           </p>
           {rc.review && <p className="text-white/50 text-xs mt-1">{rc.review}</p>}
         </div>
@@ -231,7 +231,7 @@ function RateRider({ req }) {
     setOpen(false);
   };
 
-  if (done) return <p className="text-white/30 text-xs mt-2">You rated this rider.</p>;
+  if (done) return <p className="text-white/50 text-xs mt-2">You rated this rider.</p>;
   if (!open)
     return (
       <button onClick={() => setOpen(true)} className="text-cyan-400 text-xs font-medium mt-2">
@@ -243,15 +243,15 @@ function RateRider({ req }) {
     <div className="mt-3 border-t border-white/10 pt-3">
       <div className="flex gap-1 mb-2">
         {[1, 2, 3, 4, 5].map((s) => (
-          <button key={s} onClick={() => setStars(s)} className={`text-xl ${s <= stars ? "text-amber-400" : "text-white/20"}`}>★</button>
+          <button key={s} onClick={() => setStars(s)} aria-label={`${s} star${s > 1 ? "s" : ""}`} aria-pressed={s <= stars} className={`text-xl ${s <= stars ? "text-amber-400" : "text-white/50"}`}>★</button>
         ))}
       </div>
-      <textarea
+      <textarea aria-label="Review"
         value={review}
         onChange={(e) => setReview(e.target.value)}
         placeholder={stars < 5 ? "Explain what went wrong (required)" : "How was the rider? (optional)"}
         rows={2}
-        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-cyan-500/50 resize-none mb-2"
+        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/50 focus:outline-none focus:border-cyan-500/50 resize-none mb-2"
       />
       {stars < 5 && !review.trim() && (
         <p className="text-amber-400/80 text-xs mb-2">An explanation is required for ratings under 5 stars.</p>
@@ -264,7 +264,7 @@ function RateRider({ req }) {
         >
           Submit
         </button>
-        <button onClick={() => setOpen(false)} className="px-3 py-1.5 rounded-lg text-xs text-white/40">Cancel</button>
+        <button onClick={() => setOpen(false)} className="px-3 py-1.5 rounded-lg text-xs text-white/60">Cancel</button>
       </div>
     </div>
   );

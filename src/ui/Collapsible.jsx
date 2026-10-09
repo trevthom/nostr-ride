@@ -12,13 +12,14 @@ export default function Collapsible({ title, count, defaultOpen = false, childre
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between text-white/40 text-xs uppercase tracking-widest mb-2"
+        aria-expanded={open}
+        className="w-full flex items-center justify-between text-white/60 text-xs uppercase tracking-widest mb-2"
       >
         <span>
           {title}
-          {typeof count === "number" && <span className="text-white/25 ml-1">({count})</span>}
+          {typeof count === "number" && <span className="text-white/50 ml-1">({count})</span>}
         </span>
-        <span>{open ? "▼" : "◀"}</span>
+        <span aria-hidden="true">{open ? "▼" : "◀"}</span>
       </button>
       {open && <div>{children}</div>}
     </div>

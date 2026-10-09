@@ -14,7 +14,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CURRENT_YEAR + 1 - 1900 + 1 }, (_, i) => CURRENT_YEAR + 1 - i); // newest first
 const OPT = { color: "#fff", background: "#0b1220" }; // legible dropdown options
 const FIELDS = ["picture", "plateState", "plateNumber", "year", "make", "model"];
-const inputCls = "min-w-0 bg-white/5 border border-white/10 rounded-lg py-2 text-white text-sm placeholder-white/40 focus:outline-none focus:border-cyan-500/50";
+const inputCls = "min-w-0 bg-white/5 border border-white/10 rounded-lg py-2 text-white text-sm placeholder-white/50 focus:outline-none focus:border-cyan-500/50";
 
 const formOf = (v) => Object.fromEntries(FIELDS.map((k) => [k, String(v?.[k] ?? "")]));
 

@@ -81,7 +81,7 @@ export default function RiderRequestScreen() {
           <>
             <MapView pickup={pickup} dropoff={dropoff} />
             <div className="bg-white/5 rounded-xl p-4 border border-white/10 flex justify-between text-sm">
-              <span className="text-white/40">Distance</span>
+              <span className="text-white/60">Distance</span>
               <span className="text-white font-medium">
                 {haversineDistance(pickup.lat, pickup.lng, dropoff.lat, dropoff.lng).toFixed(1)} mi
               </span>
@@ -90,7 +90,7 @@ export default function RiderRequestScreen() {
         )}
 
         <div>
-          <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">When</label>
+          <label className="text-xs text-white/60 uppercase tracking-wider mb-1 block">When</label>
           <div className="flex gap-2">
             {["ASAP", "Timed"].map((opt) => {
               const isTimed = time !== "ASAP";
@@ -111,7 +111,7 @@ export default function RiderRequestScreen() {
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     active
                       ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                      : "bg-white/5 text-white/40 border border-white/10"
+                      : "bg-white/5 text-white/60 border border-white/10"
                   }`}
                 >
                   {opt}
@@ -121,8 +121,8 @@ export default function RiderRequestScreen() {
           </div>
           {time !== "ASAP" && (
             <div className="mt-2">
-              <label className="text-xs text-white/40 mb-1 block">Pick-up time</label>
-              <input
+              <label className="text-xs text-white/60 mb-1 block">Pick-up time</label>
+              <input aria-label="Pick-up time"
                 type="datetime-local"
                 value={time}
                 min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
@@ -131,19 +131,19 @@ export default function RiderRequestScreen() {
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
                 style={{ colorScheme: "dark" }}
               />
-              <p className="text-white/30 text-[11px] mt-1">Up to 1 week ahead. Expires 1 hour after the pick-up time.</p>
+              <p className="text-white/50 text-[11px] mt-1">Up to 1 week ahead. Expires 1 hour after the pick-up time.</p>
             </div>
           )}
         </div>
 
         <div>
-          <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">Notes</label>
-          <textarea
+          <label className="text-xs text-white/60 uppercase tracking-wider mb-1 block">Notes</label>
+          <textarea aria-label="Notes for the driver"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Luggage, accessibility needs, etc."
             rows={2}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-cyan-500/50 text-sm resize-none"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-cyan-500/50 text-sm resize-none"
           />
         </div>
 

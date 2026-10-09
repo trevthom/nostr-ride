@@ -16,6 +16,14 @@ export default function UserModal() {
   const { profileModalPubkey, closeProfile } = useApp();
   const [zoom, setZoom] = useState(false);
 
+  // Escape closes the modal.
+  useEffect(() => {
+    if (!profileModalPubkey) return;
+    const onKey = (e) => { if (e.key === "Escape") closeProfile(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [profileModalPubkey, closeProfile]);
+
   useEffect(() => {
     if (profileModalPubkey) {
       relay.fetchProfile(profileModalPubkey);
@@ -34,6 +42,9 @@ export default function UserModal() {
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="User profile"
       className="fixed inset-0 flex items-center justify-center p-6"
       style={{ background: "rgba(0,0,0,0.7)", zIndex: 10040 }}
       onClick={closeProfile}
@@ -69,22 +80,22 @@ export default function UserModal() {
         {/* Always show both roles, even at zero. */}
         <div className="flex justify-center gap-6 mt-3 text-sm">
           <div>
-            <p className="text-white/40 text-[11px] uppercase tracking-wider">Rider</p>
+            <p className="text-white/60 text-[11px] uppercase tracking-wider">Rider</p>
             <p className="text-white/80">{rep.rides} Rides · {rep.riderReviews.count} Reviews</p>
             {rep.riderReviews.avg != null && <p className="text-amber-400 text-xs">★ {rep.riderReviews.avg.toFixed(1)}</p>}
           </div>
           <div>
-            <p className="text-white/40 text-[11px] uppercase tracking-wider">Driver</p>
+            <p className="text-white/60 text-[11px] uppercase tracking-wider">Driver</p>
             <p className="text-white/80">{rep.drives} Drives · {rep.driverReviews.count} Reviews</p>
             {rep.driverReviews.avg != null && <p className="text-amber-400 text-xs">★ {rep.driverReviews.avg.toFixed(1)}</p>}
           </div>
         </div>
 
-        <p className="text-white/40 text-[11px] font-mono break-all mt-4">{fullNpub(profileModalPubkey)}</p>
+        <p className="text-white/60 text-[11px] font-mono break-all mt-4">{fullNpub(profileModalPubkey)}</p>
 
         {veh && (veh.make || veh.model || veh.plateNumber || veh.picture) && (
           <div className="mt-4 border-t border-white/10 pt-4">
-            <p className="text-white/40 text-[11px] uppercase tracking-wider mb-2">Vehicle</p>
+            <p className="text-white/60 text-[11px] uppercase tracking-wider mb-2">Vehicle</p>
             {veh.picture && (
               <img src={veh.picture} alt="Vehicle" onClick={() => setZoom("veh")} className="w-full h-28 object-cover rounded-lg border border-white/10 mb-2 cursor-zoom-in" />
             )}
@@ -92,7 +103,7 @@ export default function UserModal() {
               <p className="text-white/80 text-sm">{[veh.year, veh.make, veh.model].filter(Boolean).join(" ")}</p>
             )}
             {veh.plateState && veh.plateNumber && (
-              <p className="text-white/40 text-xs mt-0.5">Plate: {veh.plateState} · {veh.plateNumber}</p>
+              <p className="text-white/60 text-xs mt-0.5">Plate: {veh.plateState} · {veh.plateNumber}</p>
             )}
           </div>
         )}

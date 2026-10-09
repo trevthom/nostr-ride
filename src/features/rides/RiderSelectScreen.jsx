@@ -45,16 +45,16 @@ export default function RiderSelectScreen() {
     <Screen title="Select a Driver" onBack={() => setView("my-rides")}>
       <div className="bg-white/5 rounded-xl p-4 border border-white/10 mb-4">
         <div className="text-sm text-white/80 mb-1">{req.pickup.name} → {req.dropoff.name}</div>
-        <div className="text-white/30 text-xs">{req.time === "ASAP" ? "ASAP" : new Date(req.time).toLocaleString()}</div>
+        <div className="text-white/50 text-xs">{req.time === "ASAP" ? "ASAP" : new Date(req.time).toLocaleString()}</div>
       </div>
 
-      <p className="text-white/30 text-xs uppercase tracking-widest mb-3">
+      <p className="text-white/50 text-xs uppercase tracking-widest mb-3">
         {offers.length} offer{offers.length !== 1 ? "s" : ""} received
       </p>
 
       {offers.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-white/30 text-sm">No offers yet. Waiting for drivers...</p>
+          <p className="text-white/50 text-sm">No offers yet. Waiting for drivers...</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -97,7 +97,7 @@ function OfferCard({ offer, onAccept }) {
         )}
         <div className="flex-1">
           <button onClick={() => openProfile(offer.pubkey)} className="text-white font-medium text-sm hover:text-cyan-400 text-left">{profile?.name || shortNpub(offer.pubkey)}</button>
-          <p className="text-white/30 text-xs">
+          <p className="text-white/50 text-xs">
             {profile?.vehicle && (profile.vehicle.make || profile.vehicle.model)
               ? [profile.vehicle.year, profile.vehicle.make, profile.vehicle.model].filter(Boolean).join(" ")
               : "Tap name for details"}
@@ -110,18 +110,18 @@ function OfferCard({ offer, onAccept }) {
       <div className="flex items-center justify-between">
         <div className="flex gap-4">
           <div>
-            <p className="text-white/30 text-xs">Price</p>
+            <p className="text-white/50 text-xs">Price</p>
             <p className="text-white font-semibold text-lg">
               {c.priceSats} <span className="text-xs text-amber-400">sats</span>
             </p>
-            <p className="text-white/30 text-[11px]">{priceUsd(c.priceSats, btcUsd)}</p>
+            <p className="text-white/50 text-[11px]">{priceUsd(c.priceSats, btcUsd)}</p>
             {c.upfrontSats > 0 && (
               <p className="text-amber-400/80 text-[11px] mt-0.5">
                 {c.upfrontSats} sats due now {priceUsd(c.upfrontSats, btcUsd) && `(${priceUsd(c.upfrontSats, btcUsd)})`}
               </p>
             )}
           </div>
-          <Stat label="ETA" value={c.etaMinutes} unit="min" unitColor="text-white/40" />
+          <Stat label="ETA" value={c.etaMinutes} unit="min" unitColor="text-white/60" />
         </div>
         <button
           onClick={onAccept}
@@ -133,7 +133,7 @@ function OfferCard({ offer, onAccept }) {
       </div>
 
       {profile?.comm?.length > 0 && (
-        <p className="text-white/20 text-xs">
+        <p className="text-white/50 text-xs">
           Contact: {profile.comm.map((m) => `${m.platform}: ${m.handle}`).join(", ")}
         </p>
       )}
@@ -144,7 +144,7 @@ function OfferCard({ offer, onAccept }) {
 function Stat({ label, value, unit, unitColor }) {
   return (
     <div>
-      <p className="text-white/30 text-xs">{label}</p>
+      <p className="text-white/50 text-xs">{label}</p>
       <p className="text-white font-semibold text-lg">
         {value} <span className={`text-xs ${unitColor}`}>{unit}</span>
       </p>

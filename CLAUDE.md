@@ -150,7 +150,7 @@ rider's `in_progress` version also carries `driverPubkey`.
   vehicle/photo come from their profile (kind 0) and show via the username modal /
   ride screens. All "No vehicle specified" wording removed.
 - **Notifications**: `pushNotice(msg)` (context) → swipe-away auto-dismiss banners
-  (`ui/NoticeBanner.jsx`, swipe up/left/right, 3s timeout) + a system Notification when
+  (`ui/NoticeBanner.jsx`, swipe up/left/right, 6s timeout) + a system Notification when
   the tab is hidden (permission requested on login). Wired for offer-received,
   offer-accepted, ride-complete, ride-cancel, and driver-vehicle-change (detected in
   RideProgress).

@@ -77,7 +77,7 @@ export default function DriverOfferScreen() {
         <div className="text-center">
           <div className="w-20 h-20 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4 text-4xl">🤝</div>
           <h2 className="text-white text-xl font-bold mb-2">Offer Sent</h2>
-          <p className="text-white/40 text-sm">The rider will see your offer on Nostr.</p>
+          <p className="text-white/60 text-sm">The rider will see your offer on Nostr.</p>
         </div>
       </div>
     );
@@ -88,7 +88,7 @@ export default function DriverOfferScreen() {
       <div className="space-y-5">
         <div className="bg-white/5 rounded-xl p-4 border border-white/10 space-y-2">
           <Route pickup={req.pickup.name} dropoff={req.dropoff.name} />
-          <div className="text-white/30 text-xs mt-1">
+          <div className="text-white/50 text-xs mt-1">
             {req.time === "ASAP" ? "ASAP" : new Date(req.time).toLocaleString()}
           </div>
         </div>
@@ -96,39 +96,39 @@ export default function DriverOfferScreen() {
         <MapView pickup={req.pickup} dropoff={req.dropoff} height={220} />
 
         <div>
-          <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">Price (sats ⚡)</label>
-          <input
+          <label className="text-xs text-white/60 uppercase tracking-wider mb-1 block">Price (sats ⚡)</label>
+          <input aria-label="Price in sats"
             type="number"
             value={price}
             onChange={(e) => { setPrice(e.target.value); setError(""); }}
             onKeyDown={(e) => { if (e.key === "Enter" && price) { e.preventDefault(); handleSubmit(); } }}
             placeholder="e.g. 5000"
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-amber-500/50"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-amber-500/50"
           />
-          {priceUsd != null && <p className="text-white/30 text-xs mt-1">≈ {formatUsd(priceUsd)}</p>}
+          {priceUsd != null && <p className="text-white/50 text-xs mt-1">≈ {formatUsd(priceUsd)}</p>}
         </div>
 
         <div>
-          <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">
+          <label className="text-xs text-white/60 uppercase tracking-wider mb-1 block">
             Upfront cost to reach you (sats ⚡)
           </label>
-          <input
+          <input aria-label="Upfront cost in sats"
             type="number"
             value={upfront}
             onChange={(e) => { setUpfront(e.target.value); setError(""); }}
             onKeyDown={(e) => { if (e.key === "Enter" && price) { e.preventDefault(); handleSubmit(); } }}
             placeholder="e.g. 1000"
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-amber-500/50"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-amber-500/50"
           />
-          {upfrontUsd != null && <p className="text-white/30 text-xs mt-1">≈ {formatUsd(upfrontUsd)}</p>}
-          <p className="text-white/30 text-xs mt-1 leading-relaxed">
+          {upfrontUsd != null && <p className="text-white/50 text-xs mt-1">≈ {formatUsd(upfrontUsd)}</p>}
+          <p className="text-white/50 text-xs mt-1 leading-relaxed">
             A non-refundable deposit the rider pays when they accept — it covers your drive to them
             (gas, time) if they cancel before pickup. The rest is paid for the ride itself.
           </p>
         </div>
 
         <div>
-          <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">ETA (minutes)</label>
+          <label className="text-xs text-white/60 uppercase tracking-wider mb-1 block">ETA (minutes)</label>
           <div className="flex gap-2">
             {["5", "10", "15", "20", "30"].map((m) => (
               <button
@@ -137,7 +137,7 @@ export default function DriverOfferScreen() {
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   eta === m
                     ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                    : "bg-white/5 text-white/40 border border-white/10"
+                    : "bg-white/5 text-white/60 border border-white/10"
                 }`}
               >
                 {m}m
@@ -146,7 +146,7 @@ export default function DriverOfferScreen() {
           </div>
         </div>
 
-        <p className="text-white/30 text-xs">
+        <p className="text-white/50 text-xs">
           Your vehicle (from your Account) is shown to the rider. Your plate is sent privately to this rider only.
           The pickup above is approximate; you get the exact address when the rider accepts.
         </p>

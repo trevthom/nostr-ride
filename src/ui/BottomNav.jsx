@@ -21,7 +21,8 @@ export default function BottomNav() {
   const badgeFor = (id) => (id === "driver-browse" ? nearbyRequestCount || 0 : 0);
 
   return (
-    <div
+    <nav
+      aria-label="Main"
       className="fixed bottom-0 left-0 right-0 z-50 flex justify-around py-2 px-1 border-t border-white/10 max-w-md mx-auto"
       style={{ background: THEME.headerBg, backdropFilter: "blur(12px)" }}
     >
@@ -32,22 +33,23 @@ export default function BottomNav() {
           <button
             key={item.id}
             onClick={() => setView(item.id)}
+            aria-current={view === item.id ? "page" : undefined}
             className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-all ${
-              view === item.id ? "text-cyan-400" : "text-white/30"
+              view === item.id ? "text-cyan-400" : "text-white/50"
             }`}
           >
             <span className="text-lg relative">
-              {item.icon}
+              <span aria-hidden="true">{item.icon}</span>
               {badge && (
-                <span className="absolute -top-1 -right-2 bg-rose-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                <span aria-label={`${badge} nearby requests`} className="absolute -top-1 -right-2 bg-rose-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
                   {badge}
                 </span>
               )}
             </span>
-            <span className="text-[10px]">{item.label}</span>
+            <span className="text-[11px]">{item.label}</span>
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 }

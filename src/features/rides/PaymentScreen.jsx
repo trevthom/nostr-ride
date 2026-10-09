@@ -137,7 +137,7 @@ export default function PaymentScreen() {
           <PayDriver amountSats={dueNow} address={driver?.lud16} memo="NostrRide upfront deposit" onPaid={finishPaid} />
         )}
 
-        <p className="text-white/40 text-xs mt-4 text-center">Peer-to-peer via Lightning. No escrow.</p>
+        <p className="text-white/60 text-xs mt-4 text-center">Peer-to-peer via Lightning. No escrow.</p>
       </div>
     </div>
   );

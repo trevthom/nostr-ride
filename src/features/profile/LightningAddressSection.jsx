@@ -38,14 +38,14 @@ export default function LightningAddressSection({ value, onSave }) {
       </div>
       <p className="text-white/50 text-xs">Riders pay you here. Most Lightning wallets give you one (name@domain).</p>
       <div className="flex gap-2">
-        <input
+        <input aria-label="Lightning address"
           value={draft}
           onChange={(e) => { setDraft(e.target.value); setStatus(""); }}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); save(); } }}
           placeholder="you@wallet.com"
           spellCheck={false}
           autoCapitalize="none"
-          className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/40 focus:outline-none focus:border-cyan-500/50"
+          className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/50 focus:outline-none focus:border-cyan-500/50"
         />
         <button
           onClick={save}

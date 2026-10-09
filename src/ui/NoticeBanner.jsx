@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════
 //  NOTICE BANNER — Transient banners pinned to the top. Each one auto-
-//  dismisses after 3s and can be swiped away (up / left / right).
+//  dismisses after 6s and can be swiped away (up / left / right).
 //  Rendered above everything (very high z-index).
 // ════════════════════════════════════════════════════════════
 
@@ -12,9 +12,9 @@ function Banner({ notice, onClose }) {
   const start = useRef(null);
   const closed = useRef(false);
 
-  // Auto-dismiss after 3 seconds.
+  // Auto-dismiss after 6 seconds (3 s was too short to read).
   useEffect(() => {
-    const t = setTimeout(() => onClose(notice.id), 3000);
+    const t = setTimeout(() => onClose(notice.id), 6000);
     return () => clearTimeout(t);
   }, [notice.id, onClose]);
 
@@ -57,7 +57,7 @@ function Banner({ notice, onClose }) {
       }}
     >
       <span className="text-sm font-medium flex-1">{notice.message}</span>
-      <button onClick={finish} className="text-[#04211c]/70 text-lg leading-none px-1">×</button>
+      <button onClick={finish} aria-label="Dismiss" className="text-[#04211c]/70 text-lg leading-none px-1">×</button>
     </div>
   );
 }
@@ -66,7 +66,7 @@ export default function NoticeBanner() {
   const { notices, dismissNotice } = useApp();
   if (!notices || notices.length === 0) return null;
   return (
-    <div className="fixed top-3 inset-x-0 z-[10050] flex flex-col gap-2 pointer-events-none">
+    <div role="status" aria-live="polite" className="fixed top-3 inset-x-0 z-[10050] flex flex-col gap-2 pointer-events-none">
       {notices.map((n) => (
         <Banner key={n.id} notice={n} onClose={dismissNotice} />
       ))}

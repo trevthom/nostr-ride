@@ -131,13 +131,13 @@ export default function DriverBrowseScreen() {
 
           {openRequests.length === 0 ? (
             <div className="pt-20 text-center">
-              <p className="text-white/30 text-lg mb-2">No ride requests yet</p>
-              <p className="text-white/20 text-sm">New requests appear here via Nostr subscriptions.</p>
+              <p className="text-white/50 text-lg mb-2">No ride requests yet</p>
+              <p className="text-white/50 text-sm">New requests appear here via Nostr subscriptions.</p>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                <span className="text-white/30 text-xs shrink-0">Sort:</span>
+                <span className="text-white/50 text-xs shrink-0">Sort:</span>
                 {SORTS.map((s) => (
                   <button
                     key={s.id}
@@ -145,7 +145,7 @@ export default function DriverBrowseScreen() {
                     className={`px-2.5 py-1 rounded-lg text-xs shrink-0 ${
                       sort === s.id
                         ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                        : "bg-white/5 text-white/40 border border-white/10"
+                        : "bg-white/5 text-white/60 border border-white/10"
                     }`}
                   >
                     {s.label}
@@ -191,13 +191,13 @@ function RequestCard({ req, isMine, onOffer }) {
               {profile?.name || shortNpub(req.pubkey)}
             </button>
             {/* Rider's reputation so the driver can judge the request */}
-            <p className="text-white/40 text-xs">
+            <p className="text-white/60 text-xs">
               🚗 {rep.rides} ride{rep.rides === 1 ? "" : "s"}
               {rep.riderReviews.count > 0
                 ? ` · ★ ${rep.riderReviews.avg.toFixed(1)} (${rep.riderReviews.count} review${rep.riderReviews.count === 1 ? "" : "s"})`
                 : " · no reviews yet"}
             </p>
-            <p className="text-white/30 text-xs">
+            <p className="text-white/50 text-xs">
               {c.time === "ASAP" ? "ASAP" : new Date(c.time).toLocaleString()}
             </p>
           </div>
@@ -214,7 +214,7 @@ function RequestCard({ req, isMine, onOffer }) {
         <div className="flex items-center gap-2 text-xs flex-wrap">
           <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
           <span className="text-white/60">{c.pickup.name}</span>
-          <span className="text-white/20">→</span>
+          <span className="text-white/50">→</span>
           <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
           <span className="text-white/60">{c.dropoff.name}</span>
         </div>
@@ -230,7 +230,7 @@ function RequestCard({ req, isMine, onOffer }) {
             </button>
           )}
         </div>
-        {c.notes && <p className="text-white/20 text-xs italic">"{c.notes}"</p>}
+        {c.notes && <p className="text-white/50 text-xs italic">"{c.notes}"</p>}
       </div>
     </div>
   );
@@ -243,13 +243,8 @@ function OnlineToggle({ online, onToggle, canGoOnline, geoError }) {
   const blocked = !online && !canGoOnline; // can't go online without a location fix
   return (
     <div
-      onClick={blocked ? undefined : onToggle}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (!blocked && (e.key === "Enter" || e.key === " ")) onToggle(); }}
       className="rounded-2xl border p-4 mb-4 flex items-center gap-3"
       style={{
-        cursor: blocked ? "default" : "pointer",
         background: online
           ? "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.06))"
           : "rgba(255,255,255,0.02)",
@@ -258,12 +253,12 @@ function OnlineToggle({ online, onToggle, canGoOnline, geoError }) {
     >
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <span className={`w-2.5 h-2.5 rounded-full ${online ? "bg-emerald-400 animate-pulse" : "bg-white/20"}`} />
+          <span aria-hidden="true" className={`w-2.5 h-2.5 rounded-full ${online ? "bg-emerald-400 animate-pulse" : "bg-white/20"}`} />
           <p className="text-white font-semibold text-sm">
             {online ? "You're online" : "You're offline"}
           </p>
         </div>
-        <p className="text-white/40 text-xs mt-0.5">
+        <p className="text-white/60 text-xs mt-0.5">
           {online
             ? "Your vehicle is visible to nearby riders."
             : geoError
@@ -278,7 +273,7 @@ function OnlineToggle({ online, onToggle, canGoOnline, geoError }) {
           size and is tappable even before/without Tailwind. */}
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); if (!blocked) onToggle(); }}
+        onClick={() => { if (!blocked) onToggle(); }}
         disabled={blocked}
         aria-pressed={online}
         style={{
@@ -306,8 +301,8 @@ function LiveDrivers({ drivers, otherCount, online, myPosition, geoError }) {
   return (
     <div className="mb-5">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-white/40 text-xs uppercase tracking-wider">Nearby Drivers</p>
-        <span className="text-white/30 text-xs">
+        <p className="text-white/60 text-xs uppercase tracking-wider">Nearby Drivers</p>
+        <span className="text-white/50 text-xs">
           {otherCount === 0 ? "none online" : `${otherCount} online`}
         </span>
       </div>
@@ -321,7 +316,7 @@ function LiveDrivers({ drivers, otherCount, online, myPosition, geoError }) {
         </p>
       )}
       {online && !myPosition && !geoError && (
-        <p className="text-white/40 text-xs mt-2">Getting your location…</p>
+        <p className="text-white/60 text-xs mt-2">Getting your location…</p>
       )}
       {online && myPosition && (
         <p className="text-emerald-400/80 text-xs mt-2">
@@ -329,7 +324,7 @@ function LiveDrivers({ drivers, otherCount, online, myPosition, geoError }) {
         </p>
       )}
       {!online && (
-        <p className="text-white/30 text-xs mt-2">
+        <p className="text-white/50 text-xs mt-2">
           Go online to share your location and appear here for riders.
         </p>
       )}

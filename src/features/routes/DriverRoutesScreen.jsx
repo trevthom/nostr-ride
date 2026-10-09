@@ -40,19 +40,19 @@ export default function DriverRoutesScreen() {
     <Screen title="My Routes">
       <div className="space-y-5">
         <div>
-          <p className="text-white/30 text-xs uppercase tracking-widest mb-2">Add New Route</p>
+          <p className="text-white/50 text-xs uppercase tracking-widest mb-2">Add New Route</p>
 
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Route name"
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-cyan-500/50 text-sm mb-3"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-cyan-500/50 text-sm mb-3"
           />
           <input
             value={schedule}
             onChange={(e) => setSchedule(e.target.value)}
             placeholder="Schedule (e.g. weekdays 8am-9am)"
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-cyan-500/50 text-sm mb-3"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-cyan-500/50 text-sm mb-3"
           />
 
           <div className="mb-3">
@@ -67,16 +67,16 @@ export default function DriverRoutesScreen() {
 
           {waypoints.length > 0 && (
             <div className="bg-white/5 rounded-xl p-3 border border-white/10 mb-3">
-              <p className="text-white/30 text-xs mb-1">Waypoints ({waypoints.length}):</p>
+              <p className="text-white/50 text-xs mb-1">Waypoints ({waypoints.length}):</p>
               {waypoints.map((w, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-white/60 py-0.5">
-                  <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[10px]">
+                  <span className="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[11px]">
                     {i + 1}
                   </span>
                   <span className="flex-1 truncate">{w.name}</span>
                   <button
                     onClick={() => setWaypoints(waypoints.filter((_, j) => j !== i))}
-                    className="text-rose-400/60 text-xs shrink-0"
+                    className="text-rose-400/90 text-xs shrink-0"
                   >
                     ✕
                   </button>
@@ -96,13 +96,13 @@ export default function DriverRoutesScreen() {
 
         {myRoutes.length > 0 && (
           <div>
-            <p className="text-white/30 text-xs uppercase tracking-widest mb-2">Saved Routes</p>
+            <p className="text-white/50 text-xs uppercase tracking-widest mb-2">Saved Routes</p>
             {myRoutes.map((r) => {
               const c = JSON.parse(r.content);
               return (
                 <div key={r.id} className="rounded-xl border border-white/10 p-4 mb-2 bg-white/[0.02]">
                   <p className="text-white font-medium text-sm">{c.name}</p>
-                  <p className="text-white/30 text-xs">{c.waypoints.length} waypoints · {c.schedule}</p>
+                  <p className="text-white/50 text-xs">{c.waypoints.length} waypoints · {c.schedule}</p>
                 </div>
               );
             })}

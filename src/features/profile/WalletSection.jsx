@@ -80,19 +80,19 @@ export default function WalletSection() {
   if (!wallet.connected) {
     return (
       <div>
-        <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Lightning Wallet</p>
+        <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Lightning Wallet</p>
         <div className="bg-white/5 rounded-xl border border-white/10 p-4">
           <p className="text-white/50 text-xs mb-3">
             Paste your Nostr Wallet Connect string to pay and get paid in sats. We read your real
             balance directly from your wallet.
           </p>
-          <input
+          <input aria-label="Nostr Wallet Connect string"
             value={uri}
             onChange={(e) => setUri(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && uri && !connecting) { e.preventDefault(); handleConnect(); } }}
             placeholder="nostr+walletconnect://..."
             spellCheck={false}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono placeholder-white/20 focus:outline-none focus:border-cyan-500/50 mb-2"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono placeholder-white/50 focus:outline-none focus:border-cyan-500/50 mb-2"
           />
           {error && <p className="text-rose-400 text-xs mb-2">{error}</p>}
           <button
@@ -112,10 +112,10 @@ export default function WalletSection() {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-white/40 text-xs uppercase tracking-wider">Lightning Wallet</p>
+        <p className="text-white/60 text-xs uppercase tracking-wider">Lightning Wallet</p>
         <div className="flex gap-3">
           <button onClick={refresh} className="text-cyan-400 text-xs">Refresh</button>
-          <button onClick={disconnect} className="text-rose-400/60 text-xs">Disconnect</button>
+          <button onClick={disconnect} className="text-rose-400/90 text-xs">Disconnect</button>
         </div>
       </div>
 
@@ -123,9 +123,9 @@ export default function WalletSection() {
         className="rounded-2xl border border-amber-500/20 p-5 mb-3"
         style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.10), rgba(249,115,22,0.05))" }}
       >
-        <p className="text-white/40 text-xs">Balance</p>
+        <p className="text-white/60 text-xs">Balance</p>
         {loading && balance === null ? (
-          <p className="text-white/40 text-lg">Loading…</p>
+          <p className="text-white/60 text-lg">Loading…</p>
         ) : loadError ? (
           <p className="text-rose-400 text-sm">{loadError}</p>
         ) : (
@@ -134,7 +134,7 @@ export default function WalletSection() {
           </p>
         )}
         {balance != null && btcUsd && (
-          <p className="text-white/40 text-sm mt-0.5">≈ ${(balance * 1e-8 * btcUsd).toFixed(2)}</p>
+          <p className="text-white/60 text-sm mt-0.5">≈ ${(balance * 1e-8 * btcUsd).toFixed(2)}</p>
         )}
         <div className="flex gap-2 mt-4">
           <ActionBtn onClick={() => setPanel(panel === "send" ? null : "send")} active={panel === "send"}>↑ Send</ActionBtn>
@@ -145,17 +145,17 @@ export default function WalletSection() {
       {panel === "send" && <SendPanel wallet={wallet} onSent={() => { setPanel(null); refresh(); }} />}
       {panel === "receive" && <ReceivePanel wallet={wallet} onSettled={refresh} />}
 
-      <p className="text-white/30 text-xs uppercase tracking-widest mt-4 mb-2">Transactions</p>
+      <p className="text-white/50 text-xs uppercase tracking-widest mt-4 mb-2">Transactions</p>
       <div className="space-y-2">
-        {loading && <p className="text-white/30 text-xs">Loading…</p>}
+        {loading && <p className="text-white/50 text-xs">Loading…</p>}
         {!loading && txns.length === 0 && (
-          <p className="text-white/30 text-xs">No transactions yet.</p>
+          <p className="text-white/50 text-xs">No transactions yet.</p>
         )}
         {txns.map((tx) => (
           <div key={tx.id} className="flex items-center justify-between bg-white/[0.02] border border-white/10 rounded-lg px-3 py-2">
             <div>
               <p className="text-white/80 text-sm">{tx.memo}</p>
-              <p className="text-white/30 text-[10px]">{tx.ts ? new Date(tx.ts).toLocaleString() : ""}</p>
+              <p className="text-white/50 text-[11px]">{tx.ts ? new Date(tx.ts).toLocaleString() : ""}</p>
             </div>
             <span className={`text-sm font-medium ${tx.type === "received" ? "text-emerald-400" : "text-rose-400"}`}>
               {tx.type === "received" ? "+" : "−"}{tx.amountSats.toLocaleString()}
@@ -207,12 +207,12 @@ function SendPanel({ wallet, onSent }) {
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-1 space-y-2">
-      <input
+      <input aria-label="Lightning invoice to pay"
         value={invoice}
         onChange={(e) => setInvoice(e.target.value)}
         placeholder="Paste a Lightning invoice (lnbc...)"
         spellCheck={false}
-        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono placeholder-white/20 focus:outline-none focus:border-cyan-500/50"
+        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono placeholder-white/50 focus:outline-none focus:border-cyan-500/50"
       />
       {status && status !== "sending" && <p className="text-rose-400 text-xs">{status}</p>}
       <button
@@ -223,7 +223,7 @@ function SendPanel({ wallet, onSent }) {
       >
         {status === "sending" ? "Paying…" : "Pay Invoice"}
       </button>
-      <p className="text-white/20 text-[10px]">Tip: in a live build, the camera scans a QR to fill this in.</p>
+      <p className="text-white/50 text-[11px]">Tip: in a live build, the camera scans a QR to fill this in.</p>
     </div>
   );
 }
@@ -251,18 +251,18 @@ function ReceivePanel({ wallet, onSettled }) {
     <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-1 space-y-2">
       {!invoice ? (
         <>
-          <input
+          <input aria-label="Amount in sats"
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="Amount (sats)"
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-cyan-500/50"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/50 focus:outline-none focus:border-cyan-500/50"
           />
-          <input
+          <input aria-label="Memo"
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             placeholder="Memo (optional)"
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-cyan-500/50"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/50 focus:outline-none focus:border-cyan-500/50"
           />
           {status && status !== "creating" && <p className="text-rose-400 text-xs">{status}</p>}
           <button
@@ -279,7 +279,7 @@ function ReceivePanel({ wallet, onSettled }) {
           <div className="flex justify-center mb-3">
             <QRCode value={invoice} size={170} />
           </div>
-          <p className="text-white/60 text-[10px] font-mono break-all bg-white/5 rounded-lg p-2">{invoice}</p>
+          <p className="text-white/60 text-[11px] font-mono break-all bg-white/5 rounded-lg p-2">{invoice}</p>
           <button onClick={() => navigator.clipboard?.writeText(invoice)} className="text-cyan-400 text-xs mt-2">
             Copy invoice
           </button>

@@ -17,7 +17,7 @@ export function formatUsd(usd) {
 }
 
 // Inline sats + (~$USD). `className` styles the sats text.
-export default function SatsAmount({ sats, className = "", usdClassName = "text-white/40" }) {
+export default function SatsAmount({ sats, className = "", usdClassName = "text-white/60" }) {
   const { btcUsd } = useApp();
   const usd = satsToUsd(sats, btcUsd);
   return (

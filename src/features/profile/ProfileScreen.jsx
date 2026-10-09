@@ -117,7 +117,7 @@ export default function ProfileScreen() {
               </div>
             )}
             {!user.picture && (
-              <span className="absolute -bottom-1 -right-1 text-[10px] bg-amber-500/90 text-black px-1.5 py-0.5 rounded-full font-semibold">
+              <span className="absolute -bottom-1 -right-1 text-[11px] bg-amber-500/90 text-black px-1.5 py-0.5 rounded-full font-semibold">
                 Required
               </span>
             )}
@@ -128,12 +128,12 @@ export default function ProfileScreen() {
             </button>
             {user.picture && <button onClick={removeFace} className="text-rose-400/80 text-[11px]">Remove</button>}
           </div>
-          <p className="text-white/30 text-[11px] mb-2">📷 A face photo is required to drive</p>
+          <p className="text-white/50 text-[11px] mb-2">📷 A face photo is required to drive</p>
 
           {/* Name with pencil edit */}
           {editingName ? (
             <div className="flex gap-2 justify-center items-center mt-1">
-              <input
+              <input aria-label="Display name"
                 value={nameDraft}
                 onChange={(e) => setNameDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveName(); } if (e.key === "Escape") setEditingName(false); }}
@@ -141,23 +141,23 @@ export default function ProfileScreen() {
                 className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-cyan-500/50"
               />
               <button onClick={saveName} className="text-cyan-400 text-sm font-medium">Save</button>
-              <button onClick={() => { setNameDraft(user.name); setEditingName(false); }} className="text-white/40 text-sm">Cancel</button>
+              <button onClick={() => { setNameDraft(user.name); setEditingName(false); }} className="text-white/60 text-sm">Cancel</button>
             </div>
           ) : (
             <div className="flex items-center justify-center gap-2">
               <h3 className="text-white font-bold text-lg">{user.name}</h3>
-              <button onClick={() => { setNameDraft(user.name); setEditingName(true); }} aria-label="Edit name" className="text-white/40 hover:text-cyan-400 text-sm">✏️</button>
+              <button onClick={() => { setNameDraft(user.name); setEditingName(true); }} aria-label="Edit name" className="text-white/60 hover:text-cyan-400 text-sm">✏️</button>
             </div>
           )}
 
           <div className="flex justify-center gap-8 mt-3">
             <div className="text-center">
-              <p className="text-white/40 text-[11px] uppercase tracking-wider">As Rider</p>
+              <p className="text-white/60 text-[11px] uppercase tracking-wider">As Rider</p>
               <p className="text-white/80 text-sm mt-0.5">{rep.rides} Rides · {rep.riderReviews.count} Reviews</p>
               {rep.riderReviews.avg != null && <p className="text-amber-400 text-xs">★ {rep.riderReviews.avg.toFixed(1)}</p>}
             </div>
             <div className="text-center">
-              <p className="text-white/40 text-[11px] uppercase tracking-wider">As Driver</p>
+              <p className="text-white/60 text-[11px] uppercase tracking-wider">As Driver</p>
               <p className="text-white/80 text-sm mt-0.5">{rep.drives} Drives · {rep.driverReviews.count} Reviews</p>
               {rep.driverReviews.avg != null && <p className="text-amber-400 text-xs">★ {rep.driverReviews.avg.toFixed(1)}</p>}
             </div>
@@ -173,7 +173,7 @@ export default function ProfileScreen() {
 
         {/* Contact methods — add as many as you like */}
         <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-3">
-          <p className="text-white/40 text-xs uppercase tracking-wider">Contact Methods</p>
+          <p className="text-white/60 text-xs uppercase tracking-wider">Contact Methods</p>
           {comm.length > 0 && (
             <div className="space-y-2">
               {comm.map((c, i) => (
@@ -187,18 +187,19 @@ export default function ProfileScreen() {
           <div className="flex gap-2">
             <select
               value={draftPlatform}
+              aria-label="Contact platform"
               onChange={(e) => setDraftPlatform(e.target.value)}
               className="min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
               style={{ backgroundColor: "#0b1220", color: "#fff" }}
             >
               {CONTACT_PLATFORMS.map((p) => <option key={p} value={p} style={OPT}>{p}</option>)}
             </select>
-            <input
+            <input aria-label="Contact handle or number"
               value={draftHandle}
               onChange={(e) => setDraftHandle(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addContact(); } }}
               placeholder="Handle or number"
-              className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-cyan-500/50"
+              className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/50 focus:outline-none focus:border-cyan-500/50"
             />
             <button
               onClick={addContact}
@@ -218,7 +219,7 @@ export default function ProfileScreen() {
           <div className="flex items-center justify-between">
             <div className="flex-1 pr-3">
               <p className="text-white/80 text-sm font-medium">Notify me of nearby ride requests</p>
-              <p className="text-white/40 text-xs mt-0.5">
+              <p className="text-white/60 text-xs mt-0.5">
                 Shows a badge on the Drive tab when a request is placed near you.
               </p>
             </div>
@@ -244,7 +245,7 @@ export default function ProfileScreen() {
           {notifyNearby && (
             <div className="mt-3 flex items-center gap-3">
               <span className="text-white/50 text-xs">Within</span>
-              <input
+              <input aria-label="Notify radius in miles"
                 type="number"
                 min="1"
                 value={notifyRadius}
@@ -258,7 +259,7 @@ export default function ProfileScreen() {
 
         {/* Relay list (saved to this browser) */}
         <div>
-          <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Nostr Relays</p>
+          <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Nostr Relays</p>
           <RelayEditor relays={relays} onChange={setRelays} />
         </div>
 

@@ -24,7 +24,7 @@ import RelayEditor from "../../ui/RelayEditor.jsx";
 import { UnlockView, BackupStep } from "./AuthSteps.jsx";
 
 const inputCls =
-  "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-cyan-500/50";
+  "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-cyan-500/50";
 
 // Let React paint a "busy" label before slow, blocking work (scrypt).
 const nextFrame = () => new Promise((r) => setTimeout(r, 30));

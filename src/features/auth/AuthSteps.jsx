@@ -10,7 +10,7 @@ import { shortNpub } from "../../nostr/keys.js";
 import Button from "../../ui/Button.jsx";
 
 const inputCls =
-  "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-cyan-500/50";
+  "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-cyan-500/50";
 
 export function UnlockView({ saved, busy, error, onUnlock, onSwitch }) {
   const [password, setPassword] = useState("");
