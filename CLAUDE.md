@@ -43,7 +43,7 @@ src/
     profiles.js           # getProfile(pubkey) -> {name, comm, picture, vehicle} (sanitized); getMetadata(pubkey) -> raw newest kind-0 (merge base for writes)
     wallet.js             # REAL NIP-47 client: parseNwcUri, getBalance, listTransactions, payInvoice, makeInvoice (talks to the user's wallet over their relay)
     live.js               # REAL relays (SimplePool) for live location: publishPresence/subscribePresence (public, coarsened, addressable kind 30090 + expiration) + publishRideLocation/subscribeRideLocation (NIP-44 encrypted to the matched rider, ephemeral kind 21100).
-    demoData.js           # seed users/requests/route (gated by USE_DEMO_DATA)
+    demoData.js           # seed users/requests (USE_DEMO_DATA = dev builds only); demo requests carry ["demo","1"]
   lib/
     geo.js                # haversineDistance, isNearRoute
     geocode.js            # searchAddress(query, {near}) -> [{name,fullName,area,lat,lng}] via Photon (OSM; built for type-ahead — Nominatim forbids it)
@@ -82,6 +82,7 @@ src/
     profile/WalletSection.jsx     # NWC connect, balance, history, send/receive
     profile/KeysSection.jsx       # npub + nsec (hidden by default)
     profile/LightningAddressSection.jsx # edit + verify the user's lud16
+    profile/VehicleSection.jsx    # vehicle form; follows the SAVED vehicle until edited (no overwrite by a late profile load)
 ```
 
 ## Nostr event kinds (`src/nostr/eventKinds.js`)
@@ -127,7 +128,9 @@ rider's `in_progress` version also carries `driverPubkey`.
   resurface. Cancelling a request re-publishes it with `status:"cancelled"`.
 - **Publishing**: user actions go through `useApp().publish(kind, content, tags)`,
   which signs with `user.sk` (`buildSignedEvent`) and sends to relays + cache.
-  Demo data uses `relay.publishLocal` (cache only) so it never spams public relays.
+  Demo data uses `relay.publishLocal` (cache only) so it never spams public relays,
+  and replies to a demo request use `publish(..., { localOnly: true })`. `publish`
+  resolves to the number of relays that accepted the event.
   Don't go back to `relay.publish(createNostrEvent(...))` for user actions — real
   relays reject unsigned events.
 - **Addressable kinds need unique `d` tags**: kinds 30000–39999 are replaceable by
@@ -194,6 +197,9 @@ rider's `in_progress` version also carries `driverPubkey`.
   `"#t":[APP_TAG]`; and `relay._ingest` rejects any relay event lacking the tag or
   with non-JSON content. Our own writes go through `_store` (trusted). Don't remove
   the tag from `publish()`/live.js or screens will ingest junk and crash on parse.
+- **Relay status**: `relay.relayState(url)` → connected | failed | connecting. The pool
+  forgets relays that fail, so relay.js probes them (every 15 s at most); RelayEditor
+  shows the real state.
 - **Relays are user-editable + persisted**: the list lives in `config/relays.js`
   (localStorage), edited via `RelayEditor` in both the login screen (collapsed)
   and Account. `relay.js` and `live.js` read `getRelays()` and re-subscribe on

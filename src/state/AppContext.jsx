@@ -148,14 +148,21 @@ export function AppProvider({ children }) {
 
   // Publish a REAL signed event authored by the logged-in user, to the
   // local cache + the real relays. This is how every user action is sent.
+  // Resolves to how many relays accepted it. `localOnly` keeps it in the
+  // cache (replies to demo data must not reach public relays).
   const publish = useCallback(
-    (kind, content, tags) => {
-      if (!user?.sk) return;
+    (kind, content, tags, { localOnly = false } = {}) => {
+      if (!user?.sk) return Promise.resolve(0);
       // Tag every event so other devices can tell our events apart from
       // unrelated apps that reuse the same kind numbers on public relays.
       // (Re-published requests copy their old tags, so drop the old one.)
       const tagged = [...tags.filter((t) => !(t[0] === "t" && t[1] === APP_TAG)), ["t", APP_TAG]];
-      relay.publish(buildSignedEvent(kind, content, tagged, user.sk));
+      const event = buildSignedEvent(kind, content, tagged, user.sk);
+      if (localOnly) {
+        relay.publishLocal(event);
+        return Promise.resolve(0);
+      }
+      return relay.publish(event);
     },
     [user]
   );

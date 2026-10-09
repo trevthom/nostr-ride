@@ -21,10 +21,8 @@ import RelayEditor from "../../ui/RelayEditor.jsx";
 import WalletSection from "./WalletSection.jsx";
 import KeysSection from "./KeysSection.jsx";
 import LightningAddressSection from "./LightningAddressSection.jsx";
+import VehicleSection from "./VehicleSection.jsx";
 
-const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
-const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: CURRENT_YEAR + 1 - 1900 + 1 }, (_, i) => CURRENT_YEAR + 1 - i); // newest first
 const OPT = { color: "#fff", background: "#0b1220" }; // legible dropdown options
 
 export default function ProfileScreen() {
@@ -40,16 +38,6 @@ export default function ProfileScreen() {
   const [draftPlatform, setDraftPlatform] = useState(CONTACT_PLATFORMS[0]);
   const [draftHandle, setDraftHandle] = useState("");
 
-  const v = user.vehicle || {};
-  const [veh, setVeh] = useState({
-    picture: v.picture || "",
-    plateState: v.plateState || "",
-    plateNumber: v.plateNumber || "",
-    year: v.year || "",
-    make: v.make || "",
-    model: v.model || "",
-  });
-  const [savedVeh, setSavedVeh] = useState(false);
   const [imgErr, setImgErr] = useState("");
 
   // Merge a patch into the user and republish the full profile (kind 0)
@@ -105,31 +93,9 @@ export default function ProfileScreen() {
     }
   };
 
-  // Vehicle photo (optional).
-  const onVehiclePick = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImgErr("");
-    try {
-      const dataUrl = await resizeImage(file, 300, 0.55);
-      setVeh((s) => ({ ...s, picture: dataUrl }));
-    } catch {
-      setImgErr("Couldn't process that image.");
-    }
-  };
-
-  const saveVehicle = () => {
-    saveProfile({ vehicle: { ...veh } });
-    setSavedVeh(true);
-    setTimeout(() => setSavedVeh(false), 1500);
-  };
-
-  // Removing a required value (face photo or vehicle detail) revokes
-  // driving until it's re-added (isDriveReady recomputes from these).
+  // Removing the face photo revokes driving until it's re-added
+  // (isDriveReady recomputes from the saved profile).
   const removeFace = () => saveProfile({ picture: "" });
-  const removeVehiclePhoto = () => setVeh((s) => ({ ...s, picture: "" }));
-
-  const driveReady = isDriveReady({ ...user, vehicle: veh });
 
   return (
     <Screen title="Account">
@@ -200,82 +166,8 @@ export default function ProfileScreen() {
         </div>
 
         {/* Vehicle & license — required to use the Drive tab */}
-        <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-white/40 text-xs uppercase tracking-wider">Vehicle &amp; License</p>
-            <span className={`text-[11px] px-2 py-0.5 rounded-full ${driveReady ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"}`}>
-              {driveReady ? "Ready to drive" : "Required to drive"}
-            </span>
-          </div>
+        <VehicleSection vehicle={user.vehicle} ready={isDriveReady(user)} onSave={(vehicle) => saveProfile({ vehicle })} />
 
-          <label className="cursor-pointer block">
-            <input type="file" accept="image/*" onChange={onVehiclePick} className="hidden" />
-            {veh.picture ? (
-              <img src={veh.picture} alt="Vehicle" className="w-full h-32 object-cover rounded-lg border border-white/10" />
-            ) : (
-              <div className="w-full h-20 rounded-lg border border-dashed border-white/15 flex items-center justify-center text-white/40 text-sm">
-                + Add vehicle photo (optional)
-              </div>
-            )}
-          </label>
-          {veh.picture && (
-            <button onClick={removeVehiclePhoto} className="text-rose-400/80 text-[11px] -mt-1">Remove vehicle photo</button>
-          )}
-
-          {/* Line 1: State · Plate number · Year */}
-          <div className="flex gap-2">
-            <select
-              value={veh.plateState}
-              onChange={(e) => setVeh((s) => ({ ...s, plateState: e.target.value }))}
-              className="w-20 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
-              style={{ backgroundColor: "#0b1220", color: "#fff" }}
-            >
-              <option value="" style={OPT}>State</option>
-              {US_STATES.map((s) => <option key={s} value={s} style={OPT}>{s}</option>)}
-            </select>
-            <input
-              value={veh.plateNumber}
-              onChange={(e) => setVeh((s) => ({ ...s, plateNumber: e.target.value.toUpperCase() }))}
-              placeholder="Plate #"
-              className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
-            />
-            <select
-              value={veh.year}
-              onChange={(e) => setVeh((s) => ({ ...s, year: e.target.value }))}
-              className="w-24 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
-              style={{ backgroundColor: "#0b1220", color: "#fff" }}
-            >
-              <option value="" style={OPT}>Year</option>
-              {YEARS.map((y) => <option key={y} value={y} style={OPT}>{y}</option>)}
-            </select>
-          </div>
-
-          {/* Line 2: Make · Model (roomier) */}
-          <div className="flex gap-2">
-            <input
-              value={veh.make}
-              onChange={(e) => setVeh((s) => ({ ...s, make: e.target.value }))}
-              placeholder="Make"
-              className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
-            />
-            <input
-              value={veh.model}
-              onChange={(e) => setVeh((s) => ({ ...s, model: e.target.value }))}
-              placeholder="Model"
-              className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
-            />
-          </div>
-          <button
-            onClick={saveVehicle}
-            className="w-full py-2.5 rounded-lg text-sm font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30"
-          >
-            {savedVeh ? "Saved" : "Save vehicle info"}
-          </button>
-          <p className="text-white/30 text-[11px]">
-            Your face photo and vehicle are public so riders know who's picking them up. Your plate
-            stays private: only riders you make an offer to can see it. Removing any required item turns off driving until it's added back.
-          </p>
-        </div>
         {/* Lightning address — where riders pay this user (required to drive) */}
         <LightningAddressSection value={user.lud16 || ""} onSave={(lud16) => saveProfile({ lud16 })} />
 

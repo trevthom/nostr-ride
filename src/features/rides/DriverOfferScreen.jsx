@@ -62,7 +62,9 @@ export default function DriverOfferScreen() {
         // don't overwrite each other on real relays:
         ["d", "offer-" + selectedRequest.id],
         ["t", "ride-offer"],
-      ]
+      ],
+      // Demo requests are local-only, so the offer must be too.
+      { localOnly: selectedRequest.tags.some((t) => t[0] === "demo") }
     );
     refreshData();
     setSubmitted(true);

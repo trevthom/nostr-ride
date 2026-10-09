@@ -1,6 +1,8 @@
 // ════════════════════════════════════════════════════════════
 //  DEMO DATA — Optional fake data so the app isn't empty on first
 //  run. Toggle it on/off with USE_DEMO_DATA in config/settings.js.
+//  Demo requests carry a ["demo","1"] tag; replies to them (offers)
+//  stay in the local cache and never go to the public relays.
 // ════════════════════════════════════════════════════════════
 
 import { relay } from "./relay.js";
@@ -45,7 +47,7 @@ export function seedDemoData() {
         notes: "Have one small suitcase",
         status: "requested",
       },
-      [["d", "ride-demo-1"], ["t", "ride-request"]],
+      [["d", "ride-demo-1"], ["t", "ride-request"], ["demo", "1"]],
       DEMO_USERS[0].publicKey
     )
   );
@@ -60,7 +62,7 @@ export function seedDemoData() {
         notes: "",
         status: "requested",
       },
-      [["d", "ride-demo-2"], ["t", "ride-request"]],
+      [["d", "ride-demo-2"], ["t", "ride-request"], ["demo", "1"]],
       DEMO_USERS[1].publicKey
     )
   );

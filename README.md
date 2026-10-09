@@ -26,7 +26,8 @@ npm run dev                # start the app
 Open the `http://localhost:5173/` address it prints. To stop it: `Ctrl + C`.
 
 > **Needs internet** for styling (Tailwind loads from a CDN) and fonts.
-> No API keys or accounts required. Demo data is preloaded.
+> No API keys or accounts required. While you run `npm run dev`, a few fake demo
+> requests are preloaded (never in a production build).
 
 ---
 

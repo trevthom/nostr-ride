@@ -18,6 +18,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { SimplePool } from "nostr-tools/pool";
+import { normalizeURL } from "nostr-tools/utils";
 import { EVENT_KINDS, APP_TAG } from "./eventKinds.js";
 import { getRelays, onRelaysChange } from "../config/relays.js";
 
@@ -53,6 +54,8 @@ class NostrRelay {
     this.order = new Map(); // id -> insertion index
     this.version = 0; // bumped on every store; lets callers memoize reads
     this.recentSince = 0; // fetchRecent watermark (seconds)
+    this.health = new Map(); // url -> { ok, at } from the last connection probe
+    this.probing = new Set();
     this.listeners = new Set();
     this.sub = null;
     this.syncing = false;
@@ -207,6 +210,31 @@ class NostrRelay {
   // Kept for API compatibility; returns current cache matches.
   subscribe(_id, filter) {
     return this.query(filter);
+  }
+
+  // Connection state of one relay: "connected" | "failed" | "connecting".
+  // The pool forgets relays that fail to connect, so we probe them
+  // ourselves (at most every 15 s) and remember the result.
+  relayState(url) {
+    let key;
+    try { key = normalizeURL(url); } catch { return "failed"; }
+    if (this.pool.listConnectionStatus().get(key)) return "connected";
+    const h = this.health.get(key);
+    if (!h || Date.now() - h.at > 15000) this._probe(key);
+    return h && !h.ok ? "failed" : "connecting";
+  }
+
+  async _probe(key) {
+    if (this.probing.has(key)) return;
+    this.probing.add(key);
+    try {
+      await this.pool.ensureRelay(key, { connectionTimeout: 5000 });
+      this.health.set(key, { ok: true, at: Date.now() });
+    } catch {
+      this.health.set(key, { ok: false, at: Date.now() });
+    } finally {
+      this.probing.delete(key);
+    }
   }
 
   onEvent(fn) {
