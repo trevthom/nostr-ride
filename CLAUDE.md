@@ -46,7 +46,7 @@ src/
     demoData.js           # seed users/requests/route (gated by USE_DEMO_DATA)
   lib/
     geo.js                # haversineDistance, isNearRoute
-    geocode.js            # searchAddress(query) -> [{name,lat,lng}] via Nominatim (OSM)
+    geocode.js            # searchAddress(query, {near}) -> [{name,fullName,area,lat,lng}] via Photon (OSM; built for type-ahead — Nominatim forbids it)
     routing.js            # getDrivingRoute(points) -> {coordinates,distanceMeters,durationSeconds} via OSRM
     useGeolocation.js     # React hook around navigator.geolocation.watchPosition -> {pos,error}
     locations.js          # SAMPLE_LOCATIONS (map default center + demo data), MAP_BOUNDS
@@ -60,7 +60,7 @@ src/
     Screen.jsx            # page wrapper: sticky header, optional onBack, optional right slot
     Button.jsx            # variants: primary | driver | ghost
     MapView.jsx           # REAL map: Leaflet + OSM raster tiles (NO WebGL — works in any browser), draws OSRM driving routes. Props: pickup/dropoff/waypoints/drivers/height. `drivers` mode plots live markers. Use only ONE per screen.
-    AddressInput.jsx      # type-to-search address picker via Nominatim geocoding; onSelect({name,lat,lng}). Used by RiderRequest & DriverRoutes.
+    AddressInput.jsx      # type-to-search address picker via Photon; onSelect({name,area,lat,lng}); optional `near` bias. Used by RiderRequest.
     LocationRow.jsx       # pickup/dropoff pill
     BottomNav.jsx         # 4 tabs: rider-request, driver-browse, my-rides, profile
     QRCode.jsx            # wraps qrcode.react QRCodeSVG
@@ -232,7 +232,8 @@ rider's `in_progress` version also carries `driverPubkey`.
   display-only today (the nearby-drivers map isn't built). It must NOT gate the
   ability to make offers.
 - **Maps/geocoding/routing use free public dev endpoints**: OSM tiles,
-  Nominatim (geocode.js), OSRM (routing.js). These are rate-limited and not for
+  Photon (geocode.js; do NOT switch type-ahead back to Nominatim — its policy forbids
+  it), OSRM (routing.js). These are rate-limited and not for
   production — swap to paid/self-hosted services (keep the return shapes). Render
   few `<MapView>`s; each is a Leaflet map that fetches tiles and an OSRM route, so
   never put one in a list row (that's why DriverBrowse cards show text, not maps).
@@ -268,7 +269,7 @@ rider's `in_progress` version also carries `driverPubkey`.
   fetch remote kind-0 metadata for display names.
 - Real signing: **already real** — `buildSignedEvent` (`nostr/events.js`) via
   `finalizeEvent`, used by `useApp().publish`.
-- Real map: **already real** — Leaflet + OSM raster tiles (no WebGL) + OSRM routing
+- Real map: **already real** — Leaflet + OSM raster tiles (no WebGL) + Photon geocoding + OSRM routing
   (`ui/MapView.jsx`, `lib/geocode.js`, `lib/routing.js`).
 - Real Lightning: **already real** via NIP-47 in `nostr/wallet.js` (kinds 23194/23195),
   and ride payments go to the driver's Lightning address (`lib/lnurl.js`). There is no

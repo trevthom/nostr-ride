@@ -160,14 +160,14 @@ Then open the folder with Claude Code and ask for changes. It will read
 Most of the app is already real: relays (`src/nostr/relay.js`), signed events
 (`src/nostr/events.js`), keys (`src/nostr/keys.js`), the Lightning wallet
 (`src/nostr/wallet.js`, NIP-47), and the maps (Leaflet + OpenStreetMap tiles +
-OSRM routing + Nominatim address search).
+OSRM routing + Photon address search).
 
 Ride payments are real too: the rider pays the driver's **Lightning address**
 (set in Account, required to drive). There is no escrow.
 
 > **About the map services:** the app uses free public endpoints — OpenStreetMap
-> tiles, Nominatim (address search), and OSRM (driving routes). These are great
+> tiles, Photon (address search), and OSRM (driving routes). These are great
 > for development but rate-limited and not meant for heavy production traffic. For
 > a real launch, switch to paid or self-hosted equivalents (Mapbox, Maptiler,
-> Google, or your own OSRM/Nominatim). The files to edit are `src/lib/geocode.js`,
+> Google, or your own OSRM/Photon). The files to edit are `src/lib/geocode.js`,
 > `src/lib/routing.js`, and the tile URL in `src/ui/MapView.jsx`.

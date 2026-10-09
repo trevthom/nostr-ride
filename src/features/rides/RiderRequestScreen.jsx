@@ -18,7 +18,7 @@ import MapView from "../../ui/MapView.jsx";
 import AddressInput from "../../ui/AddressInput.jsx";
 
 export default function RiderRequestScreen() {
-  const { user, publish, setView, refreshData } = useApp();
+  const { user, publish, setView, refreshData, myPosition } = useApp();
   const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
   const [time, setTime] = useState("ASAP");
@@ -63,6 +63,7 @@ export default function RiderRequestScreen() {
           label="Pickup"
           value={pickup}
           onSelect={setPickup}
+          near={myPosition}
           dotColor="bg-emerald-500"
           placeholder="Enter pickup address"
         />
@@ -70,6 +71,7 @@ export default function RiderRequestScreen() {
           label="Dropoff"
           value={dropoff}
           onSelect={setDropoff}
+          near={pickup || myPosition}
           dotColor="bg-rose-500"
           placeholder="Enter dropoff address"
         />

@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════════
 //  ADDRESS INPUT — Type a real address and pick from live results
-//  (OpenStreetMap / Nominatim geocoding). Calls
+//  (OpenStreetMap data via Photon, lib/geocode.js). Pass `near` to rank
+//  results close to the user first. Calls
 //  onSelect({ name, lat, lng }) when a suggestion is chosen.
 //  Searches are debounced (waits for a pause in typing).
 // ════════════════════════════════════════════════════════════
@@ -8,7 +9,7 @@
 import { useState, useRef } from "react";
 import { searchAddress } from "../lib/geocode.js";
 
-export default function AddressInput({ label, value, onSelect, dotColor = "bg-emerald-500", placeholder }) {
+export default function AddressInput({ label, value, onSelect, dotColor = "bg-emerald-500", placeholder, near }) {
   const [text, setText] = useState("");
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
@@ -35,7 +36,7 @@ export default function AddressInput({ label, value, onSelect, dotColor = "bg-em
     // Wait 400ms after the last keystroke before searching (be kind to the API).
     timer.current = setTimeout(async () => {
       try {
-        const found = await searchAddress(q);
+        const found = await searchAddress(q, { near });
         if (myReq === reqId.current) setResults(found);
       } catch {
         if (myReq === reqId.current) {
