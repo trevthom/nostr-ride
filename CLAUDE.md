@@ -203,8 +203,15 @@ rider's `in_progress` version also carries `driverPubkey`.
   + p-tagged events, the rides they point at with every version, and those rides'
   cancels/completions/ratings). Called on login, Activity, UserModal, OfferCard, and
   RequestCard; throttled to once per 5 min per pubkey.
+- **Speed**: `relay.query()` uses indexes (by kind, and by `e`/`d`/`p` tag value) —
+  put the most selective tag filter in the query. `relay.version` bumps on every new
+  event; lib/rides.js memoizes `rideVersions`/`rideStatus`/`rideEnding`/`reputation`
+  until it changes, so calling them per row per render is cheap. AppContext coalesces
+  event bursts (one refresh + one `liveTick` per 100 ms), and useGeolocation drops
+  moves under 5 m.
 - **Refresh = pull from relays**: `relay.fetchRecent()` (SimplePool `querySync`)
-  pulls recent app events into the cache; exposed as `pullRecent()` in context.
+  pulls recent app events into the cache (24 h on the first call, then only what's
+  new since the last call); exposed as `pullRecent()` in context.
   The Drive screen calls it on open, on the Refresh button, and on a 12s poll, so
   other people's requests appear even if the live subscription missed them.
 - **Activity tab**: my requests sorted newest-first; a request with status

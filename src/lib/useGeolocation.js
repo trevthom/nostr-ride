@@ -10,6 +10,9 @@
 // ════════════════════════════════════════════════════════════
 
 import { useState, useEffect } from "react";
+import { haversineDistance } from "./geo.js";
+
+const MIN_MOVE_METERS = 5; // smaller moves are GPS jitter: skip the re-render
 
 export function useGeolocation(enabled) {
   const [pos, setPos] = useState(null);
@@ -26,10 +29,17 @@ export function useGeolocation(enabled) {
       return;
     }
 
+    // GPS fires about once a second even when standing still; every new
+    // position re-renders the whole app, so ignore jitter.
+    let last = null;
     const id = navigator.geolocation.watchPosition(
       (p) => {
-        setPos({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy });
-        setError("");
+        setError(""); // a fix arrived; clear any old error (no re-render if already "")
+        const next = { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy };
+        const moved = last ? haversineDistance(last.lat, last.lng, next.lat, next.lng) * 1609.344 : Infinity;
+        if (moved < MIN_MOVE_METERS && Math.abs(next.accuracy - last.accuracy) < MIN_MOVE_METERS) return;
+        last = next;
+        setPos(next);
       },
       (e) => setError(e.message || "Couldn't get your location."),
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }

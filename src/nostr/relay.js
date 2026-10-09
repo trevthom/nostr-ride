@@ -46,6 +46,13 @@ class NostrRelay {
     this.pool = new SimplePool();
     this.events = [];
     this.seen = new Set(); // event ids, for de-duping
+    // Indexes so query() doesn't scan every event: by kind, and by the
+    // e/d/p tag values ("e:<id>" -> events). `order` keeps insertion order.
+    this.byKind = new Map();
+    this.byTag = new Map();
+    this.order = new Map(); // id -> insertion index
+    this.version = 0; // bumped on every store; lets callers memoize reads
+    this.recentSince = 0; // fetchRecent watermark (seconds)
     this.listeners = new Set();
     this.sub = null;
     this.syncing = false;
@@ -126,15 +133,19 @@ class NostrRelay {
     }
   }
 
-  // One-shot pull of recent app events from the relays into the cache.
-  // Used by the Drive "Refresh" button and a periodic poll.
+  // Pull of recent app events from the relays into the cache. Used by
+  // the Refresh buttons and the screens' polls. The first call asks for
+  // 24 h; later calls ask only for what's new since the last one (minus
+  // 2 min for clock skew), so polls don't re-download the whole day.
   async fetchRecent() {
+    const started = nowSec();
     try {
       const events = await this.pool.querySync(getRelays(), {
         kinds: APP_KINDS,
         "#t": [APP_TAG],
-        since: nowSec() - 86400,
+        since: Math.max(started - 86400, this.recentSince - 120),
       });
+      this.recentSince = started;
       let added = 0;
       events.forEach((e) => { if (this._ingest(e)) added++; });
       return added;
@@ -165,9 +176,32 @@ class NostrRelay {
     this._store(event);
   }
 
-  // Synchronous read from the local cache.
+  // Synchronous read from the local cache. Starts from the smallest
+  // index the filter allows, then checks the full filter.
   query(filter) {
-    return this.events.filter((e) => this._matches(e, filter));
+    let candidates = this.events;
+    const tagKey = ["#e", "#d", "#p"].find((k) => filter[k]);
+    if (tagKey) {
+      const lists = filter[tagKey].map((v) => this.byTag.get(tagKey[1] + ":" + v) || []);
+      candidates = lists.length === 1 ? lists[0] : this._merge(lists);
+    } else if (filter.kinds) {
+      const lists = filter.kinds.map((k) => this.byKind.get(k) || []);
+      candidates = lists.length === 1 ? lists[0] : this._merge(lists);
+    }
+    return candidates.filter((e) => this._matches(e, filter));
+  }
+
+  // Union of index lists, de-duplicated, in insertion order.
+  _merge(lists) {
+    const byId = new Map();
+    lists.forEach((l) => l.forEach((e) => byId.set(e.id, e)));
+    return [...byId.values()].sort((a, b) => this.order.get(a.id) - this.order.get(b.id));
+  }
+
+  _index(map, key, event) {
+    const list = map.get(key);
+    if (list) list.push(event);
+    else map.set(key, [event]);
   }
 
   // Kept for API compatibility; returns current cache matches.
@@ -184,7 +218,17 @@ class NostrRelay {
   _store(event) {
     if (this.seen.has(event.id)) return false;
     this.seen.add(event.id);
+    this.order.set(event.id, this.events.length);
     this.events.push(event);
+    this._index(this.byKind, event.kind, event);
+    const tagged = new Set();
+    for (const t of event.tags || []) {
+      if ((t[0] === "e" || t[0] === "d" || t[0] === "p") && typeof t[1] === "string" && !tagged.has(t[0] + ":" + t[1])) {
+        tagged.add(t[0] + ":" + t[1]);
+        this._index(this.byTag, t[0] + ":" + t[1], event);
+      }
+    }
+    this.version++;
     this.listeners.forEach((fn) => { try { fn("__all__", event); } catch { /* ignore */ } });
     return true;
   }
@@ -198,6 +242,7 @@ class NostrRelay {
   }
 
   _matches(event, filter) {
+    if (filter.ids && !filter.ids.includes(event.id)) return false;
     if (filter.kinds && !filter.kinds.includes(event.kind)) return false;
     if (filter.authors && !filter.authors.includes(event.pubkey)) return false;
     for (const tag of ["e", "d", "p"]) {

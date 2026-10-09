@@ -7,7 +7,7 @@
 //      const { user, setView } = useApp();
 // ════════════════════════════════════════════════════════════
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { relay } from "../nostr/relay.js";
 import { EVENT_KINDS, APP_TAG } from "../nostr/eventKinds.js";
 import { buildSignedEvent } from "../nostr/events.js";
@@ -17,7 +17,7 @@ import { emptyWalletState } from "../nostr/wallet.js";
 import { publishPresence } from "../nostr/live.js";
 import { useGeolocation } from "../lib/useGeolocation.js";
 import { haversineDistance } from "../lib/geo.js";
-import { isRideExpired } from "../lib/rides.js";
+import { isRideExpired, rideStatus } from "../lib/rides.js";
 import { getProfile } from "../nostr/profiles.js";
 import { myVehicle } from "../lib/privacy.js";
 import { forgetKey } from "../nostr/keystore.js";
@@ -182,11 +182,24 @@ export function AppProvider({ children }) {
   );
 
   // Watch for new events that should refresh the UI and notify the user.
+  // A relay fetch can deliver hundreds of events at once, so refreshes are
+  // coalesced: at most one refreshData + one re-render per 100 ms.
   useEffect(() => {
     if (!user) return;
+    let timer = null;
+    let requestsChanged = false;
+    const schedule = (isRequest) => {
+      requestsChanged = requestsChanged || isRequest;
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        if (requestsChanged) refreshData();
+        requestsChanged = false;
+        setLiveTick((t) => t + 1);
+      }, 100);
+    };
     const unsub = relay.onEvent((_subId, event) => {
-      if (event.kind === EVENT_KINDS.RIDE_REQUEST) refreshData();
-      if (APP_EVENT_KINDS.has(event.kind)) setLiveTick((t) => t + 1);
+      if (APP_EVENT_KINDS.has(event.kind)) schedule(event.kind === EVENT_KINDS.RIDE_REQUEST);
       if (event.pubkey === user.publicKey) return; // don't notify about our own actions
 
       const pTags = event.tags.filter((t) => t[0] === "p").map((t) => t[1]);
@@ -202,7 +215,7 @@ export function AppProvider({ children }) {
         pushNotice("The other rider/driver cancelled the ride.");
       }
     });
-    return unsub;
+    return () => { unsub(); clearTimeout(timer); };
   }, [user, refreshData, pushNotice]);
 
   // Best-effort: ask for system-notification permission once logged in.
@@ -218,17 +231,21 @@ export function AppProvider({ children }) {
   // Open ride requests near the driver (for the Drive-tab notification
   // bubble). Empty unless notifications are on and we have a location.
   // Naturally clears when a request is cancelled or taken (status != requested).
-  const nearbyRequests =
-    notifyNearby && myPosition
-      ? rideRequests.filter((r) => {
-          const c = JSON.parse(r.content);
-          if (c.status !== "requested") return false;
-          if (r.pubkey === user?.publicKey) return false; // not my own
-          if (isRideExpired(c, r.created_at)) return false; // expired
-          const d = haversineDistance(myPosition.lat, myPosition.lng, c.pickup.lat, c.pickup.lng);
-          return d <= notifyRadius;
-        })
-      : [];
+  const myPubkey = user?.publicKey;
+  const nearbyRequests = useMemo(
+    () =>
+      notifyNearby && myPosition
+        ? rideRequests.filter((r) => {
+            if (rideStatus(r) !== "requested") return false; // taken, cancelled, or completed
+            if (r.pubkey === myPubkey) return false; // not my own
+            const c = JSON.parse(r.content);
+            if (isRideExpired(c, r.created_at)) return false; // expired
+            const d = haversineDistance(myPosition.lat, myPosition.lng, c.pickup.lat, c.pickup.lng);
+            return d <= notifyRadius;
+          })
+        : [],
+    [notifyNearby, myPosition, rideRequests, myPubkey, notifyRadius, liveTick]
+  );
   const nearbyRequestCount = nearbyRequests.length;
 
   // Log out: clear the session and return to the login screen. The wallet
