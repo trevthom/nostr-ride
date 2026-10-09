@@ -11,11 +11,11 @@ import { useApp } from "../../state/AppContext.jsx";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { haversineDistance } from "../../lib/geo.js";
 import { publicPlace, seal } from "../../lib/privacy.js";
-import { THEME } from "../../theme.js";
 import Screen from "../../ui/Screen.jsx";
 import Button from "../../ui/Button.jsx";
 import MapView from "../../ui/MapView.jsx";
 import AddressInput from "../../ui/AddressInput.jsx";
+import SentConfirmation from "../../ui/SentConfirmation.jsx";
 
 export default function RiderRequestScreen() {
   const { user, publish, setView, refreshData, myPosition } = useApp();
@@ -24,6 +24,7 @@ export default function RiderRequestScreen() {
   const [time, setTime] = useState("ASAP");
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [accepted, setAccepted] = useState(null); // did a relay take it?
   const [error, setError] = useState("");
 
   const handleSubmit = () => {
@@ -34,6 +35,7 @@ export default function RiderRequestScreen() {
       if (t > Date.now() + 7 * 86400000) { setError("Timed rides can be at most 1 week in advance."); return; }
       if (t < Date.now() - 60000) { setError("Pick a time in the future."); return; }
     }
+    setAccepted(null);
     publish(
       EVENT_KINDS.RIDE_REQUEST,
       {
@@ -45,14 +47,21 @@ export default function RiderRequestScreen() {
         sealed: seal(user.sk, user.publicKey, { pickup, dropoff }),
       },
       [["d", "ride-" + Date.now()], ["t", "ride-request"]]
-    );
+    ).then(setAccepted);
     setSubmitted(true);
     refreshData();
-    setTimeout(() => setView("my-rides"), 1200);
   };
 
   if (submitted) {
-    return <Confirmation />;
+    return (
+      <SentConfirmation
+        icon="✓"
+        title="Request Published"
+        message="Broadcast to Nostr. Drivers see only the approximate area until you accept an offer."
+        accepted={accepted}
+        onDone={() => setView("my-rides")}
+      />
+    );
   }
 
   return (
@@ -154,17 +163,5 @@ export default function RiderRequestScreen() {
         </Button>
       </div>
     </Screen>
-  );
-}
-
-function Confirmation() {
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: THEME.pageBg }}>
-      <div className="text-center">
-        <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4 text-4xl">✓</div>
-        <h2 className="text-white text-xl font-bold mb-2">Request Published</h2>
-        <p className="text-white/50 text-sm">Broadcast to Nostr. Drivers see only the approximate area until you accept an offer.</p>
-      </div>
-    </div>
   );
 }

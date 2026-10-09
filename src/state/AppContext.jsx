@@ -148,11 +148,12 @@ export function AppProvider({ children }) {
 
   // Publish a REAL signed event authored by the logged-in user, to the
   // local cache + the real relays. This is how every user action is sent.
-  // Resolves to how many relays accepted it. `localOnly` keeps it in the
-  // cache (replies to demo data must not reach public relays).
+  // Resolves to true once any relay accepts it (false if none do).
+  // `localOnly` keeps it in the cache (replies to demo data must not
+  // reach public relays) and resolves to false.
   const publish = useCallback(
     (kind, content, tags, { localOnly = false } = {}) => {
-      if (!user?.sk) return Promise.resolve(0);
+      if (!user?.sk) return Promise.resolve(false);
       // Tag every event so other devices can tell our events apart from
       // unrelated apps that reuse the same kind numbers on public relays.
       // (Re-published requests copy their old tags, so drop the old one.)
@@ -160,7 +161,7 @@ export function AppProvider({ children }) {
       const event = buildSignedEvent(kind, content, tagged, user.sk);
       if (localOnly) {
         relay.publishLocal(event);
-        return Promise.resolve(0);
+        return Promise.resolve(false);
       }
       return relay.publish(event);
     },
@@ -205,9 +206,13 @@ export function AppProvider({ children }) {
         setLiveTick((t) => t + 1);
       }, 100);
     };
+    // Only notify about events made after login. History and the 24 h
+    // sync bring in old offers/cancels that the user already knows about.
+    const notifySince = Math.floor(Date.now() / 1000) - 60;
     const unsub = relay.onEvent((_subId, event) => {
       if (APP_EVENT_KINDS.has(event.kind)) schedule(event.kind === EVENT_KINDS.RIDE_REQUEST);
       if (event.pubkey === user.publicKey) return; // don't notify about our own actions
+      if (event.created_at < notifySince) return; // old news
 
       const pTags = event.tags.filter((t) => t[0] === "p").map((t) => t[1]);
       const c = (() => { try { return JSON.parse(event.content); } catch { return null; } })();

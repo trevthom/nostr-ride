@@ -158,19 +158,22 @@ class NostrRelay {
     }
   }
 
-  // Publish: cache (trusted) + broadcast to relays. Each relay's send is a
-  // promise that rejects if that relay is down; settle them all so a dead
-  // relay never throws an unhandled rejection. Resolves to the number of
-  // relays that accepted the event.
+  // Publish: cache (trusted) + broadcast to relays. Resolves to true as
+  // soon as ANY relay accepts the event, or false once all have failed.
+  // Every relay's promise gets a handler, so a dead relay never throws an
+  // unhandled rejection.
   publish(event) {
     this._store(event);
     try {
-      return Promise.allSettled(this.pool.publish(getRelays(), event)).then(
-        (results) => results.filter((r) => r.status === "fulfilled").length
-      );
+      const sends = this.pool.publish(getRelays(), event);
+      return new Promise((resolve) => {
+        let left = sends.length;
+        if (!left) resolve(false);
+        sends.forEach((p) => p.then(() => resolve(true), () => { if (--left === 0) resolve(false); }));
+      });
     } catch (e) {
       console.error("Relay publish failed (kept locally):", e);
-      return Promise.resolve(0);
+      return Promise.resolve(false);
     }
   }
 

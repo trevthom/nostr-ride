@@ -121,6 +121,13 @@ export async function payInvoice(conn, invoice) {
   return nip47Request(conn, "pay_invoice", { invoice }, 60000);
 }
 
+// Has an invoice WE created been paid? (NIP-47 lookup_invoice.) Throws if
+// the wallet doesn't support the method.
+export async function isInvoiceSettled(conn, invoice) {
+  const r = await nip47Request(conn, "lookup_invoice", { invoice });
+  return !!(r?.settled_at || r?.state === "settled");
+}
+
 // Ask the wallet to create an invoice; returns the BOLT11 string.
 export async function makeInvoice(conn, amountSats, description) {
   const result = await nip47Request(conn, "make_invoice", {

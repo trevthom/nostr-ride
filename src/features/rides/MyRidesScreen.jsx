@@ -47,7 +47,8 @@ export default function MyRidesScreen() {
     .sort((a, b) => b.created_at - a.created_at);
   const pastRides = rideRequests
     .filter((r) => mine(r) && ["completed", "cancelled"].includes(statusOf(r)))
-    .filter((r) => statusOf(r) !== "cancelled" || now - r.created_at * 1000 < DAY) // cancelled drop off after 24h
+    // Cancelled rides drop off 24 h after the cancel (not after the request).
+    .filter((r) => statusOf(r) !== "cancelled" || now - (rideEnding(r)?.at || r.created_at) * 1000 < DAY)
     .sort((a, b) => b.created_at - a.created_at);
 
   // Driver side
@@ -277,12 +278,15 @@ function MyRequestRow({ req, onCancel, onViewOffers, onViewActive }) {
   const trip = tripOf(req, user);
   if (!c) return null;
   const offers = relay.query({ kinds: [EVENT_KINDS.RIDE_OFFER], "#e": [req.id] });
-  const canCancel = c.status === "requested" || c.status === "accepted";
+  // Effective status (a driver's complete/cancel event wins over the
+  // request's own field).
+  const status = rideStatus(req);
+  const canCancel = status === "requested" || status === "accepted";
 
   const statusStyle =
-    c.status === "requested"
+    status === "requested"
       ? "bg-cyan-500/15 text-cyan-400"
-      : c.status === "in_progress"
+      : status === "in_progress"
       ? "bg-emerald-500/15 text-emerald-400"
       : "bg-amber-500/15 text-amber-400";
 
@@ -290,16 +294,16 @@ function MyRequestRow({ req, onCancel, onViewOffers, onViewActive }) {
     <div className="rounded-xl border border-white/10 p-4 mb-2 bg-white/[0.02]">
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm text-white/80">{trip.pickup.name} → {trip.dropoff.name}</div>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${statusStyle}`}>{c.status}</span>
+        <span className={`text-xs px-2 py-0.5 rounded-full ${statusStyle}`}>{status.replace("_", " ")}</span>
       </div>
 
       <div className="flex items-center gap-4 mt-1">
-        {offers.length > 0 && c.status !== "in_progress" && (
+        {offers.length > 0 && status !== "in_progress" && (
           <button onClick={onViewOffers} className="text-cyan-400 text-sm font-medium">
             View {offers.length} offer{offers.length > 1 ? "s" : ""} →
           </button>
         )}
-        {c.status === "in_progress" && (
+        {status === "in_progress" && (
           <button onClick={onViewActive} className="text-emerald-400 text-sm font-medium">
             View Active Ride →
           </button>

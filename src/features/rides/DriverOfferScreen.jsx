@@ -6,12 +6,12 @@
 import { useState } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
-import { THEME } from "../../theme.js";
 import Screen from "../../ui/Screen.jsx";
 import Button from "../../ui/Button.jsx";
 import MapView from "../../ui/MapView.jsx";
 import { satsToUsd, formatUsd } from "../../ui/SatsAmount.jsx";
 import { seal } from "../../lib/privacy.js";
+import SentConfirmation from "../../ui/SentConfirmation.jsx";
 
 export default function DriverOfferScreen() {
   const { user, publish, setView, selectedRequest, refreshData, btcUsd } = useApp();
@@ -19,9 +19,11 @@ export default function DriverOfferScreen() {
   const [upfront, setUpfront] = useState("");
   const [eta, setEta] = useState("10");
   const [submitted, setSubmitted] = useState(false);
+  const [accepted, setAccepted] = useState(null); // did a relay take it?
   const [error, setError] = useState("");
 
   if (!selectedRequest) return null;
+  const isDemo = selectedRequest.tags.some((t) => t[0] === "demo");
   const req = JSON.parse(selectedRequest.content);
   const priceUsd = price ? satsToUsd(parseInt(price) || 0, btcUsd) : null;
   const upfrontUsd = upfront ? satsToUsd(parseInt(upfront) || 0, btcUsd) : null;
@@ -64,22 +66,22 @@ export default function DriverOfferScreen() {
         ["t", "ride-offer"],
       ],
       // Demo requests are local-only, so the offer must be too.
-      { localOnly: selectedRequest.tags.some((t) => t[0] === "demo") }
-    );
+      { localOnly: isDemo }
+    ).then(setAccepted);
     refreshData();
     setSubmitted(true);
-    setTimeout(() => setView("my-rides"), 1200);
   };
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: THEME.pageBg }}>
-        <div className="text-center">
-          <div className="w-20 h-20 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4 text-4xl">🤝</div>
-          <h2 className="text-white text-xl font-bold mb-2">Offer Sent</h2>
-          <p className="text-white/60 text-sm">The rider will see your offer on Nostr.</p>
-        </div>
-      </div>
+      <SentConfirmation
+        icon="🤝"
+        title="Offer Sent"
+        message="The rider will see your offer on Nostr."
+        accepted={accepted}
+        localOnly={isDemo}
+        onDone={() => setView("my-rides")}
+      />
     );
   }
 

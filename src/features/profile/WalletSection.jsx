@@ -14,6 +14,7 @@ import {
   listTransactions,
   payInvoice,
   makeInvoice,
+  isInvoiceSettled,
 } from "../../nostr/wallet.js";
 import { THEME } from "../../theme.js";
 import QRCode from "../../ui/QRCode.jsx";
@@ -228,20 +229,48 @@ function SendPanel({ wallet, onSent }) {
   );
 }
 
-// ── Receive: ask the wallet for a real invoice; show string + QR ──
+// ── Receive: ask the wallet for a real invoice; show string + QR, then
+//    watch it (lookup_invoice) and refresh the balance once it's paid ──
 function ReceivePanel({ wallet, onSettled }) {
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
   const [invoice, setInvoice] = useState("");
   const [status, setStatus] = useState(""); // "", "creating", error text
+  const [paid, setPaid] = useState(false);
+  const [canWatch, setCanWatch] = useState(true); // false if the wallet can't look invoices up
+
+  // Check every 3 s for up to 10 min; stop if the wallet can't tell us.
+  useEffect(() => {
+    if (!invoice || paid) return;
+    let stop = false;
+    let checking = false;
+    const started = Date.now();
+    const id = setInterval(async () => {
+      if (checking) return;
+      if (Date.now() - started > 600000) { clearInterval(id); return; }
+      checking = true;
+      try {
+        if (await isInvoiceSettled(wallet, invoice)) {
+          clearInterval(id);
+          if (!stop) { setPaid(true); onSettled?.(); }
+        }
+      } catch {
+        clearInterval(id);
+        if (!stop) setCanWatch(false);
+      }
+      checking = false;
+    }, 3000);
+    return () => { stop = true; clearInterval(id); };
+  }, [invoice, paid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const create = async () => {
+    const sats = parseInt(amount, 10);
+    if (!(sats > 0)) { setStatus("Enter an amount above 0 sats."); return; }
     setStatus("creating");
     try {
-      const inv = await makeInvoice(wallet, parseInt(amount || "0"), memo);
+      const inv = await makeInvoice(wallet, sats, memo);
       setInvoice(inv);
       setStatus("");
-      onSettled?.();
     } catch (e) {
       setStatus(e.message || "Couldn't create an invoice.");
     }
@@ -283,6 +312,9 @@ function ReceivePanel({ wallet, onSettled }) {
           <button onClick={() => navigator.clipboard?.writeText(invoice)} className="text-cyan-400 text-xs mt-2">
             Copy invoice
           </button>
+          <p className={`text-xs mt-2 ${paid ? "text-emerald-400" : "text-white/50"}`} role="status">
+            {paid ? "✓ Received" : canWatch ? "Waiting for payment…" : "Your wallet can't confirm payments here. Tap Refresh to check your balance."}
+          </p>
         </div>
       )}
     </div>

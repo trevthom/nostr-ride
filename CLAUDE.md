@@ -130,7 +130,8 @@ rider's `in_progress` version also carries `driverPubkey`.
   which signs with `user.sk` (`buildSignedEvent`) and sends to relays + cache.
   Demo data uses `relay.publishLocal` (cache only) so it never spams public relays,
   and replies to a demo request use `publish(..., { localOnly: true })`. `publish`
-  resolves to the number of relays that accepted the event.
+  resolves to true once any relay accepts the event (false if none do); show that
+  with `ui/SentConfirmation.jsx` instead of claiming success.
   Don't go back to `relay.publish(createNostrEvent(...))` for user actions — real
   relays reject unsigned events.
 - **Addressable kinds need unique `d` tags**: kinds 30000–39999 are replaceable by
