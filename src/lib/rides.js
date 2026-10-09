@@ -7,6 +7,7 @@
 //   • A cancel counts only from the rider or the assigned driver.
 //   • A completion counts only from the assigned driver.
 //   • A rating counts only from the other party of that ride.
+//   • A stage marker (arrived / riding) counts only from the assigned driver.
 // ════════════════════════════════════════════════════════════
 
 import { relay } from "../nostr/relay.js";
@@ -41,6 +42,9 @@ export function rideExpiryMs(content, createdAtSec) {
 export function isRideExpired(content, createdAtSec) {
   return Date.now() > rideExpiryMs(content, createdAtSec);
 }
+
+// A stable id for a ride across all its versions: "<rider>:<d-tag>".
+export const rideKey = (request) => `${request.pubkey}:${dtagOf(request)}`;
 
 // Every version of one ride (same author + d-tag), newest first.
 export function rideVersions(request) {
@@ -102,6 +106,29 @@ function computeEnding(request) {
   const done = findComplete(parties);
   if (done) return { type: "completed", by: done.pubkey, at: done.created_at };
   return null;
+}
+
+// The assigned driver's pubkey for a ride (null until the rider accepts one).
+export function rideDriver(request) {
+  return cached("drv:" + request.id, () => rideParties(request).driver);
+}
+
+// How far along an accepted ride is, from the assigned driver's markers:
+// "enroute" (driving to the pickup) → "arrived" → "riding". Stages only move
+// forward, so the furthest valid marker wins (no clock or ordering issues).
+export const RIDE_STAGES = ["enroute", "arrived", "riding"];
+export function rideStage(request) {
+  return cached("stg:" + request.id, () => computeStage(request));
+}
+function computeStage(request) {
+  const { ids, driver } = rideParties(request);
+  if (!driver) return "enroute";
+  let best = 0;
+  relay.query({ kinds: [EVENT_KINDS.RIDE_STAGE], "#e": [...ids], authors: [driver] }).forEach((e) => {
+    if (!ids.has(etagOf(e))) return;
+    best = Math.max(best, RIDE_STAGES.indexOf(parse(e)?.stage));
+  });
+  return RIDE_STAGES[best];
 }
 
 // Reputation for one pubkey, separated by role (rider vs driver).

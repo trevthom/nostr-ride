@@ -29,14 +29,14 @@ export default function LightningAddressSection({ value, onSave }) {
 
   const error = status && !["checking", "saved"].includes(status) ? status : "";
   return (
-    <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-2">
+    <div className="bg-neutral-100 rounded-xl border border-neutral-200 p-4 space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-white/50 text-xs uppercase tracking-wider">Lightning Address</p>
+        <p className="text-neutral-500 text-xs uppercase tracking-wider font-semibold">Lightning Address</p>
         {!value && (
-          <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400">Required to drive</span>
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Required to drive</span>
         )}
       </div>
-      <p className="text-white/50 text-xs">Riders pay you here. Most Lightning wallets give you one (name@domain).</p>
+      <p className="text-neutral-500 text-xs">Riders pay you here. Most Lightning wallets give you one (name@domain).</p>
       <div className="flex gap-2">
         <input aria-label="Lightning address"
           value={draft}
@@ -45,17 +45,17 @@ export default function LightningAddressSection({ value, onSave }) {
           placeholder="you@wallet.com"
           spellCheck={false}
           autoCapitalize="none"
-          className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/50 focus:outline-none focus:border-cyan-500/50"
+          className="flex-1 min-w-0 bg-neutral-100 border border-neutral-200 rounded-lg px-3 py-2 text-black text-sm placeholder-neutral-500 focus:outline-none focus:border-black"
         />
         <button
           onClick={save}
           disabled={status === "checking" || draft.trim() === value}
-          className="px-3 py-2 rounded-lg text-sm font-medium bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 disabled:opacity-40"
+          className="px-3 py-2 rounded-lg text-sm font-medium bg-black text-white disabled:bg-neutral-200 disabled:text-neutral-400"
         >
           {status === "checking" ? "Checking…" : status === "saved" ? "Saved" : "Save"}
         </button>
       </div>
-      {error && <p className="text-rose-400 text-xs">{error}</p>}
+      {error && <p className="text-red-600 text-xs">{error}</p>}
     </div>
   );
 }

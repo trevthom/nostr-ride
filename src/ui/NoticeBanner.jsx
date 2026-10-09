@@ -6,13 +6,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../state/AppContext.jsx";
+import Icon from "./Icon.jsx";
 
 function Banner({ notice, onClose }) {
   const [drag, setDrag] = useState({ x: 0, y: 0 });
   const start = useRef(null);
   const closed = useRef(false);
 
-  // Auto-dismiss after 6 seconds (3 s was too short to read).
+  // Auto-dismiss after 6 seconds.
   useEffect(() => {
     const t = setTimeout(() => onClose(notice.id), 6000);
     return () => clearTimeout(t);
@@ -47,17 +48,18 @@ function Banner({ notice, onClose }) {
       onTouchStart={onDown}
       onTouchMove={onMove}
       onTouchEnd={onUp}
-      className="pointer-events-auto mx-auto max-w-md w-[92%] rounded-xl border border-white/15 px-4 py-3 shadow-lg flex items-center gap-3 select-none"
+      className="pointer-events-auto mx-auto max-w-md w-[92%] rounded-2xl px-4 py-3 shadow-xl flex items-center gap-3 select-none bg-black text-white"
       style={{
-        background: "linear-gradient(135deg, rgba(6,182,212,0.95), rgba(16,185,129,0.92))",
-        color: "#04211c",
         transform: `translate(${drag.x}px, ${Math.min(0, drag.y)}px)`,
         transition: start.current ? "none" : "transform 0.15s ease",
         cursor: "grab",
       }}
     >
+      <Icon name="bell" size={18} />
       <span className="text-sm font-medium flex-1">{notice.message}</span>
-      <button onClick={finish} aria-label="Dismiss" className="text-[#04211c]/70 text-lg leading-none px-1">×</button>
+      <button type="button" onClick={finish} aria-label="Dismiss" className="p-1 -mr-1 text-white/70">
+        <Icon name="x" size={16} />
+      </button>
     </div>
   );
 }

@@ -15,6 +15,7 @@
 // ════════════════════════════════════════════════════════════
 
 const ENDPOINT = "https://photon.komoot.io/api/";
+const REVERSE = "https://photon.komoot.io/reverse";
 const uniq = (parts) => [...new Set(parts.filter(Boolean))];
 
 // Short name for cards, e.g. "Rupp Arena, Lexington" or "430 W Vine St, Lexington".
@@ -27,6 +28,27 @@ function shortName(p) {
 // A coarse label for where a place is — never the street.
 function areaOf(p) {
   return uniq([p.district || p.locality || p.city || p.county, p.city || p.county]).join(", ") || p.state || "";
+}
+
+// Name a GPS position ("430 West Vine Street, Lexington"). The position is
+// rounded to ~10 m. Returns { name, fullName, area, lat, lng } or null.
+export async function reverseGeocode(lat, lng) {
+  const params = new URLSearchParams({ lat: lat.toFixed(4), lon: lng.toFixed(4), lang: "en", limit: "1" });
+  const res = await fetch(`${REVERSE}?${params}`);
+  if (!res.ok) throw new Error("Address lookup failed");
+  const f = (await res.json()).features?.[0];
+  if (!f) return null;
+  const p = f.properties || {};
+  const street = [p.housenumber, p.street].filter(Boolean).join(" ");
+  const name = shortName(p);
+  if (!name) return null;
+  return {
+    name,
+    fullName: uniq([p.name, street, p.postcode, p.city || p.county, p.state, p.country]).join(", "),
+    area: areaOf(p),
+    lat,
+    lng,
+  };
 }
 
 // near: optional { lat, lng } to rank close results first. It's rounded

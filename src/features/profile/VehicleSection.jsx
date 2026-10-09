@@ -12,9 +12,8 @@ import { resizeImage } from "../../lib/image.js";
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CURRENT_YEAR + 1 - 1900 + 1 }, (_, i) => CURRENT_YEAR + 1 - i); // newest first
-const OPT = { color: "#fff", background: "#0b1220" }; // legible dropdown options
 const FIELDS = ["picture", "plateState", "plateNumber", "year", "make", "model"];
-const inputCls = "min-w-0 bg-white/5 border border-white/10 rounded-lg py-2 text-white text-sm placeholder-white/50 focus:outline-none focus:border-cyan-500/50";
+const inputCls = "min-w-0 bg-white border border-neutral-300 rounded-lg py-2 text-black text-sm placeholder-neutral-500 focus:outline-none focus:border-black";
 
 const formOf = (v) => Object.fromEntries(FIELDS.map((k) => [k, String(v?.[k] ?? "")]));
 
@@ -50,32 +49,32 @@ export default function VehicleSection({ vehicle, ready, onSave }) {
 
   // The badge shows the SAVED state; unsaved edits don't count yet.
   const badge = dirty
-    ? { cls: "bg-white/10 text-white/70", text: "Unsaved changes" }
+    ? { cls: "bg-neutral-200 text-neutral-700", text: "Unsaved changes" }
     : ready
-    ? { cls: "bg-emerald-500/15 text-emerald-400", text: "Ready to drive" }
-    : { cls: "bg-amber-500/15 text-amber-400", text: "Required to drive" };
+    ? { cls: "bg-green-50 text-green-700", text: "Ready to drive" }
+    : { cls: "bg-amber-50 text-amber-700", text: "Required to drive" };
 
   return (
-    <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-3">
+    <div className="bg-neutral-100 rounded-xl border border-neutral-200 p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-white/50 text-xs uppercase tracking-wider">Vehicle &amp; License</p>
+        <p className="text-neutral-500 text-xs uppercase tracking-wider font-semibold">Vehicle &amp; License</p>
         <span className={`text-[11px] px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.text}</span>
       </div>
 
       <label className="cursor-pointer block">
         <input type="file" accept="image/*" onChange={onPhotoPick} className="sr-only" aria-label="Vehicle photo" />
         {veh.picture ? (
-          <img src={veh.picture} alt="Vehicle" className="w-full h-32 object-cover rounded-lg border border-white/10" />
+          <img src={veh.picture} alt="Vehicle" className="w-full h-32 object-cover rounded-lg border border-neutral-200" />
         ) : (
-          <div className="w-full h-20 rounded-lg border border-dashed border-white/15 flex items-center justify-center text-white/50 text-sm">
+          <div className="w-full h-20 rounded-lg border border-dashed border-neutral-200 flex items-center justify-center text-neutral-500 text-sm">
             + Add vehicle photo (optional)
           </div>
         )}
       </label>
       {veh.picture && (
-        <button onClick={() => edit({ picture: "" })} className="text-rose-400/90 text-[11px] -mt-1">Remove vehicle photo</button>
+        <button onClick={() => edit({ picture: "" })} className="text-red-600 text-[11px] -mt-1">Remove vehicle photo</button>
       )}
-      {imgErr && <p className="text-rose-400 text-xs">{imgErr}</p>}
+      {imgErr && <p className="text-red-600 text-xs">{imgErr}</p>}
 
       {/* Line 1: State · Plate number · Year */}
       <div className="flex gap-2">
@@ -84,10 +83,9 @@ export default function VehicleSection({ vehicle, ready, onSave }) {
           onChange={(e) => edit({ plateState: e.target.value })}
           aria-label="Plate state"
           className={`w-20 px-2 ${inputCls}`}
-          style={{ backgroundColor: "#0b1220", color: "#fff" }}
         >
-          <option value="" style={OPT}>State</option>
-          {US_STATES.map((s) => <option key={s} value={s} style={OPT}>{s}</option>)}
+          <option value="">State</option>
+          {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <input
           value={veh.plateNumber}
@@ -101,10 +99,9 @@ export default function VehicleSection({ vehicle, ready, onSave }) {
           onChange={(e) => edit({ year: e.target.value })}
           aria-label="Vehicle year"
           className={`w-24 px-2 ${inputCls}`}
-          style={{ backgroundColor: "#0b1220", color: "#fff" }}
         >
-          <option value="" style={OPT}>Year</option>
-          {YEARS.map((y) => <option key={y} value={y} style={OPT}>{y}</option>)}
+          <option value="">Year</option>
+          {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
 
@@ -116,11 +113,11 @@ export default function VehicleSection({ vehicle, ready, onSave }) {
       <button
         onClick={save}
         disabled={!dirty && !saved}
-        className="w-full py-2.5 rounded-lg text-sm font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30 disabled:opacity-50"
+        className="w-full py-2.5 rounded-lg text-sm font-medium bg-black text-white disabled:bg-neutral-200 disabled:text-neutral-400"
       >
         {saved ? "Saved" : "Save vehicle info"}
       </button>
-      <p className="text-white/50 text-[11px]">
+      <p className="text-neutral-500 text-[11px]">
         Your face photo and vehicle are public so riders know who's picking them up. Your plate stays private: only
         riders you make an offer to can see it. Removing any required item turns off driving until it's added back.
       </p>

@@ -9,9 +9,9 @@ import { useState, useEffect } from "react";
 import { relay } from "../nostr/relay.js";
 
 const STATES = {
-  connected: { dot: "bg-emerald-500", label: "Connected" },
-  failed: { dot: "bg-rose-500", label: "Can't connect" },
-  connecting: { dot: "bg-white/30", label: "Connecting…" },
+  connected: { dot: "bg-green-600", label: "Connected" },
+  failed: { dot: "bg-red-600", label: "Can't connect" },
+  connecting: { dot: "bg-neutral-300", label: "Connecting…" },
 };
 
 export default function RelayEditor({ relays, onChange }) {
@@ -39,17 +39,17 @@ export default function RelayEditor({ relays, onChange }) {
         {relays.map((r, i) => {
           const st = STATES[relay.relayState(r)];
           return (
-            <div key={r + i} className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 border border-white/10">
+            <div key={r + i} className="flex items-center gap-2 bg-neutral-100 rounded-lg px-3 py-2 border border-neutral-200">
               <span className={`w-2 h-2 rounded-full ${st.dot}`} title={st.label} aria-hidden="true" />
-              <span className="text-white/70 text-xs font-mono flex-1 break-all">
+              <span className="text-neutral-700 text-xs font-mono flex-1 break-all">
                 {r}
                 <span className="sr-only"> — {st.label}</span>
               </span>
-              <button onClick={() => remove(i)} aria-label={`Remove ${r}`} className="text-rose-400/80 text-xs px-1">✕</button>
+              <button onClick={() => remove(i)} aria-label={`Remove ${r}`} className="text-red-600 text-xs px-1">✕</button>
             </div>
           );
         })}
-        {relays.length === 0 && <p className="text-white/50 text-xs">No relays — add at least one.</p>}
+        {relays.length === 0 && <p className="text-neutral-500 text-xs">No relays — add at least one.</p>}
       </div>
       <div className="flex gap-2 mt-2">
         <input aria-label="New relay URL"
@@ -57,11 +57,11 @@ export default function RelayEditor({ relays, onChange }) {
           onChange={(e) => setNewRelay(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           placeholder="wss://relay.example.com"
-          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono placeholder-white/50 focus:outline-none focus:border-cyan-500/50"
+          className="flex-1 bg-neutral-100 border border-neutral-200 rounded-lg px-3 py-2 text-black text-xs font-mono placeholder-neutral-500 focus:outline-none focus:border-black"
         />
         <button
           onClick={add}
-          className="px-3 py-2 rounded-lg text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+          className="px-3 py-2 rounded-lg text-xs bg-black text-white"
         >
           Add
         </button>

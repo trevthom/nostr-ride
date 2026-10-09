@@ -4,305 +4,251 @@ Guidance for AI coding agents working in this repo. Read this first; it
 should let you make correct edits without reading every file.
 
 ## What this is
-NostrRide — a mobile-first, decentralized ridesharing web app. **Nostr is the
-only backend** (no server, no DB). Stack: **React 18 + Vite**. **Tailwind is
-loaded from a CDN** in `index.html` (NOT a build dependency — do not add
-`@tailwindcss/vite` or `tailwindcss` to package.json; its native binary breaks
-on some machines, which is why it was removed).
+NostrRide — a decentralized ridesharing system made of **two separate web apps**
+that talk to each other only over **Nostr** (no server, no DB):
+
+- **Rider app** (`apps/rider`, code in `src/rider`) — Uber/Lyft-style: "Where to?",
+  fare quote, find a driver, pay a deposit, watch the car arrive, ride, pay the rest, rate.
+- **Driver app** (`apps/driver`, code in `src/driver`) — Uber-Driver-style: GO online,
+  incoming request cards, accept, navigate to pickup, arrive / start / complete, earnings.
+
+Stack: **React 18 + Vite**. **Tailwind is loaded from a CDN** in each app's
+`index.html` (NOT a build dependency — do not add `@tailwindcss/vite` or `tailwindcss`
+to package.json; its native binary breaks on some machines, which is why it was removed).
+Look: white UI, black buttons, bottom sheets over a full-screen map (Inter font).
 
 ## Commands
-- `npm install` then `npm run dev` → dev server at http://localhost:5173
-- `npm run build` → production build (use to verify changes compile)
+- `npm install` then `npm run dev` → starts BOTH apps: rider http://localhost:5173,
+  driver http://localhost:5174 (`scripts/dev.mjs`). Use two browser windows to play both sides.
+  `npm run dev:rider` / `npm run dev:driver` start one.
+- `npm run build` → builds both to `dist/rider` and `dist/driver` (each deploys on its own).
+  `build:rider` / `build:driver` build one. `preview:rider` / `preview:driver` serve a build.
 - `npm test` → Node's built-in test runner over `test/*.test.mjs` (no extra deps):
-  trust rules, privacy, history, LNURL, geocode, publish. Run it after touching
-  lib/rides.js, lib/privacy.js, lib/lnurl.js, lib/geocode.js, or nostr/relay.js.
+  trust rules, ride stages, fares, trips, earnings, privacy, history, LNURL, geocode, publish,
+  event ordering, contact links. Run it after touching `lib/*`, `nostr/*`.
 - No linter configured.
+- The Vite **mode** picks the app (`vite --mode rider|driver`, see `vite.config.js`); it sets
+  `__APP_ROLE__`, read through `src/config/app.js` (`APP_ROLE`, `IS_DRIVER_APP`, `APP_NAME`).
+  Node tests have no such constant and get `"rider"`.
 
 ## Architecture (data flow)
 Every user action becomes a **signed Nostr event** → published via
 `useApp().publish(kind, content, tags)` (signs with the logged-in user's secret
-key) → sent to **real relays** (config/settings.js) AND kept in a local cache in
-`src/nostr/relay.js`. The cache lets screens keep reading events **synchronously**
-with `relay.query()`. Incoming events from relays flow into the same cache and
-bump `liveTick` so screens re-render. Shared UI state lives in one context,
-`src/state/AppContext.jsx` (`useApp()`). No router: `src/App.jsx` maps a `view`
-string → a screen component; `BottomNav` switches `view`. Each screen is wrapped
-in an `ErrorBoundary` so one screen's crash can't blank the whole app.
+key) → sent to **real relays** (config/relays.js) AND kept in a local cache in
+`src/nostr/relay.js`. The cache lets screens read events **synchronously** with
+`relay.query()`. Incoming relay events flow into the same cache and bump `liveTick`
+so screens re-render.
+
+**What is on screen is DERIVED from events, not kept in app memory** (`lib/trips.js`):
+the rider's current ride is `activeRideFor(requests, me)`, the driver's is
+`activeDriveFor`, their stage is `rideStage`. So a reload (or a second device) shows the
+same screen. Only UI-only things (plan form, which card is open) live in React state.
+
+Shared state: `src/state/AppContext.jsx` (`useApp()`): user, tab (`view`/`setView`),
+`rideRequests`, `publish`, `pullRecent`, notices, `btcUsd`, wallet, `liveTick`.
+Role state: `src/rider/state/RiderContext.jsx` (`useRider()`) and
+`src/driver/state/DriverContext.jsx` (`useDriver()`) — mounted only after login, keyed by pubkey.
+No router: each `App.jsx` maps `view` → screen; the tab bar hides during a trip.
+Each screen is wrapped in an `ErrorBoundary`.
+
+## Ride lifecycle (how the two apps connect)
+| Step | Rider app | Event (kind) | Driver app |
+|---|---|---|---|
+| 0 | sees cars nearby | PRESENCE 30090 (public, coarse) | **GO** online (needs GPS + `isDriveReady`) |
+| 1 | picks route, sees fare, taps **Request** | RIDE_REQUEST 30078 `status:requested`, `fareSats` | incoming card (45 s countdown) + price tags on map |
+| 2 | "Finding your driver…" | | **Accept** (or Decline) |
+| 3 | list of drivers (fastest first) | RIDE_OFFER 30079 (price = fare, deposit %, ETA, sealed plate; good 5 min) | "Waiting for rider…" |
+| 4 | **Choose** → pays the deposit (Lightning) | RIDE_ACCEPT 30080 (exact trip sealed to driver) + RIDE_REQUEST `in_progress`+`driverPubkey` | drive starts: route to pickup |
+| 5 | car moves live, "arriving in N min" | RIDE_LOCATION 21100 every 6 s (NIP-44 to rider) | **I've arrived** → RIDE_STAGE 30085 `arrived` |
+| 6 | "Your driver has arrived" | | **Start trip** → RIDE_STAGE `riding` |
+| 7 | "On the way to …" | | **Complete trip** → RIDE_COMPLETE 30084 |
+| 8 | receipt, pays the rest, rates | RATING 30082 (either way) | summary, rates the rider |
+Cancels: RIDE_CANCEL 30081 by the rider (any time) or the assigned driver. A driver with no
+offer taken just sees the ride leave `requested` ("That ride is no longer available").
+Reservations (`time` > 30 min away) wait under Activity → Upcoming (`isScheduledLater`).
 
 ## Directory map
 ```
+apps/
+  rider/  index.html main.jsx     # rider entry (Vite root for --mode rider)
+  driver/ index.html main.jsx     # driver entry
+scripts/dev.mjs                   # runs both dev servers
+vite.config.js                    # mode → root/outDir/port, defines __APP_ROLE__
 src/
-  App.jsx                 # SCREENS map + auth gate (view -> component)
-  theme.js                # colors/gradients (THEME object)
-  config/settings.js      # tunables: MATCH_RADIUS_MILES, DEFAULT_NOTIFY_RADIUS_MILES, USE_DEMO_DATA, CONTACT_PLATFORMS
-  config/relays.js        # relay list source of truth: DEFAULT_RELAYS (5 reputable free relays), getRelays/setRelays/onRelaysChange/useRelays, getSetting/setSetting — persisted to localStorage, editable in Account + login
+  index.css  theme.js             # font, animations; few colors (THEME)
+  config/
+    app.js                        # APP_ROLE / IS_DRIVER_APP / APP_NAME
+    settings.js                   # tunables: FARE_RATES, FALLBACK_BTC_USD, DEFAULT_DEPOSIT_PERCENT,
+                                  #   REQUEST_CARD_SECONDS, OFFER_TTL_SECONDS, DEFAULT_REQUEST_RADIUS_MILES,
+                                  #   USE_DEMO_DATA (dev only), CONTACT_PLATFORMS
+    relays.js                     # DEFAULT_RELAYS, getRelays/setRelays/useRelays, getSetting/setSetting (localStorage)
   nostr/
-    eventKinds.js         # EVENT_KINDS constants
-    keys.js               # REAL keys via nostr-tools: generateKeypair, keypairFromNsec, keypairFromSecretKey, shortNpub
-    keystore.js           # optional "remember me": key saved ONLY as NIP-49 ncryptsec (password) in localStorage; forgetKey on logout
-    events.js             # createNostrEvent (unsigned, demo/local cache) + buildSignedEvent (REAL signed, via finalizeEvent, for relays)
-    relay.js              # REAL relays (SimplePool) + local cache: publish (cache+relays), publishLocal (cache only, demo), query (sync, from cache), onEvent, startSync, fetchRecent (24 h), fetchHistory(pubkey) (all time, throttled)
-    replaceable.js        # latestVersions(): collapse replaceable events by (kind,pubkey,d-tag)
-    profiles.js           # getProfile(pubkey) -> {name, comm, picture, vehicle} (sanitized); getMetadata(pubkey) -> raw newest kind-0 (merge base for writes)
-    wallet.js             # REAL NIP-47 client: parseNwcUri, getBalance, listTransactions, payInvoice, makeInvoice (talks to the user's wallet over their relay)
-    live.js               # REAL relays (SimplePool) for live location: publishPresence/subscribePresence (public, coarsened, addressable kind 30090 + expiration) + publishRideLocation/subscribeRideLocation (NIP-44 encrypted to the matched rider, ephemeral kind 21100).
-    demoData.js           # seed users/requests (USE_DEMO_DATA = dev builds only); demo requests carry ["demo","1"]
+    eventKinds.js                 # EVENT_KINDS + APP_TAG
+    keys.js  keystore.js          # real keys; optional NIP-49 "remember me" (key name differs per app)
+    events.js                     # createNostrEvent (unsigned, demo) + buildSignedEvent (signed; replaceable kinds get strictly increasing created_at)
+    relay.js                      # SimplePool + local cache: publish, publishLocal, query, onEvent, startSync, fetchRecent, fetchProfile, fetchHistory
+    replaceable.js  profiles.js   # latestVersions(); getProfile/getMetadata
+    live.js                       # presence (public, coarse) + ride location (NIP-44, ephemeral)
+    wallet.js                     # NIP-47 (NWC) client
+    demoData.js                   # dev-only fake riders/requests (driver app only)
   lib/
-    geo.js                # haversineDistance, isNearRoute
-    geocode.js            # searchAddress(query, {near}) -> [{name,fullName,area,lat,lng}] via Photon (OSM; built for type-ahead — Nominatim forbids it)
-    routing.js            # getDrivingRoute(points) -> {coordinates,distanceMeters,durationSeconds} via OSRM
-    useGeolocation.js     # React hook around navigator.geolocation.watchPosition -> {pos,error}
-    locations.js          # SAMPLE_LOCATIONS (map default center + demo data), MAP_BOUNDS
-    rides.js              # rideStatus/rideEnding/rideVersions/reputation — enforce the trust rules (see Invariants)
-    profile.js            # isDriveReady/missingDriveInfo (drive gating)
-    image.js              # resizeImage -> small JPEG data URL for kind-0
-    privacy.js            # publicPlace (coarse), seal/unseal (NIP-44), exactTrip(request,user), sealVehicle/myVehicle/offerPlate
-    lnurl.js              # Lightning address (lud16) -> invoice via LNURL-pay; checks the BOLT11 amount; LUD-21 isInvoicePaid
-  state/AppContext.jsx    # useApp(); holds user/view/rideRequests/activeRide/notifications/wallet/driverOnline/myPosition/geoError; cancelRequest(); refreshData(); broadcasts presence while online
-  ui/
-    Screen.jsx            # page wrapper: sticky header, optional onBack, optional right slot
-    Button.jsx            # variants: primary | driver | ghost
-    MapView.jsx           # REAL map: Leaflet + OSM raster tiles (NO WebGL — works in any browser), draws OSRM driving routes. Props: pickup/dropoff/waypoints/drivers/height. `drivers` mode plots live markers. Use only ONE per screen.
-    AddressInput.jsx      # type-to-search address picker via Photon; onSelect({name,area,lat,lng}); optional `near` bias. Used by RiderRequest.
-    LocationRow.jsx       # pickup/dropoff pill
-    BottomNav.jsx         # 4 tabs: rider-request, driver-browse, my-rides, profile
-    QRCode.jsx            # wraps qrcode.react QRCodeSVG
-    ErrorBoundary.jsx     # class component; wraps each screen so a crash shows a fallback, not a blank app
+    rides.js      # trust rules: rideVersions/rideStatus/rideEnding/rideStage/rideDriver/rideKey/reputation
+    trips.js      # derive current state: activeRideFor, activeDriveFor, offersForRide, offerFrom, pendingOfferFor, acceptFor, upcomingRidesFor, isScheduledLater
+    fare.js       # quoteFare/fareUsd/usdToSats/depositSats/pickupEta (pure)
+    earnings.js   # completedDrives, summarizeEarnings
+    privacy.js    # publicPlace, seal/unseal, exactTrip, sealVehicle/myVehicle/offerPlate
+    contact.js    # contactHref (safe links from untrusted handles)
+    geo.js geocode.js (search + reverseGeocode) routing.js (OSRM, cached) useGeolocation.js image.js lnurl.js locations.js profile.js (isDriveReady)
+  state/AppContext.jsx            # shared state (above)
+  ui/                             # shared UI kit
+    Layout.jsx    # AppFrame, MapPage (+ measures the Sheet so the map pads for it), Sheet, FloatButton, Screen, TabBar
+    MapView.jsx   # Leaflet + CARTO "Positron" tiles; pins, OSRM route, cars, "me" dot, price pills, ref.fit()
+    Button.jsx Icon.jsx Avatar.jsx Rating.jsx Money.jsx Parts.jsx (Row, Toggle, Field, ConfirmDialog, Modal, Spinner)
+    RatingForm.jsx ContactSheet.jsx UserModal.jsx NoticeBanner.jsx ErrorBoundary.jsx RelayEditor.jsx QRCode.jsx SatsAmount.jsx
   features/
-    auth/AuthScreen.jsx           # generate new key (+ backup step) OR import nsec OR unlock a saved key
-    auth/AuthSteps.jsx            # UnlockView + BackupStep
-    rides/RiderRequestScreen.jsx  # create request (Ride tab; default screen)
-    rides/DriverBrowseScreen.jsx  # browse open requests (Drive tab)
-    rides/DriverOfferScreen.jsx   # submit an offer (sub-screen)
-    rides/MyRidesScreen.jsx       # Activity tab: my requests (+Cancel) & my offers
-    rides/RiderSelectScreen.jsx   # pick a driver from offers (sub-screen)
-    rides/PaymentScreen.jsx       # pays the upfront deposit to the driver, then publishes RIDE_ACCEPT
-    rides/PayDriver.jsx           # reusable: pay N sats to a Lightning address (NWC wallet, or invoice QR + LUD-21 watch)
-    rides/RideProgressScreen.jsx  # rider's active ride; complete (rate) / cancel; shows the driver's live location when shared
-    rides/DriverActiveRideScreen.jsx # driver's active ride ("driver-active" view); broadcasts encrypted live location to the rider
-    routes/DriverRoutesScreen.jsx # UNUSED: not in App.jsx SCREENS (routes feature removed)
-    profile/ProfileScreen.jsx     # the "Account" tab: header + completed-trip count + WalletSection + driver-notify toggle + RelayEditor + KeysSection
-    profile/WalletSection.jsx     # NWC connect, balance, history, send/receive
-    profile/KeysSection.jsx       # npub + nsec (hidden by default)
-    profile/LightningAddressSection.jsx # edit + verify the user's lud16
-    profile/VehicleSection.jsx    # vehicle form; follows the SAVED vehicle until edited (no overwrite by a late profile load)
+    auth/        AuthScreen (role-aware copy) + AuthSteps (unlock, key backup)
+    profile/     ProfileParts (useSaveProfile, AccountHeader, ContactMethods, RelaysSection, LogoutButton),
+                 VehicleSection, LightningAddressSection, WalletSection, KeysSection
+    payments/    PayDriver (pay N sats to a Lightning address: NWC wallet, or invoice QR + LUD-21 watch)
+  rider/
+    App.jsx  state/RiderContext.jsx
+    screens/ HomeScreen (dispatch) PlanTrip (idle/search/quote) ActiveTrip (searching/choose/pay deposit)
+             OnTrip (enroute/arrived/riding) Receipt  ActivityScreen  AccountScreen
+    components/ PlaceSearch, DriverInfo (+ Plate, useDriverInfo)
+  driver/
+    App.jsx  state/DriverContext.jsx
+    screens/ HomeScreen (dispatch) Onboarding OnlineHome (offline GO / online / incoming card / waiting)
+             DriveTrip  DriveSummary  EarningsScreen  AccountScreen
+    components/ RiderInfo, Checklist
+test/*.test.mjs
 ```
 
 ## Nostr event kinds (`src/nostr/eventKinds.js`)
 | Kind | Name | Key tags | Content (JSON) |
 |---|---|---|---|
 | 0 | METADATA | — | `{name, about, communication[], picture, lud16, vehicle}` (+ fields from other apps, kept on merge) |
-| 30078 | RIDE_REQUEST | `d`(id), `t`, `p`(driver, once accepted) | `{pickup, dropoff, time, notes, status, sealed}` — pickup/dropoff are COARSE; `sealed` = exact trip, NIP-44 to the rider |
-| 30079 | RIDE_OFFER | `e`(request), `p`(rider), `d`, `t` | `{priceSats, upfrontSats, etaMinutes, message, plate}` — `plate` NIP-44 to the rider |
+| 30078 | RIDE_REQUEST | `d`(id), `t`, `p`(driver, once confirmed) | `{pickup, dropoff, time, notes, status, fareSats, distanceMiles, durationMin, sealed}` — pickup/dropoff are COARSE; `sealed` = exact trip, NIP-44 to the rider. `fareSats` is the quoted fare (older requests lack it; the driver app estimates) |
+| 30079 | RIDE_OFFER | `e`(request), `p`(rider), `d`, `t` | `{priceSats, upfrontSats, etaMinutes, message, plate}` — the driver's "I'll take it" at the rider's fare; `plate` NIP-44 to the rider |
 | 30080 | RIDE_ACCEPT | `e`(offer), `e`(request), `p`(driver), `d`, `t` | `{offerId, requestId, paidSats, verified, sealed}` — `sealed` = exact trip, NIP-44 to the driver |
-| 30081 | RIDE_CANCEL | `e`(request), `t` | `{requestId, reason}` |
+| 30081 | RIDE_CANCEL | `e`(request), `p`, `t` | `{requestId, reason}` |
 | 30082 | RATING | `p`(ratee), `e`(ride), `d`, `t` | `{rating, review, rideId}` |
-| 30083 | DRIVER_ROUTE | `d`(id), `t` | unused (feature removed) |
+| 30083 | DRIVER_ROUTE | | unused (feature removed) |
 | 30084 | RIDE_COMPLETE | `e`(request), `p`(rider), `d`, `t` | `{requestId}` — by the assigned driver |
+| 30085 | RIDE_STAGE | `e`(request), `p`(rider), `d`="stage-<rideKey>", `t` | `{stage: "arrived" \| "riding"}` — by the assigned driver |
 | 30090 | PRESENCE (addressable) | `d`="presence", `t`, `expiration` | `{name, npub, vehicle, lat, lng, ts}` — public, coarsened location |
 | 21100 | RIDE_LOCATION (ephemeral) | `p`(rider), `expiration` | NIP-44 encrypted `{lat, lng, ts}` — exact, to rider only |
 
 `status` ∈ `requested | accepted | in_progress | completed | cancelled`. The
-rider's `in_progress` version also carries `driverPubkey`.
+rider's `in_progress` version also carries `driverPubkey`. Stage is `enroute`
+(default) → `arrived` → `riding`.
 
 ## Invariants & gotchas (read before editing)
 - **Trust rules (lib/rides.js)**: relay events are signed, but anyone can sign
   one. A ride's versions are requests with the same **author + d-tag** (never
   d-tag alone). A RIDE_CANCEL counts only from the rider or the assigned driver;
-  a RIDE_COMPLETE only from the assigned driver; a RATING only from the other
-  party of that ride (one per rater per ride). Always go through
-  `rideVersions`/`rideStatus`/`rideEnding`/`reputation` — don't re-derive.
+  a RIDE_COMPLETE and a RIDE_STAGE only from the assigned driver; a RATING only from the
+  other party of that ride (one per rater per ride). Stages only move forward (the
+  furthest valid marker wins). Always go through `rideVersions`/`rideStatus`/`rideEnding`/
+  `rideStage`/`reputation` — don't re-derive.
+- **Offers expire**: for a ride needed now an offer is good for `OFFER_TTL_SECONDS`
+  (`offersForRide`, `pendingOfferFor`). After a driver is chosen, read their offer with
+  `offerFrom` (no time limit) — it carries the fare, deposit and sealed plate for the rest of the ride.
+- **Replaceable ordering**: `buildSignedEvent` gives every replaceable/addressable kind
+  (0, 10000+, 30000+) a `created_at` strictly after the previous one for the same
+  (kind, author, d). Relays keep the lowest id on a tie, so two saves within one second
+  could otherwise leave the OLD version. Always sign through `buildSignedEvent`.
 - **Kind 0 is shared with every Nostr app**: never publish a fresh kind-0 over
-  an existing one. Writes start from `getMetadata(pubkey)` and merge (Account
-  `saveProfile`); importing an nsec keeps the existing profile.
+  an existing one. Writes start from `getMetadata(pubkey)` and merge (`useSaveProfile`);
+  importing an nsec keeps the existing profile.
 - **Privacy (lib/privacy.js)**: never publish an exact address or a license plate in
   clear. Requests carry `publicPlace()` points (area name + ~1 km grid) and the exact
   trip sealed to the rider; RIDE_ACCEPT seals it to the chosen driver. Read trips with
   `exactTrip(request, user) || content`. The plate lives sealed in kind-0
   `vehicle.sealedPlate` (open with `myVehicle`) and is sealed to the rider in each offer
-  (`offerPlate`). Old events with clear values still display.
-- **Untrusted text into HTML**: React escapes JSX, but Leaflet `bindPopup`
-  strings are raw HTML — escape relay-sourced values (`esc` in MapView).
+  (`offerPlate`). Stage events carry no location. The public request does carry the trip's
+  distance/duration (needed for the fare). Reverse-geocoding the rider's GPS sends it (~10 m)
+  to Photon. Old events with clear values still display.
+- **Untrusted text**: React escapes JSX. Never put relay text into HTML strings (Leaflet
+  popups) — MapView uses only app-built labels (`esc` for price pills). Contact links come
+  only from `contactHref` (fixed prefix + cleaned handle).
 - **Events store `pubkey` as hex**, never npub. Convert for display only via
   `shortNpub(hex)` (keys.js). Public/secret bech32 = `user.npub` / `user.nsec`.
-- **Replaceable events**: RIDE_REQUEST and DRIVER_ROUTE carry a `d` tag and are
-  "edited" by re-publishing with the same `d`. Always read them through
-  `latestVersions()` (already applied in `refreshData`) so old versions don't
-  resurface. Cancelling a request re-publishes it with `status:"cancelled"`.
-- **Publishing**: user actions go through `useApp().publish(kind, content, tags)`,
-  which signs with `user.sk` (`buildSignedEvent`) and sends to relays + cache.
-  Demo data uses `relay.publishLocal` (cache only) so it never spams public relays,
-  and replies to a demo request use `publish(..., { localOnly: true })`. `publish`
-  resolves to true once any relay accepts the event (false if none do); show that
-  with `ui/SentConfirmation.jsx` instead of claiming success.
-  Don't go back to `relay.publish(createNostrEvent(...))` for user actions — real
-  relays reject unsigned events.
-- **Addressable kinds need unique `d` tags**: kinds 30000–39999 are replaceable by
-  (kind, pubkey, d). Offers/accepts/ratings carry a `d` tag scoped to the request
-  (`offer-<reqId>`, `accept-<reqId>`, `rating-<rideId>`) so they don't overwrite
-  each other on relays. Read replaceable lists through `latestVersions()`.
-- **Completion is driver-driven**: the rider's Ride In Progress has only "Cancel
-  Ride"; the DRIVER's Active Ride has "Complete Ride" + "Cancel Ride". Because the
-  driver can't replace the rider-signed request, completion/cancellation are explicit
-  events — `RIDE_COMPLETE` (30084, by driver) and `RIDE_CANCEL` (30081, by either) —
-  and effective state is derived via `rideStatus(request)` / `rideEnding(request)` in
-  lib/rides.js (matches a complete/cancel event e-tagging any version of the request).
-  MyRides, DriverBrowse, and reputation all use `rideStatus`. Both sides land on an
-  OPTIONAL review afterward (Skip allowed; <5★ still needs a reason). Past rows show
-  the review the user left.
-- **No vehicle on offers**: offers no longer carry a `vehicle` field; the driver's
-  vehicle/photo come from their profile (kind 0) and show via the username modal /
-  ride screens. All "No vehicle specified" wording removed.
-- **Notifications**: `pushNotice(msg)` (context) → swipe-away auto-dismiss banners
-  (`ui/NoticeBanner.jsx`, swipe up/left/right, 6s timeout) + a system Notification when
-  the tab is hidden (permission requested on login). Wired for offer-received,
-  offer-accepted, ride-complete, ride-cancel, and driver-vehicle-change (detected in
-  RideProgress).
-- **Profile photos** are byte-budgeted (~20 KB) in lib/image.js so relays don't reject
-  the metadata event. Tap any photo (modal or Account) to expand.
-- **Accept-on-pay**: selecting an offer no longer accepts the ride. RiderSelect just
-  sets `activeRide={request,offer,status:"selecting"}` and routes to PaymentScreen, which
-  has a "← Back to offers" escape. Payment is REAL: `PayDriver` gets an invoice from the
-  driver's `lud16` (lib/lnurl.js rejects an invoice for the wrong amount) and pays it via
-  NWC, or shows it as a QR for any wallet. Never invoice the rider's own wallet. Only
-  `finishPaid` publishes RIDE_ACCEPT + flips the request to `in_progress` (with
-  driverPubkey and a `p` tag for the driver). The rest of the fare is paid on the
-  rider's "Ride completed" view. So the driver's "Driving Now" appears
-  only after the upfront invoice is paid. Cancel in RideProgress publishes a
-  RIDE_CANCEL (p-tagging the driver) behind a confirm dialog. Reviews under 5 stars
-  require a non-empty explanation (rider + driver rating UIs both enforce it).
-- **Profiles carry photo + vehicle**: kind-0 metadata now includes `picture` (small
-  resized JPEG data URL via lib/image.js) and `vehicle:{picture,plateState,plateNumber,
-  year,make,model}`. Account centralises writes through `saveProfile(patch)` (merges into
-  `user`, republishes full metadata). On login the context fetches our own profile and
-  restores photo/lud16/vehicle (plate opened via `myVehicle`). `getProfile()` returns
-  `{name,comm,picture,lud16,vehicle}`.
-- **Drive gating**: `isDriveReady(user)` (lib/profile.js) requires face photo + plate
-  state/number + year/make/model + a Lightning address (`lud16`, so riders can pay). DriverBrowse shows a gating message (and an Account
-  shortcut) until ready; vehicle photo is optional.
-- **User modal**: tapping any username calls `openProfile(pubkey)` (context state
-  `profileModalPubkey`); `ui/UserModal.jsx` renders in App and shows the large photo,
-  name, full npub, and role-split reputation. Names are buttons in DriverBrowse +
-  RiderSelect.
-- **Completion**: the driver's "Complete Ride" (DriverActiveRide `handleComplete`)
-  publishes RIDE_COMPLETE immediately, so skipping the rating still completes the
-  ride (and stops the driver's location sharing). Both rider and the assigned driver then see it under their respective
-  collapsible **Past Rides** / **Past Drives** in Activity (newest first, with the
-  completion date/time). Active items (requests, Driving Now, pending offers) stay
-  at the top; pending offers resolve via the ride's latest status (`rideVersions`), so
-  they don't get stuck on "Pending".
-- **USD**: `btcUsd` (context, fetched from CoinGecko, refreshed every 5 min) +
-  `SatsAmount`/`satsToUsd` show a fiat estimate next to sats. Hidden if price fetch
-  fails.
-- **Profiles**: `relay.fetchProfile(pubkey)` pulls one user's kind-0 on demand
-  (used in DriverActiveRide / RideProgress) so counterparties' names can show.
 - **App tag (critical)**: our kinds (esp. 30078) are shared with other Nostr apps
   (NIP-78), whose events aren't our JSON. Every event we publish carries
-  `["t", APP_TAG]` (APP_TAG = "nostrride", in eventKinds.js); relay reads filter by
-  `"#t":[APP_TAG]`; and `relay._ingest` rejects any relay event lacking the tag or
-  with non-JSON content. Our own writes go through `_store` (trusted). Don't remove
-  the tag from `publish()`/live.js or screens will ingest junk and crash on parse.
-- **Relay status**: `relay.relayState(url)` → connected | failed | connecting. The pool
-  forgets relays that fail, so relay.js probes them (every 15 s at most); RelayEditor
-  shows the real state.
-- **Relays are user-editable + persisted**: the list lives in `config/relays.js`
-  (localStorage), edited via `RelayEditor` in both the login screen (collapsed)
-  and Account. `relay.js` and `live.js` read `getRelays()` and re-subscribe on
-  `onRelaysChange`, so edits take effect live. Defaults are the 5 free relays in DEFAULT_RELAYS (no paid relays).
-- **History = fetchHistory(pubkey)**: the live sync and `fetchRecent` cover only the
-  last 24 h. Past Rides and reputation need `relay.fetchHistory(pubkey)` (the user's own
-  + p-tagged events, the rides they point at with every version, and those rides'
-  cancels/completions/ratings). Called on login, Activity, UserModal, OfferCard, and
-  RequestCard; throttled to once per 5 min per pubkey.
-- **Speed**: `relay.query()` uses indexes (by kind, and by `e`/`d`/`p` tag value) —
-  put the most selective tag filter in the query. `relay.version` bumps on every new
-  event; lib/rides.js memoizes `rideVersions`/`rideStatus`/`rideEnding`/`reputation`
-  until it changes, so calling them per row per render is cheap. AppContext coalesces
-  event bursts (one refresh + one `liveTick` per 100 ms), and useGeolocation drops
-  moves under 5 m.
-- **Refresh = pull from relays**: `relay.fetchRecent()` (SimplePool `querySync`)
-  pulls recent app events into the cache (24 h on the first call, then only what's
-  new since the last call); exposed as `pullRecent()` in context.
-  The Drive screen calls it on open, on the Refresh button, and on a 12s poll, so
-  other people's requests appear even if the live subscription missed them.
-- **Activity tab**: my requests sorted newest-first; a request with status
-  `cancelled` is hidden 24h after its cancel time (`created_at`). A ride still
-  `in_progress` 24 h after its last version is treated as abandoned and not listed
-  as active.
-- **Trips = completed only**: the Account trip count is rides whose
-  `rideStatus` is `completed` and where the user is the rider (author) or the
-  assigned driver (`driverPubkey`). Completion comes from the driver's
-  RIDE_COMPLETE (DriverActiveRide `handleComplete`). Don't count raw requests/offers.
-- **Driver nearby-request badge**: `notifyNearby`/`notifyRadius` (persisted via
-  getSetting/setSetting) enable geolocation; `nearbyRequestCount` in context =
-  open ("requested") requests within radius of the driver, not their own. Shown as
-  a badge on the Drive tab in BottomNav; it clears automatically when a request is
-  cancelled or taken (status leaves "requested").
-- **No StrictMode** (see main.jsx): it double-mounts the map in dev and caused
-  crashes. Keep it off. Without it, rules-of-hooks slips are easy: keep every
-  hook above a screen's early `return null`.
-- **`createNostrEvent` does NOT sign** — only for demo/local cache, which isn't
-  verified. User-facing events must be signed (above).
-- **Wallet is live, not faked**: balance/transactions come from the user's real
-  wallet over NIP-47. A working NWC string from a real wallet (Alby Hub, Coinos,
-  etc.) is required; otherwise the UI shows a connection error, never fake data.
-- **`driverOnline`** (context) is a presence toggle on the Drive tab: it shows the
-  driver on the nearby-drivers map (coarse location). It must NOT gate the ability
-  to make offers.
-- **Maps/geocoding/routing use free public dev endpoints**: OSM tiles,
-  Photon (geocode.js; do NOT switch type-ahead back to Nominatim — its policy forbids
-  it), OSRM (routing.js). These are rate-limited and not for
-  production — swap to paid/self-hosted services (keep the return shapes). Render
-  few `<MapView>`s; each is a Leaflet map that fetches tiles and an OSRM route, so
-  never put one in a list row (that's why DriverBrowse cards show text, not maps).
-- **The whole app is on REAL relays now** (`nostr/relay.js` + `nostr/live.js`).
-  Ride requests/offers/accepts/ratings/routes AND live location all sync across
-  devices. The local cache is just a fast read layer + offline fallback. Presence
-  location is COARSENED (~100 m); exact location is only sent NIP-44-encrypted to
-  the matched rider. Geolocation needs https:// or localhost.
-- **Active-ride live tracking (end-to-end)**: after a rider accepts a driver's
-  offer, the driver gets a "Driving Now" card in My Activity → opens
-  `DriverActiveRideScreen`, which broadcasts the driver's exact location encrypted
-  to the rider (NIP-44, ephemeral kind 21100) every ~6s. The rider's
-  `RideProgressScreen` subscribes (`subscribeRideLocation`) and shows the driver
-  moving on a live map. Driver finds the rider via the request author pubkey; rider
-  finds the driver via `activeRide.offer.pubkey`.
-- **Public visibility**: ride requests/offers are public on the relays (anyone on
-  those relays can read them) — inherent to the open model. That's why exact points
-  and plates are sealed (see Privacy); notes, prices, and approximate areas are public. Remote users' display
-  names won't show unless we fetch their kind-0 metadata (we don't sync the global
-  kind-0 firehose), so they appear as `shortNpub`. The logged-in user and demo
-  users show names fine.
-- **Login persistence**: with "Remember me" (on by default) the key is saved encrypted
-  with the user's password (NIP-49); a reload shows the Unlock view. Never store the
-  key in clear. Logout removes the saved key. The event cache and the NWC wallet
-  connection are still in memory only (cleared on reload).
-- **Tailwind via CDN** → arbitrary/dynamic class strings work, but there is no
-  build-time purge. Keep using `THEME` (theme.js) for gradients/bg colors.
-- Semantic colors: emerald=pickup, rose=dropoff, amber=driver/offers, cyan=primary/rider.
+  `["t", APP_TAG]`; relay reads filter by `"#t":[APP_TAG]`; `relay._ingest` rejects any
+  relay event lacking the tag or with non-JSON content. Don't remove the tag from
+  `publish()`/live.js.
+- **Publishing**: user actions go through `useApp().publish(kind, content, tags)`,
+  which signs with `user.sk` and sends to relays + cache. `publish` resolves to true once
+  any relay accepts (false if none) — the rider app shows a warning when a request fails.
+  Demo data uses `relay.publishLocal` (cache only); replies to a demo request use
+  `publish(..., { localOnly: true })`. Don't use `relay.publish(createNostrEvent(...))`
+  for user actions — real relays reject unsigned events.
+- **Addressable kinds need unique `d` tags** (offer-<reqId>, accept-<reqId>, rating-<rideId>,
+  stage-<rideKey>, cancel-/complete-<id>). Read replaceable lists through `latestVersions()`.
+- **Payment is peer to peer (no escrow)**: the rider pays the driver's `lud16` — the
+  deposit (`upfrontSats`) when choosing a driver, the rest on the receipt after the driver
+  completes. `PayDriver` gets an invoice via `lib/lnurl.js` (rejects a wrong-amount invoice)
+  and pays it via NWC or shows a QR (LUD-21 `verify` watched). Never invoice the rider's own
+  wallet. Only `confirmDriver` publishes RIDE_ACCEPT + `in_progress`. "Rest paid" is remembered
+  in localStorage (`riderPaid`) so it is never paid twice. Deposit is non-refundable after cancel.
+- **Fare** (`lib/fare.js`): `FARE_RATES` in USD; sats via `btcUsd` (CoinGecko, refreshed every
+  5 min). If the price is unavailable `FALLBACK_BTC_USD` is used and the quote screen says so.
+  The driver app accepts at the quoted fare (no haggling); the driver sets only the deposit %.
+- **Drive gating**: `isDriveReady(user)` (lib/profile.js) = face photo + plate state/number +
+  year/make/model + Lightning address. Until then the Drive tab shows Onboarding and GO is unavailable.
+- **Completion is driver-driven**; the rider can cancel. Both sides get an optional rating
+  (under 5 stars needs a reason — `ui/RatingForm.jsx`). Ended rides come back as the
+  receipt/summary screen for up to 6 h until dismissed (`riderDone` / `driverDone` in localStorage).
+- **Live location**: the driver app broadcasts exact position to the rider (NIP-44, ephemeral) for the
+  whole drive and public coarse presence while online and free. Geolocation needs https:// or
+  localhost, and browsers pause GPS when the tab is hidden (a web limit; native apps would fix it).
+- **Profiles carry photo + vehicle**: kind-0 has `picture` (small resized JPEG, ~20 KB budget in
+  lib/image.js) and `vehicle:{picture,plateState,plateNumber,year,make,model}` (plate sealed).
+  `relay.fetchProfile(pubkey)` pulls one user's kind-0 on demand (rider: DriverInfo; driver: RiderInfo).
+- **History = fetchHistory(pubkey)**: live sync and `fetchRecent` cover only 24 h. Reputation and past
+  trips need `relay.fetchHistory(pubkey)` (throttled to once per 5 min per pubkey, queued 3 at a time).
+- **Speed**: `relay.query()` uses indexes (by kind, and by `e`/`d`/`p` tag value) — put the most
+  selective tag in the filter. lib/rides.js memoizes per `relay.version`. AppContext coalesces event
+  bursts (one refresh per 100 ms). MapView redraws cars/pills only when their content changes and
+  re-fits only on `fitKey` / sheet-size changes (so users can pan during a trip).
+- **Maps**: one `<MapView>` per screen (it is the background of `MapPage`; the `Sheet` reports its
+  height so the map pads for it). Tiles = CARTO "Positron", geocoding = Photon (do NOT switch
+  type-ahead to Nominatim — its policy forbids it), routes = OSRM (cached in routing.js).
+  All are free public dev endpoints: rate-limited, swap for paid/self-hosted before launch
+  (keep the return shapes; the tile URL is a constant in MapView.jsx).
+- **No StrictMode** (see apps/*/main.jsx): it double-mounts the map in dev and caused crashes.
+  Keep every hook above a screen's early `return null`.
+- **Login persistence**: with "Remember me" the key is saved encrypted with the user's password
+  (NIP-49) under a per-app key (`nostrride_key` rider, `nostrride_driver_key` driver); a reload shows
+  Unlock. Never store the key in clear. Logout removes it. The event cache and the NWC wallet
+  connection are in memory only (cleared on reload).
+- **Wallet is live, not faked**: balance/transactions come from the user's real wallet over NIP-47.
+  A working NWC string is required; otherwise the UI shows an error, never fake data.
+- **Tailwind via CDN** → arbitrary classes work, no build-time purge. Colors: black = primary, green
+  (`#05944f`) = driver "go"/confirm, amber = warnings, `#f7931a` = Lightning bolt, blue = "you".
+- **Public visibility**: requests/offers are public on the relays (anyone on those relays can read
+  them). That is why exact points and plates are sealed; notes, fares and approximate areas are public.
 
-## "Going live" swap points (each isolated to one file)
-- Real relays: **already real** for the whole app (`nostr/relay.js`, SimplePool +
-  cache). To harden for production: scope relays/geography, add reconnection, and
-  fetch remote kind-0 metadata for display names.
-- Real signing: **already real** — `buildSignedEvent` (`nostr/events.js`) via
-  `finalizeEvent`, used by `useApp().publish`.
-- Real map: **already real** — Leaflet + OSM raster tiles (no WebGL) + Photon geocoding + OSRM routing
-  (`ui/MapView.jsx`, `lib/geocode.js`, `lib/routing.js`).
-- Real Lightning: **already real** via NIP-47 in `nostr/wallet.js` (kinds 23194/23195),
-  and ride payments go to the driver's Lightning address (`lib/lnurl.js`). There is no
-  escrow: the deposit is a plain peer-to-peer payment.
+## "Going live" swap points
+- Relays: already real (`nostr/relay.js`, `nostr/live.js`). To harden: scope relays/geography,
+  add reconnection, fetch remote kind-0 for display names beyond the ones we pull on demand.
+- Signing, maps/geocoding/routing, Lightning (NIP-47 + lud16): already real (see above).
+- Not built yet: in-app chat/call (Contact sheet shows the other person's Signal/Telegram/phone),
+  driver background GPS (needs a native app), driver payout confirmation beyond LUD-21, ride types
+  (Comfort/XL), surge pricing.
 
 ## Adding a screen
-1. Create `src/features/<area>/<Name>Screen.jsx` (wrap content in `<Screen>`).
-2. Import it in `src/App.jsx` and add one entry to `SCREENS`.
-3. Navigate with `useApp().setView("<view-id>")`.
-4. Top-level tab? add it to `items` in `ui/BottomNav.jsx` (and omit `onBack`).
+1. Create `src/<rider|driver>/screens/<Name>Screen.jsx` (a full page: `<Screen title=…>`; a map page:
+   `<MapPage map={<MapView/>}><Sheet>…</Sheet></MapPage>`).
+2. Add it to `SCREENS` in that app's `App.jsx`; navigate with `useApp().setView("<id>")`.
+3. Top-level tab? add it to that app's tab list (it hides the tab bar by being "busy" in Shell).
+4. Role logic goes in that app's context; anything both apps need goes in `src/state`, `src/ui`, `src/features`, `src/lib`.
 
 ## Conventions
-- One feature per folder; files stay under ~300 lines (AppContext, DriverBrowse,
-  WalletSection, and MyRides are slightly over — split before growing them); each starts with a
-  comment block explaining its purpose.
+- One feature per folder; files stay under ~300 lines (WalletSection and nostr/relay.js are slightly
+  over — split before growing them); each starts with a comment block explaining its purpose.
+- The rider app must never import from `src/driver` and vice versa. Share via the folders above.
 - Don't introduce a state library, router, or CSS framework build step.
-- Don't commit secrets. `user.nsec`/`user.sk` live in memory; on disk only as the
-  password-encrypted ncryptsec (keystore.js).
+- Don't commit secrets. `user.nsec`/`user.sk` live in memory; on disk only as the password-encrypted
+  ncryptsec (keystore.js).

@@ -8,7 +8,7 @@ import { QRCodeSVG } from "qrcode.react";
 export default function QRCode({ value, size = 180 }) {
   if (!value) return null;
   return (
-    <div className="inline-block bg-white p-3 rounded-xl">
+    <div className="inline-block bg-white p-3 rounded-xl border border-neutral-200">
       <QRCodeSVG value={value} size={size} level="M" />
     </div>
   );

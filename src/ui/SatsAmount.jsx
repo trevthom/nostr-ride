@@ -6,18 +6,19 @@
 import { useApp } from "../state/AppContext.jsx";
 
 export function satsToUsd(sats, btcUsd) {
-  if (!btcUsd || !sats) return null;
+  if (!btcUsd || sats == null) return null;
   return sats * 1e-8 * btcUsd;
 }
 
 export function formatUsd(usd) {
   if (usd == null) return "";
+  if (usd === 0) return "$0.00";
   if (usd < 0.01) return "<$0.01";
   return "$" + usd.toFixed(2);
 }
 
 // Inline sats + (~$USD). `className` styles the sats text.
-export default function SatsAmount({ sats, className = "", usdClassName = "text-white/60" }) {
+export default function SatsAmount({ sats, className = "", usdClassName = "text-neutral-500" }) {
   const { btcUsd } = useApp();
   const usd = satsToUsd(sats, btcUsd);
   return (

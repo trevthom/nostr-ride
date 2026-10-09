@@ -1,28 +1,26 @@
 // ════════════════════════════════════════════════════════════
-//  APP STATE — One place that holds everything the whole app needs:
-//  the logged-in user, which screen is showing, the ride lists,
-//  notifications, and the connected Lightning wallet.
+//  APP STATE — The state BOTH apps share: the logged-in user, which
+//  tab is showing, the ride requests from the relays, transient
+//  banners, the BTC price, and the connected Lightning wallet.
 //
-//  Any screen can read/update this with the useApp() hook, e.g.:
-//      const { user, setView } = useApp();
+//  Role-specific state lives next to each app:
+//    src/rider/state/RiderContext.jsx    (requesting + riding)
+//    src/driver/state/DriverContext.jsx  (online, presence, offers)
+//
+//  Any screen can read this with the useApp() hook, e.g.:
+//      const { user, setView, publish } = useApp();
 // ════════════════════════════════════════════════════════════
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { relay } from "../nostr/relay.js";
 import { EVENT_KINDS, APP_TAG } from "../nostr/eventKinds.js";
 import { buildSignedEvent } from "../nostr/events.js";
-import { seedDemoData } from "../nostr/demoData.js";
 import { latestVersions } from "../nostr/replaceable.js";
 import { emptyWalletState } from "../nostr/wallet.js";
-import { publishPresence } from "../nostr/live.js";
-import { useGeolocation } from "../lib/useGeolocation.js";
-import { haversineDistance } from "../lib/geo.js";
-import { isRideExpired, rideStatus } from "../lib/rides.js";
 import { getProfile } from "../nostr/profiles.js";
 import { myVehicle } from "../lib/privacy.js";
 import { forgetKey } from "../nostr/keystore.js";
-import { DEFAULT_NOTIFY_RADIUS_MILES } from "../config/settings.js";
-import { getSetting, setSetting } from "../config/relays.js";
+import { APP_NAME } from "../config/app.js";
 
 const AppContext = createContext(null);
 
@@ -35,6 +33,7 @@ const APP_EVENT_KINDS = new Set([
   EVENT_KINDS.RIDE_ACCEPT,
   EVENT_KINDS.RIDE_CANCEL,
   EVENT_KINDS.RIDE_COMPLETE,
+  EVENT_KINDS.RIDE_STAGE,
   EVENT_KINDS.RATING,
 ]);
 
@@ -43,31 +42,30 @@ export function useApp() {
   return useContext(AppContext);
 }
 
-export function AppProvider({ children }) {
+export function AppProvider({ initialView, children }) {
   const [user, setUser] = useState(null); // logged-in keypair + profile
-  const [view, setView] = useState("rider-request"); // which screen is visible
+  const [view, setView] = useState(initialView); // which tab is visible
   const [rideRequests, setRideRequests] = useState([]); // latest version of each
-  const [selectedRequest, setSelectedRequest] = useState(null); // request in focus
-  const [activeRide, setActiveRide] = useState(null); // ride in progress
   const [profileModalPubkey, setProfileModalPubkey] = useState(null); // user-info modal
   const [notices, setNotices] = useState([]); // transient swipe-away banners
+  const [liveTick, setLiveTick] = useState(0); // bumped on incoming relay events to re-render
+  const [wallet, setWallet] = useState(emptyWalletState()); // connected NWC wallet
 
   // Show a transient banner. Also fires a system notification when the app
   // isn't the focused tab, so users hear about it off-screen.
   const pushNotice = useCallback((message) => {
     const id = Math.random().toString(36).slice(2);
-    setNotices((list) => [...list, { id, message }]);
+    // Two drivers answering at once should not stack two identical banners.
+    setNotices((list) => (list.some((n) => n.message === message) ? list : [...list, { id, message }]));
     try {
       if (typeof document !== "undefined" && document.hidden &&
           typeof Notification !== "undefined" && Notification.permission === "granted") {
-        new Notification("NostrRide", { body: message });
+        new Notification(APP_NAME, { body: message });
       }
     } catch { /* ignore */ }
     return id;
   }, []);
   const dismissNotice = useCallback((id) => setNotices((list) => list.filter((n) => n.id !== id)), []);
-  const [notifications, setNotifications] = useState([]); // driver/rider alerts
-  const [liveTick, setLiveTick] = useState(0); // bumped on incoming relay events to re-render
 
   // BTC price (USD) so sats amounts can show a fiat estimate. Refreshed
   // periodically; null until first fetch (then USD is just hidden).
@@ -87,32 +85,9 @@ export function AppProvider({ children }) {
     const id = setInterval(fetchPrice, 5 * 60 * 1000);
     return () => { alive = false; clearInterval(id); };
   }, []);
-  const [wallet, setWallet] = useState(emptyWalletState()); // connected NWC wallet
-  const [driverOnline, setDriverOnline] = useState(false); // "offering rides" presence toggle
-  const [locating, setLocating] = useState(false); // request GPS while on the Drive tab
 
-  // Driver "notify me of nearby ride requests" preference (persisted).
-  const [notifyNearby, setNotifyNearbyState] = useState(() => getSetting("notifyNearby", false));
-  const [notifyRadius, setNotifyRadiusState] = useState(() => getSetting("notifyRadius", DEFAULT_NOTIFY_RADIUS_MILES));
-  const setNotifyNearby = useCallback((v) => { setNotifyNearbyState(v); setSetting("notifyNearby", v); }, []);
-  const setNotifyRadius = useCallback((v) => { setNotifyRadiusState(v); setSetting("notifyRadius", v); }, []);
-
-  // Watch the device location while online OR while nearby-notifications
-  // are on, and (when online) broadcast presence to relays every 15s.
-  const { pos: myPosition, error: geoError } = useGeolocation(driverOnline || notifyNearby || locating);
-  const posRef = useRef(null);
-  useEffect(() => { posRef.current = myPosition; }, [myPosition]);
+  // Connect to the real relays once when the app starts.
   useEffect(() => {
-    if (!driverOnline || !user) return;
-    const beat = () => { if (posRef.current) publishPresence(user, posRef.current); };
-    beat(); // publish immediately once we're online
-    const id = setInterval(beat, 15000);
-    return () => clearInterval(id);
-  }, [driverOnline, user]);
-
-  // Load demo data + connect to real relays once when the app starts.
-  useEffect(() => {
-    seedDemoData();
     relay.startSync();
   }, []);
 
@@ -134,8 +109,9 @@ export function AppProvider({ children }) {
     refreshData();
   }, [refreshData]);
 
-  // Pull recent events from the relays, then refresh the list. Used by
-  // the Drive Refresh button and a periodic poll.
+  // Pull recent events from the relays, then refresh the list. Screens call
+  // this on open and on a poll, so it also catches what the live
+  // subscription missed.
   const pullRecent = useCallback(async () => {
     await relay.fetchRecent();
     refreshData();
@@ -168,36 +144,15 @@ export function AppProvider({ children }) {
     [user]
   );
 
-  // Cancel one of the current user's own ride requests: publish a cancel
-  // event AND a replacing request marked "cancelled".
-  const cancelRequest = useCallback(
-    (requestEvent) => {
-      const content = JSON.parse(requestEvent.content);
-      const reqId = requestEvent.tags.find((t) => t[0] === "d")?.[1] || requestEvent.id;
-      publish(
-        EVENT_KINDS.RIDE_CANCEL,
-        { requestId: requestEvent.id, reason: "Cancelled by rider" },
-        [["e", requestEvent.id], ["d", reqId], ["t", "ride-cancel"]]
-      );
-      publish(
-        EVENT_KINDS.RIDE_REQUEST,
-        { ...content, status: "cancelled" },
-        requestEvent.tags // same "d" tag => replaces the request
-      );
-      refreshData();
-    },
-    [publish, refreshData]
-  );
-
-  // Watch for new events that should refresh the UI and notify the user.
-  // A relay fetch can deliver hundreds of events at once, so refreshes are
-  // coalesced: at most one refreshData + one re-render per 100 ms.
+  // New relay events refresh the UI. A relay fetch can deliver hundreds of
+  // events at once, so refreshes are coalesced: at most one refreshData +
+  // one re-render per 100 ms.
   useEffect(() => {
-    if (!user) return;
     let timer = null;
     let requestsChanged = false;
-    const schedule = (isRequest) => {
-      requestsChanged = requestsChanged || isRequest;
+    const unsub = relay.onEvent((_subId, event) => {
+      if (!APP_EVENT_KINDS.has(event.kind)) return;
+      requestsChanged = requestsChanged || event.kind === EVENT_KINDS.RIDE_REQUEST;
       if (timer) return;
       timer = setTimeout(() => {
         timer = null;
@@ -205,30 +160,9 @@ export function AppProvider({ children }) {
         requestsChanged = false;
         setLiveTick((t) => t + 1);
       }, 100);
-    };
-    // Only notify about events made after login. History and the 24 h
-    // sync bring in old offers/cancels that the user already knows about.
-    const notifySince = Math.floor(Date.now() / 1000) - 60;
-    const unsub = relay.onEvent((_subId, event) => {
-      if (APP_EVENT_KINDS.has(event.kind)) schedule(event.kind === EVENT_KINDS.RIDE_REQUEST);
-      if (event.pubkey === user.publicKey) return; // don't notify about our own actions
-      if (event.created_at < notifySince) return; // old news
-
-      const pTags = event.tags.filter((t) => t[0] === "p").map((t) => t[1]);
-      const c = (() => { try { return JSON.parse(event.content); } catch { return null; } })();
-
-      if (event.kind === EVENT_KINDS.RIDE_OFFER && pTags.includes(user.publicKey)) {
-        pushNotice("New offer on your ride request.");
-      } else if (event.kind === EVENT_KINDS.RIDE_REQUEST && c?.status === "in_progress" && c?.driverPubkey === user.publicKey) {
-        pushNotice("Your offer was accepted — the ride has started.");
-      } else if (event.kind === EVENT_KINDS.RIDE_COMPLETE && pTags.includes(user.publicKey)) {
-        pushNotice("Your driver marked the ride complete.");
-      } else if (event.kind === EVENT_KINDS.RIDE_CANCEL && pTags.includes(user.publicKey)) {
-        pushNotice("The other rider/driver cancelled the ride.");
-      }
     });
     return () => { unsub(); clearTimeout(timer); };
-  }, [user, refreshData, pushNotice]);
+  }, [refreshData]);
 
   // Best-effort: ask for system-notification permission once logged in.
   useEffect(() => {
@@ -238,27 +172,7 @@ export function AppProvider({ children }) {
         Notification.requestPermission().catch(() => {});
       }
     } catch { /* ignore */ }
-  }, [user?.publicKey]);
-
-  // Open ride requests near the driver (for the Drive-tab notification
-  // bubble). Empty unless notifications are on and we have a location.
-  // Naturally clears when a request is cancelled or taken (status != requested).
-  const myPubkey = user?.publicKey;
-  const nearbyRequests = useMemo(
-    () =>
-      notifyNearby && myPosition
-        ? rideRequests.filter((r) => {
-            if (rideStatus(r) !== "requested") return false; // taken, cancelled, or completed
-            if (r.pubkey === myPubkey) return false; // not my own
-            const c = JSON.parse(r.content);
-            if (isRideExpired(c, r.created_at)) return false; // expired
-            const d = haversineDistance(myPosition.lat, myPosition.lng, c.pickup.lat, c.pickup.lng);
-            return d <= notifyRadius;
-          })
-        : [],
-    [notifyNearby, myPosition, rideRequests, myPubkey, notifyRadius, liveTick]
-  );
-  const nearbyRequestCount = nearbyRequests.length;
+  }, [user?.publicKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Log out: clear the session and return to the login screen. The wallet
   // must go too, or the next person on this device could spend from it,
@@ -266,14 +180,11 @@ export function AppProvider({ children }) {
   const logout = useCallback(() => {
     forgetKey();
     setUser(null);
-    setActiveRide(null);
-    setSelectedRequest(null);
-    setDriverOnline(false);
     setProfileModalPubkey(null);
     setWallet(emptyWalletState());
     setNotices([]);
-    setView("rider-request");
-  }, []);
+    setView(initialView);
+  }, [initialView]);
 
   // On login, pull our full ride history (the live sync covers only 24 h)
   // so Past Rides and our reputation are complete.
@@ -290,7 +201,7 @@ export function AppProvider({ children }) {
       await relay.fetchProfile(user.publicKey);
       const p = getProfile(user.publicKey);
       if (alive && p && (p.picture || p.vehicle || p.lud16)) {
-        setUser((u) => ({
+        setUser((u) => u && ({
           ...u,
           picture: u.picture || p.picture || "",
           lud16: u.lud16 || p.lud16 || "",
@@ -321,27 +232,10 @@ export function AppProvider({ children }) {
     refreshData,
     pullRecent,
     publish,
-    cancelRequest,
-    selectedRequest,
-    setSelectedRequest,
-    activeRide,
-    setActiveRide,
-    notifications,
     wallet,
     setWallet,
-    driverOnline,
-    setDriverOnline,
-    setLocating,
-    myPosition,
-    geoError,
     liveTick,
     btcUsd,
-    notifyNearby,
-    setNotifyNearby,
-    notifyRadius,
-    setNotifyRadius,
-    nearbyRequests,
-    nearbyRequestCount,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

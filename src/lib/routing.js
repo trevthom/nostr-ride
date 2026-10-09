@@ -11,11 +11,25 @@
 
 const ENDPOINT = "https://router.project-osrm.org/route/v1/driving";
 
+// The map and the screens both ask for the same route; remember answers
+// (by ~1 m coordinates) so each route is fetched once. Failures are not kept.
+const cache = new Map();
+const CACHE_MAX = 60;
+
 // points: [{ lat, lng }, ...] (need at least 2).
 // Returns { coordinates: [[lng,lat],...], distanceMeters, durationSeconds }.
-export async function getDrivingRoute(points) {
-  if (!points || points.length < 2) return null;
-  const coords = points.map((p) => `${p.lng},${p.lat}`).join(";");
+export function getDrivingRoute(points) {
+  if (!points || points.length < 2) return Promise.resolve(null);
+  const coords = points.map((p) => `${p.lng.toFixed(5)},${p.lat.toFixed(5)}`).join(";");
+  if (cache.has(coords)) return cache.get(coords);
+  const job = fetchRoute(coords);
+  cache.set(coords, job);
+  if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
+  job.catch(() => cache.delete(coords));
+  return job;
+}
+
+async function fetchRoute(coords) {
   const url = `${ENDPOINT}/${coords}?overview=full&geometries=geojson`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("Routing request failed");

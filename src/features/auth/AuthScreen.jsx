@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  AUTH SCREEN — First screen. Ways to sign in:
+//  AUTH SCREEN — First screen of both apps. Ways to sign in:
 //    1. Generate a brand-new Nostr keypair (then a key-backup step).
 //    2. Paste an existing "nsec1..." secret key.
 //    3. Unlock a key saved on this device (password, NIP-49).
@@ -7,6 +7,7 @@
 //  doesn't log the user out (nostr/keystore.js).
 //  A new key publishes a fresh profile. An existing key keeps its
 //  Nostr profile (we never overwrite it with a blank one).
+//  The headline changes with the app (rider / driver).
 // ════════════════════════════════════════════════════════════
 
 import { useState } from "react";
@@ -18,13 +19,17 @@ import { getMetadata, getProfile } from "../../nostr/profiles.js";
 import { getSavedKey, saveKey, unlockKey, MIN_PASSWORD } from "../../nostr/keystore.js";
 import { myVehicle } from "../../lib/privacy.js";
 import { useRelays, setRelays } from "../../config/relays.js";
-import { THEME } from "../../theme.js";
+import { IS_DRIVER_APP, APP_NAME } from "../../config/app.js";
 import Button from "../../ui/Button.jsx";
+import Icon from "../../ui/Icon.jsx";
 import RelayEditor from "../../ui/RelayEditor.jsx";
+import { Field, inputCls } from "../../ui/Parts.jsx";
 import { UnlockView, BackupStep } from "./AuthSteps.jsx";
 
-const inputCls =
-  "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:border-cyan-500/50";
+const DEFAULT_NAME = IS_DRIVER_APP ? "Anonymous Driver" : "Anonymous Rider";
+const COPY = IS_DRIVER_APP
+  ? { tagline: "Drive. Get paid in sats.", sub: "Set your own hours. Riders pay you directly over Lightning." }
+  : { tagline: "Get there. No middleman.", sub: "Rides arranged peer to peer on Nostr, paid over Lightning." };
 
 // Let React paint a "busy" label before slow, blocking work (scrypt).
 const nextFrame = () => new Promise((r) => setTimeout(r, 30));
@@ -56,7 +61,7 @@ export default function AuthScreen({ onLogin }) {
 
   // A brand-new key: publish its first profile.
   const enterNew = (keys) => {
-    const displayName = name.trim() || "Anonymous Rider";
+    const displayName = name.trim() || DEFAULT_NAME;
     relay.publish(
       buildSignedEvent(EVENT_KINDS.METADATA, { name: displayName, about: "NostrRide user", communication: [] }, [], keys.sk)
     );
@@ -75,14 +80,14 @@ export default function AuthScreen({ onLogin }) {
     const typed = name.trim();
     if (!existing) {
       if (typed) return enterNew(keys);
-      return enter({ ...keys, name: saved?.name || "Anonymous Rider", comm: [] }, { save });
+      return enter({ ...keys, name: saved?.name || DEFAULT_NAME, comm: [] }, { save });
     }
     const p = getProfile(keys.publicKey);
     if (typed && typed !== p.name) {
       relay.publish(buildSignedEvent(EVENT_KINDS.METADATA, { ...existing, name: typed }, [], keys.sk));
     }
     enter(
-      { ...keys, name: typed || p.name || "Anonymous Rider", comm: p.comm, picture: p.picture, lud16: p.lud16, vehicle: myVehicle(keys.publicKey, keys.sk) },
+      { ...keys, name: typed || p.name || DEFAULT_NAME, comm: p.comm, picture: p.picture, lud16: p.lud16, vehicle: myVehicle(keys.publicKey, keys.sk) },
       { save }
     );
   };
@@ -139,22 +144,18 @@ export default function AuthScreen({ onLogin }) {
   const onEnter = (e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } };
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center p-6"
-      style={{ background: "linear-gradient(180deg, #030712 0%, #0c1929 50%, #030712 100%)" }}
-    >
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
-            style={{ background: THEME.brandGradient }}
-          >
-            <span className="text-2xl" aria-hidden="true">⚡</span>
-          </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight font-display">NostrRide</h1>
-          <p className="text-cyan-400/70 text-sm mt-1 tracking-wide">DECENTRALIZED RIDESHARING</p>
+    <div className="h-[100dvh] overflow-y-auto bg-white mx-auto max-w-md sm:border-x sm:border-neutral-200">
+      {/* Brand header */}
+      <div className="bg-black text-white px-6 pt-[max(3rem,env(safe-area-inset-top))] pb-10">
+        <div className="w-12 h-12 rounded-xl bg-white text-black flex items-center justify-center mb-6">
+          <Icon name="zap" size={26} fill="currentColor" strokeWidth={1.5} />
         </div>
+        <h1 className="text-[32px] leading-9 font-bold tracking-tight">{APP_NAME}</h1>
+        <p className="text-xl font-semibold mt-3">{COPY.tagline}</p>
+        <p className="text-white/70 text-[15px] mt-1">{COPY.sub}</p>
+      </div>
 
+      <div className="px-6 py-6">
         {stage === "unlock" && (
           <UnlockView
             saved={saved}
@@ -165,94 +166,86 @@ export default function AuthScreen({ onLogin }) {
           />
         )}
 
-        {stage === "backup" && pending && (
-          <BackupStep nsec={pending.nsec} onContinue={() => enterNew(pending)} />
-        )}
+        {stage === "backup" && pending && <BackupStep nsec={pending.nsec} onContinue={() => enterNew(pending)} />}
 
         {stage === "form" && (
-          <>
+          <div className="space-y-4">
             {/* Mode switch */}
-            <div className="flex gap-2 mb-5 bg-white/5 p-1 rounded-xl border border-white/10">
+            <div className="flex bg-neutral-100 p-1 rounded-full" role="tablist">
               <Tab active={mode === "new"} onClick={() => { setMode("new"); setError(""); }}>Create account</Tab>
-              <Tab active={mode === "import"} onClick={() => { setMode("import"); setError(""); }}>Login with key</Tab>
+              <Tab active={mode === "import"} onClick={() => { setMode("import"); setError(""); }}>I have a key</Tab>
             </div>
 
-            <div className="space-y-4">
-              {/* Shared profile fields */}
-              <Field label="Display Name">
-                <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={onEnter} placeholder="Your name or alias" className={inputCls} />
+            <Field label="Display name">
+              <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={onEnter} placeholder="Your name or alias" className={inputCls} />
+            </Field>
+
+            {mode === "import" && (
+              <Field label="Secret key (nsec)">
+                <input
+                  value={nsec}
+                  onChange={(e) => setNsec(e.target.value)}
+                  onKeyDown={onEnter}
+                  placeholder="nsec1..."
+                  spellCheck={false}
+                  autoComplete="off"
+                  className={`${inputCls} text-xs font-mono`}
+                />
               </Field>
+            )}
 
-              {/* Import-only field */}
-              {mode === "import" && (
-                <Field label="Secret Key (nsec)">
-                  <input
-                    value={nsec}
-                    onChange={(e) => setNsec(e.target.value)}
-                    onKeyDown={onEnter}
-                    placeholder="nsec1..."
-                    spellCheck={false}
-                    autoComplete="off"
-                    className={`${inputCls} text-xs font-mono`}
-                  />
-                </Field>
+            {/* Remember me: key saved encrypted with this password */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-[15px] cursor-pointer">
+                <input type="checkbox" className="w-4 h-4 accent-black" checked={remember} onChange={(e) => { setRemember(e.target.checked); setError(""); }} />
+                Remember me on this device
+              </label>
+              {remember && (
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                  onKeyDown={onEnter}
+                  placeholder={`Password to unlock (${MIN_PASSWORD}+ characters)`}
+                  autoComplete="new-password"
+                  aria-label="Password"
+                  className={inputCls}
+                />
               )}
-
-              {/* Remember me: key saved encrypted with this password */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-white/70 text-sm cursor-pointer">
-                  <input type="checkbox" checked={remember} onChange={(e) => { setRemember(e.target.checked); setError(""); }} />
-                  Remember me on this device
-                </label>
-                {remember && (
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                    onKeyDown={onEnter}
-                    placeholder={`Password to unlock (${MIN_PASSWORD}+ characters)`}
-                    autoComplete="new-password"
-                    aria-label="Password"
-                    className={inputCls}
-                  />
-                )}
-              </div>
-
-              {error && <p className="text-rose-400 text-xs">{error}</p>}
-
-              {mode === "new" ? (
-                <Button onClick={handleGenerate} disabled={busy}>Generate Keys &amp; Enter</Button>
-              ) : (
-                <Button onClick={handleImport} disabled={!nsec || busy}>{busy ? "Loading your profile…" : "Import & Enter"}</Button>
-              )}
-
-              <p className="text-white/50 text-xs text-center leading-relaxed mt-4">
-                Keys are real Nostr keys made on this device. Nothing is sent to a server. "Remember me" saves your key
-                here only, encrypted with your password.
-              </p>
-
-              {/* Relays — collapsed by default */}
-              <div className="border-t border-white/10 pt-3 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRelays((v) => !v)}
-                  aria-expanded={showRelays}
-                  className="w-full flex items-center justify-between text-white/50 text-xs uppercase tracking-wider"
-                >
-                  <span>Relays ({relays.length})</span>
-                  <span aria-hidden="true">{showRelays ? "▼" : "◀"}</span>
-                </button>
-                {showRelays && (
-                  <div className="mt-3">
-                    <RelayEditor relays={relays} onChange={setRelays} />
-                    <p className="text-white/50 text-[11px] mt-2 leading-relaxed">
-                      These are the Nostr relays the app connects to. Changes are saved on this device.
-                    </p>
-                  </div>
-                )}
-              </div>
             </div>
-          </>
+
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+
+            {mode === "new" ? (
+              <Button onClick={handleGenerate} disabled={busy}>Create account</Button>
+            ) : (
+              <Button onClick={handleImport} disabled={!nsec} loading={busy}>{busy ? "Loading your profile…" : "Continue"}</Button>
+            )}
+
+            <p className="text-neutral-500 text-xs text-center leading-relaxed">
+              Your key is a real Nostr key made on this device. Nothing is sent to a server. “Remember me” saves it
+              here only, encrypted with your password.
+            </p>
+
+            {/* Relays — collapsed by default */}
+            <div className="border-t border-neutral-200 pt-3">
+              <button
+                type="button"
+                onClick={() => setShowRelays((v) => !v)}
+                aria-expanded={showRelays}
+                className="w-full flex items-center justify-between text-neutral-500 text-xs font-semibold uppercase tracking-wider"
+              >
+                <span>Relays ({relays.length})</span>
+                <Icon name={showRelays ? "chevron-up" : "chevron-down"} size={16} />
+              </button>
+              {showRelays && (
+                <div className="mt-3">
+                  <RelayEditor relays={relays} onChange={setRelays} />
+                  <p className="text-neutral-500 text-xs mt-2">These are the Nostr relays the app connects to. Changes are saved on this device.</p>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -262,22 +255,13 @@ export default function AuthScreen({ onLogin }) {
 function Tab({ active, onClick, children }) {
   return (
     <button
+      type="button"
+      role="tab"
       onClick={onClick}
-      aria-pressed={active}
-      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-        active ? "bg-cyan-500/20 text-cyan-400" : "text-white/50"
-      }`}
+      aria-selected={active}
+      className={`flex-1 py-2 rounded-full text-sm font-semibold transition-colors ${active ? "bg-black text-white" : "text-neutral-600"}`}
     >
       {children}
     </button>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="text-xs text-white/50 uppercase tracking-wider mb-1 block">{label}</span>
-      {children}
-    </label>
   );
 }

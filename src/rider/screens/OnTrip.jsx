@@ -1,0 +1,152 @@
+// ════════════════════════════════════════════════════════════
+//  ON TRIP — The rider's screen once a driver is confirmed. The driver
+//  moves it forward with signed stage markers (lib/rides.js rideStage):
+//    enroute  driver is driving to the pickup (live car on the map)
+//    arrived  driver is at the pickup
+//    riding   trip underway to the dropoff
+//  The driver's exact position arrives end-to-end encrypted
+//  (subscribeRideLocation) and is only ever shown to this rider.
+//  The driver ends the trip; the rider can cancel it.
+// ════════════════════════════════════════════════════════════
+
+import { useEffect, useRef, useState } from "react";
+import { useApp } from "../../state/AppContext.jsx";
+import { useRider } from "../state/RiderContext.jsx";
+import { subscribeRideLocation } from "../../nostr/live.js";
+import { haversineDistance } from "../../lib/geo.js";
+import { pickupEta } from "../../lib/fare.js";
+import { rideDriver, rideStage } from "../../lib/rides.js";
+import { offerFrom } from "../../lib/trips.js";
+import MapView from "../../ui/MapView.jsx";
+import Money from "../../ui/Money.jsx";
+import Icon from "../../ui/Icon.jsx";
+import ContactSheet from "../../ui/ContactSheet.jsx";
+import { MapPage, Sheet } from "../../ui/Layout.jsx";
+import { ConfirmDialog } from "../../ui/Parts.jsx";
+import DriverInfo, { useDriverInfo, carText } from "../components/DriverInfo.jsx";
+
+const r3 = (n) => Math.round(n * 1000) / 1000; // ~110 m: limits how often the route is re-fetched
+const miles = (a, b) => haversineDistance(a.lat, a.lng, b.lat, b.lng);
+
+export default function OnTrip({ request, trip }) {
+  const { user, pushNotice } = useApp();
+  const { cancelRide, myPosition } = useRider();
+  const driverPubkey = rideDriver(request);
+  const stage = rideStage(request);
+  const offer = offerFrom(request, driverPubkey);
+  const { profile } = useDriverInfo(driverPubkey);
+  const [loc, setLoc] = useState(null); // driver's live position
+  const [contact, setContact] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [, setNow] = useState(0);
+  const vehicleSeen = useRef(null);
+
+  useEffect(() => {
+    if (!driverPubkey) return;
+    return subscribeRideLocation(user, driverPubkey, (l) => {
+      if (l && Number.isFinite(l.lat) && Number.isFinite(l.lng)) setLoc(l);
+    });
+  }, [user, driverPubkey]);
+
+  // Re-render every 10 s so "updated Xs ago" and ETAs stay current.
+  useEffect(() => { const id = setInterval(() => setNow((n) => n + 1), 10000); return () => clearInterval(id); }, []);
+
+  // Tell the rider if the driver changes their car mid-ride.
+  const vehicleKey = JSON.stringify(profile?.vehicle || null);
+  useEffect(() => {
+    if (!profile?.vehicle) return;
+    if (vehicleSeen.current === null) { vehicleSeen.current = vehicleKey; return; }
+    if (vehicleKey !== vehicleSeen.current) { vehicleSeen.current = vehicleKey; pushNotice("Your driver updated their vehicle details."); }
+  }, [vehicleKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { pickup, dropoff } = trip;
+  const age = loc ? Math.round((Date.now() - loc.ts) / 1000) : null;
+  const live = age != null && age < 45;
+  const toTarget = loc ? pickupEta(miles(loc, stage === "riding" ? dropoff : pickup)) : null;
+
+  const headline =
+    stage === "arrived" ? "Your driver has arrived"
+    : stage === "riding" ? `On the way to ${dropoff.name}`
+    : toTarget != null ? `Driver arriving in ${toTarget} min`
+    : offer ? `Driver arriving in about ${JSON.parse(offer.content).etaMinutes} min`
+    : "Your driver is on the way";
+  const sub =
+    stage === "arrived" ? `Meet at ${pickup.name}`
+    : stage === "riding" ? (toTarget != null ? `About ${toTarget} min left` : "Sit back and relax")
+    : `Meet at ${pickup.name}`;
+
+  const route = stage === "riding" ? [pickup, dropoff] : loc ? [{ lat: r3(loc.lat), lng: r3(loc.lng) }, pickup] : null;
+  const car = carText(profile?.vehicle);
+  const contentOffer = offer ? JSON.parse(offer.content) : null;
+
+  return (
+    <MapPage
+      map={
+        <MapView
+          pickup={pickup}
+          dropoff={dropoff}
+          route={route}
+          routeDashed={stage !== "riding"}
+          cars={loc ? [{ pubkey: driverPubkey || "driver", lat: loc.lat, lng: loc.lng }] : []}
+          me={stage === "riding" ? null : myPosition}
+          fitKey={`${request.id}|${stage}|${loc ? "loc" : "noloc"}`}
+          padBottom={400}
+        />
+      }
+    >
+      <Sheet label="Your trip">
+        <h2 className="text-2xl font-bold leading-tight">{headline}</h2>
+        <p className="text-neutral-600 text-[15px] mt-0.5">{sub}</p>
+        {stage !== "arrived" && (
+          <p className="text-xs text-neutral-500 mt-1" role="status">
+            {loc ? (live ? "Live location" : `Driver's location updated ${age < 120 ? `${age}s` : `${Math.round(age / 60)} min`} ago`) : "Waiting for your driver's location…"}
+          </p>
+        )}
+
+        <div className="mt-4 pt-4 border-t border-neutral-100">
+          {driverPubkey ? <DriverInfo pubkey={driverPubkey} offerEvent={offer} /> : <p className="text-neutral-500">Driver details are loading…</p>}
+          {stage !== "riding" && car && <p className="text-xs text-neutral-500 mt-2">Look for a {car}.</p>}
+        </div>
+
+        <div className="flex gap-3 mt-4">
+          <button type="button" onClick={() => setContact(true)} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-neutral-100 font-semibold text-[15px] active:bg-neutral-200">
+            <Icon name="phone" size={18} /> Contact
+          </button>
+          <button type="button" onClick={() => setAsking(true)} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-neutral-100 font-semibold text-[15px] text-red-600 active:bg-neutral-200">
+            <Icon name="x" size={18} /> Cancel
+          </button>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-neutral-100 flex items-start gap-3">
+          <div className="flex flex-col items-center pt-1.5" aria-hidden="true">
+            <span className="w-2 h-2 rounded-full bg-black" />
+            <span className="h-5 w-px bg-neutral-300 my-0.5" />
+            <span className="w-2 h-2 bg-black" />
+          </div>
+          <div className="min-w-0 flex-1 space-y-2.5">
+            <p className="text-[15px] truncate">{pickup.name}</p>
+            <p className="text-[15px] truncate">{dropoff.name}</p>
+          </div>
+          {contentOffer && (
+            <div className="text-right">
+              <Money sats={contentOffer.priceSats} stacked className="font-bold" />
+              {contentOffer.upfrontSats > 0 && <p className="text-xs text-neutral-500">deposit paid</p>}
+            </div>
+          )}
+        </div>
+      </Sheet>
+
+      <ContactSheet open={contact} onClose={() => setContact(false)} pubkey={driverPubkey} name={profile?.name} />
+      <ConfirmDialog
+        open={asking}
+        title="Cancel this ride?"
+        message={stage === "riding" ? "The trip is underway. You may still owe the fare." : "Your deposit goes to the driver and is not refunded."}
+        confirmLabel="Cancel ride"
+        cancelLabel="Keep ride"
+        danger
+        onConfirm={() => { setAsking(false); cancelRide(request); }}
+        onCancel={() => setAsking(false)}
+      />
+    </MapPage>
+  );
+}

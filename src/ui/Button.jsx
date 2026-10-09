@@ -3,49 +3,56 @@
 //  Change a variant here and every button of that type updates.
 //
 //  Usage:
-//    <Button onClick={fn}>Primary</Button>
-//    <Button variant="driver">Offer</Button>
-//    <Button variant="ghost">Cancel</Button>
-//    <Button disabled>Can't click</Button>
+//    <Button onClick={fn}>Primary (black)</Button>
+//    <Button variant="go">Confirm (green)</Button>
+//    <Button variant="secondary">Back</Button>
+//    <Button variant="danger">Cancel ride</Button>
+//    <Button variant="ghost">Skip</Button>
+//    <Button size="sm" full={false}>Small pill</Button>
+//    <Button loading>Working…</Button>
 // ════════════════════════════════════════════════════════════
 
-import { THEME } from "../theme.js";
+const VARIANTS = {
+  primary: "bg-black text-white active:bg-neutral-700",
+  go: "bg-[#05944f] text-white active:bg-[#047a41]",
+  secondary: "bg-neutral-100 text-black active:bg-neutral-200",
+  outline: "bg-white text-black border border-neutral-300 active:bg-neutral-100",
+  danger: "bg-red-50 text-red-600 active:bg-red-100",
+  ghost: "bg-transparent text-black active:bg-neutral-100",
+};
+
+const SIZES = {
+  lg: "py-4 text-base rounded-xl",
+  md: "py-3 text-[15px] rounded-xl",
+  sm: "py-2 px-4 text-sm rounded-full",
+};
 
 export default function Button({
   children,
   onClick,
   variant = "primary",
+  size = "lg",
+  full = true,
   disabled = false,
+  loading = false,
   className = "",
+  type = "button",
+  ...rest
 }) {
-  // Background per variant. "ghost" uses a CSS class instead of a gradient.
-  const backgrounds = {
-    primary: disabled ? "rgba(255,255,255,0.1)" : THEME.brandGradient,
-    driver: disabled ? "rgba(255,255,255,0.1)" : THEME.driverGradient,
-  };
-
-  const base =
-    "w-full py-4 rounded-xl font-semibold text-base transition-all active:scale-95 disabled:cursor-not-allowed";
-
-  if (variant === "ghost") {
-    return (
-      <button
-        onClick={onClick}
-        disabled={disabled}
-        className={`${base} text-rose-400 border border-rose-500/20 bg-rose-500/5 ${className}`}
-      >
-        {children}
-      </button>
-    );
-  }
-
+  const off = disabled || loading;
+  const look =
+    off && variant !== "ghost" && variant !== "outline"
+      ? "bg-neutral-200 text-neutral-400"
+      : VARIANTS[variant] || VARIANTS.primary;
   return (
     <button
+      type={type}
       onClick={onClick}
-      disabled={disabled}
-      className={`${base} text-white ${disabled ? "opacity-30" : ""} ${className}`}
-      style={{ background: backgrounds[variant] }}
+      disabled={off}
+      className={`${full ? "w-full" : ""} ${SIZES[size]} ${look} font-semibold transition-colors disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 ${className}`}
+      {...rest}
     >
+      {loading && <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true" />}
       {children}
     </button>
   );

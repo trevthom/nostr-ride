@@ -7,8 +7,12 @@
 
 import { getPublicKey } from "nostr-tools";
 import { encrypt, decrypt } from "nostr-tools/nip49";
+import { IS_DRIVER_APP } from "../config/app.js";
 
-const KEY = "nostrride_key";
+// Each app keeps its own saved key, so the rider and driver apps can run on
+// one origin without overwriting each other. (The rider app keeps the
+// original name, so keys saved before the split still unlock.)
+const KEY = IS_DRIVER_APP ? "nostrride_driver_key" : "nostrride_key";
 export const MIN_PASSWORD = 8;
 
 // { ncryptsec, pubkey, name } or null.

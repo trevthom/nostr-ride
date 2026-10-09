@@ -17,8 +17,8 @@ export default function KeysSection({ user }) {
   };
 
   return (
-    <div className="bg-white/5 rounded-xl border border-white/10 p-4">
-      <p className="text-white/60 text-xs uppercase tracking-wider mb-3">Your Keys</p>
+    <div className="bg-neutral-100 rounded-xl border border-neutral-200 p-4">
+      <p className="text-neutral-500 text-xs uppercase tracking-wider font-semibold mb-3">Your Keys</p>
 
       {/* Public key */}
       <KeyRow
@@ -32,22 +32,22 @@ export default function KeysSection({ user }) {
       {/* Secret key — hidden by default */}
       <div className="mt-3">
         <div className="flex items-center justify-between mb-1">
-          <p className="text-white/50 text-[11px] uppercase">Secret (nsec)</p>
-          <button onClick={() => setShowSecret((s) => !s)} className="text-cyan-400 text-xs">
+          <p className="text-neutral-500 text-[11px] uppercase">Secret (nsec)</p>
+          <button onClick={() => setShowSecret((s) => !s)} className="text-blue-600 text-xs">
             {showSecret ? "Hide" : "Show"}
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <p className="text-white/60 text-xs font-mono break-all flex-1">
+          <p className="text-neutral-500 text-xs font-mono break-all flex-1">
             {showSecret ? user.nsec : "nsec1" + "•".repeat(20)}
           </p>
           {showSecret && (
-            <button onClick={() => copy(user.nsec, "nsec")} className="text-cyan-400 text-xs shrink-0">
+            <button onClick={() => copy(user.nsec, "nsec")} className="text-blue-600 text-xs shrink-0">
               {copied === "nsec" ? "Copied" : "Copy"}
             </button>
           )}
         </div>
-        <p className="text-rose-400/90 text-[11px] mt-1">
+        <p className="text-red-600 text-[11px] mt-1">
           Never share your nsec. Anyone with it controls this identity.
         </p>
       </div>
@@ -58,10 +58,10 @@ export default function KeysSection({ user }) {
 function KeyRow({ label, display, onCopy, copied }) {
   return (
     <div>
-      <p className="text-white/50 text-[11px] uppercase mb-1">{label}</p>
+      <p className="text-neutral-500 text-[11px] uppercase mb-1">{label}</p>
       <div className="flex items-center gap-2">
-        <p className="text-white/60 text-xs font-mono break-all flex-1">{display}</p>
-        <button onClick={onCopy} className="text-cyan-400 text-xs shrink-0">
+        <p className="text-neutral-500 text-xs font-mono break-all flex-1">{display}</p>
+        <button onClick={onCopy} className="text-blue-600 text-xs shrink-0">
           {copied ? "Copied" : "Copy"}
         </button>
       </div>

@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════
-//  LOCATIONS — The places shown on the map.
-//  Add/remove entries here to change the pickable locations.
-//  (Each needs a name plus lat/lng coordinates.)
+//  LOCATIONS — Places used for the map's starting view (before there is
+//  a GPS fix) and for the dev-only demo requests. The first entry is the
+//  default map center: change it to start the map in your city.
 // ════════════════════════════════════════════════════════════
 
 export const SAMPLE_LOCATIONS = [
@@ -16,12 +16,3 @@ export const SAMPLE_LOCATIONS = [
   { name: "Tates Creek Centre", lat: 37.99, lng: -84.49 },
   { name: "Masterson Station Park", lat: 38.08, lng: -84.56 },
 ];
-
-// The geographic box the map covers. If you move SAMPLE_LOCATIONS to
-// a different city, update these so pins land in the right spot.
-export const MAP_BOUNDS = {
-  minLat: 37.96,
-  maxLat: 38.1,
-  minLng: -84.65,
-  maxLng: -84.4,
-};

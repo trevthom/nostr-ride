@@ -4,9 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev": "node scripts/dev.mjs",
+    "dev:rider": "vite --mode rider",
+    "dev:driver": "vite --mode driver",
+    "build": "npm run build:rider && npm run build:driver",
+    "build:rider": "vite build --mode rider",
+    "build:driver": "vite build --mode driver",
+    "preview:rider": "vite preview --mode rider",
+    "preview:driver": "vite preview --mode driver",
     "test": "node --test \"test/*.test.mjs\""
   },
   "dependencies": {
