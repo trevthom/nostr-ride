@@ -161,9 +161,8 @@ Most of the app is already real: relays (`src/nostr/relay.js`), signed events
 (`src/nostr/wallet.js`, NIP-47), and the maps (Leaflet + OpenStreetMap tiles +
 OSRM routing + Nominatim address search).
 
-What is still simulated: the **ride payment** in
-`src/features/rides/PaymentScreen.jsx`. No money moves from the rider to the
-driver yet.
+Ride payments are real too: the rider pays the driver's **Lightning address**
+(set in Account, required to drive). There is no escrow.
 
 > **About the map services:** the app uses free public endpoints — OpenStreetMap
 > tiles, Nominatim (address search), and OSRM (driving routes). These are great
