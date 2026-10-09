@@ -18,7 +18,7 @@ import Button from "../../ui/Button.jsx";
 
 export default function PayDriver({ amountSats, address, memo = "NostrRide fare", onPaid }) {
   const { wallet } = useApp();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(""); // "" | "wallet" | "invoice" | "check"
   const [error, setError] = useState("");
   const [invoice, setInvoice] = useState(null); // { pr, verify }
   const [mode, setMode] = useState("qr"); // "qr" | "string" | "url"
@@ -50,7 +50,7 @@ export default function PayDriver({ amountSats, address, memo = "NostrRide fare"
   }
 
   const payWithWallet = async () => {
-    setBusy(true);
+    setBusy("wallet");
     setError("");
     try {
       const { pr } = await requestInvoice(address, amountSats, memo);
@@ -62,24 +62,24 @@ export default function PayDriver({ amountSats, address, memo = "NostrRide fare"
           " Check your wallet's history before you try again, so you don't pay twice."
       );
     }
-    setBusy(false);
+    setBusy("");
   };
 
   const showInvoice = async () => {
-    setBusy(true);
+    setBusy("invoice");
     setError("");
     try {
       setInvoice(await requestInvoice(address, amountSats, memo));
     } catch (e) {
       setError(e.message || "Couldn't get an invoice from the driver's wallet.");
     }
-    setBusy(false);
+    setBusy("");
   };
 
   // "I've paid": check now if we can; otherwise trust the rider.
   const confirmPaid = async () => {
     if (!invoice.verify) { finish({ verified: false }); return; }
-    setBusy(true);
+    setBusy("check");
     setNotYet(false);
     try {
       if (await isInvoicePaid(invoice.verify)) finish({ verified: true });
@@ -87,7 +87,7 @@ export default function PayDriver({ amountSats, address, memo = "NostrRide fare"
     } catch (e) {
       setError(e.message || "Couldn't check the payment.");
     }
-    setBusy(false);
+    setBusy("");
   };
 
   const copy = (text) => {
@@ -101,7 +101,7 @@ export default function PayDriver({ amountSats, address, memo = "NostrRide fare"
       {/* Option 1: connected wallet */}
       <button
         onClick={payWithWallet}
-        disabled={!wallet.connected || busy}
+        disabled={!wallet.connected || !!busy}
         className="w-full py-4 rounded-xl font-semibold mb-3 transition-all"
         style={{
           cursor: wallet.connected && !busy ? "pointer" : "not-allowed",
@@ -111,7 +111,7 @@ export default function PayDriver({ amountSats, address, memo = "NostrRide fare"
           border: "none",
         }}
       >
-        {busy && !invoice ? "Paying…" : `Pay ${Number(amountSats).toLocaleString()} sats with connected wallet ⚡`}
+        {busy === "wallet" ? "Paying…" : `Pay ${Number(amountSats).toLocaleString()} sats with connected wallet ⚡`}
       </button>
       {!wallet.connected && (
         <p className="text-white/50 text-xs text-center mb-4 -mt-1">Connect a wallet in Account to enable this.</p>
@@ -121,10 +121,10 @@ export default function PayDriver({ amountSats, address, memo = "NostrRide fare"
       {!invoice ? (
         <button
           onClick={showInvoice}
-          disabled={busy}
+          disabled={!!busy}
           className="w-full py-4 rounded-xl font-semibold border border-white/15 bg-white/5 text-white disabled:opacity-50"
         >
-          Pay from another wallet
+          {busy === "invoice" ? "Getting invoice…" : "Pay from another wallet"}
         </button>
       ) : (
         <div className="bg-white/5 rounded-2xl border border-white/10 p-4 text-center">
@@ -156,7 +156,7 @@ export default function PayDriver({ amountSats, address, memo = "NostrRide fare"
               : "This invoice pays the driver directly. The driver's wallet can't confirm payments, so tap below only after your wallet shows the payment as sent."}
           </p>
           {notYet && <p className="text-amber-400/90 text-xs mb-2">Not received yet. Wait a moment and try again.</p>}
-          <Button onClick={confirmPaid} disabled={busy}>{busy ? "Checking…" : "I've paid"}</Button>
+          <Button onClick={confirmPaid} disabled={!!busy}>{busy === "check" ? "Checking…" : "I've paid"}</Button>
         </div>
       )}
 

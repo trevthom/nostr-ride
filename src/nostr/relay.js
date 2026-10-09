@@ -60,6 +60,8 @@ class NostrRelay {
     this.sub = null;
     this.syncing = false;
     this.historyAt = new Map(); // pubkey -> ms of last fetchHistory
+    this.historyJobs = []; // queued fetchHistory runs (see _queue)
+    this.historyRunning = 0;
     // If the relay list changes (added/removed in-app), reconnect.
     onRelaysChange(() => { if (this.syncing) this._resubscribe(); });
   }
@@ -106,6 +108,28 @@ class NostrRelay {
     if (!pubkey) return;
     if (!force && Date.now() - (this.historyAt.get(pubkey) || 0) < 300000) return;
     this.historyAt.set(pubkey, Date.now());
+    return this._queue(() => this._history(pubkey));
+  }
+
+  // Relays cap open subscriptions per connection, and the Drive screen
+  // asks for many riders at once, so run at most 3 history loads at a time.
+  _queue(job) {
+    return new Promise((resolve) => {
+      this.historyJobs.push(async () => {
+        try { await job(); } finally { this.historyRunning--; this._drain(); resolve(); }
+      });
+      this._drain();
+    });
+  }
+
+  _drain() {
+    while (this.historyRunning < 3 && this.historyJobs.length) {
+      this.historyRunning++;
+      this.historyJobs.shift()();
+    }
+  }
+
+  async _history(pubkey) {
     const q = (f) => this.pool.querySync(getRelays(), { "#t": [APP_TAG], limit: 500, ...f }).catch(() => []);
     const take = (evs) => evs.forEach((e) => this._ingest(e));
     const chunks = (arr, n = 100) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
