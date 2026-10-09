@@ -168,14 +168,15 @@ rider's `in_progress` version also carries `driverPubkey`.
   `finishPaid` publishes RIDE_ACCEPT + flips the request to `in_progress` (with
   driverPubkey and a `p` tag for the driver). The rest of the fare is paid on the
   rider's "Ride completed" view. So the driver's "Driving Now" appears
-  only after the upfront invoice is paid. Cancel in RideProgress now publishes the
-  request `cancelled` (+ RIDE_CANCEL) behind a confirm dialog. Reviews under 5 stars
+  only after the upfront invoice is paid. Cancel in RideProgress publishes a
+  RIDE_CANCEL (p-tagging the driver) behind a confirm dialog. Reviews under 5 stars
   require a non-empty explanation (rider + driver rating UIs both enforce it).
 - **Profiles carry photo + vehicle**: kind-0 metadata now includes `picture` (small
   resized JPEG data URL via lib/image.js) and `vehicle:{picture,plateState,plateNumber,
   year,make,model}`. Account centralises writes through `saveProfile(patch)` (merges into
   `user`, republishes full metadata). On login the context fetches our own profile and
-  restores photo/vehicle. `getProfile()` returns `{name,comm,picture,vehicle}`.
+  restores photo/lud16/vehicle (plate opened via `myVehicle`). `getProfile()` returns
+  `{name,comm,picture,lud16,vehicle}`.
 - **Drive gating**: `isDriveReady(user)` (lib/profile.js) requires face photo + plate
   state/number + year/make/model + a Lightning address (`lud16`, so riders can pay). DriverBrowse shows a gating message (and an Account
   shortcut) until ready; vehicle photo is optional.
@@ -183,12 +184,12 @@ rider's `in_progress` version also carries `driverPubkey`.
   `profileModalPubkey`); `ui/UserModal.jsx` renders in App and shows the large photo,
   name, full npub, and role-split reputation. Names are buttons in DriverBrowse +
   RiderSelect.
-- **Completion**: tapping "Complete Ride" publishes the `completed` status
-  immediately (RideProgress `markCompleted`), so Skipping the rating still completes
-  the ride. Both rider and the assigned driver then see it under their respective
+- **Completion**: the driver's "Complete Ride" (DriverActiveRide `handleComplete`)
+  publishes RIDE_COMPLETE immediately, so skipping the rating still completes the
+  ride (and stops the driver's location sharing). Both rider and the assigned driver then see it under their respective
   collapsible **Past Rides** / **Past Drives** in Activity (newest first, with the
   completion date/time). Active items (requests, Driving Now, pending offers) stay
-  at the top; pending offers resolve via the ride's latest status (by d-tag), so
+  at the top; pending offers resolve via the ride's latest status (`rideVersions`), so
   they don't get stuck on "Pending".
 - **USD**: `btcUsd` (context, fetched from CoinGecko, refreshed every 5 min) +
   `SatsAmount`/`satsToUsd` show a fiat estimate next to sats. Hidden if price fetch
@@ -245,9 +246,9 @@ rider's `in_progress` version also carries `driverPubkey`.
 - **Wallet is live, not faked**: balance/transactions come from the user's real
   wallet over NIP-47. A working NWC string from a real wallet (Alby Hub, Coinos,
   etc.) is required; otherwise the UI shows a connection error, never fake data.
-- **`driverOnline`** (context) is a presence toggle on the Drive tab. It is
-  display-only today (the nearby-drivers map isn't built). It must NOT gate the
-  ability to make offers.
+- **`driverOnline`** (context) is a presence toggle on the Drive tab: it shows the
+  driver on the nearby-drivers map (coarse location). It must NOT gate the ability
+  to make offers.
 - **Maps/geocoding/routing use free public dev endpoints**: OSM tiles,
   Photon (geocode.js; do NOT switch type-ahead back to Nominatim — its policy forbids
   it), OSRM (routing.js). These are rate-limited and not for
@@ -299,7 +300,8 @@ rider's `in_progress` version also carries `driverPubkey`.
 4. Top-level tab? add it to `items` in `ui/BottomNav.jsx` (and omit `onBack`).
 
 ## Conventions
-- One feature per folder; files stay under ~300 lines; each starts with a
+- One feature per folder; files stay under ~300 lines (AppContext, DriverBrowse,
+  WalletSection, and MyRides are slightly over — split before growing them); each starts with a
   comment block explaining its purpose.
 - Don't introduce a state library, router, or CSS framework build step.
 - Don't commit secrets. `user.nsec`/`user.sk` live in memory; on disk only as the
