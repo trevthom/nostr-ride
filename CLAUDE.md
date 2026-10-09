@@ -13,7 +13,10 @@ on some machines, which is why it was removed).
 ## Commands
 - `npm install` then `npm run dev` → dev server at http://localhost:5173
 - `npm run build` → production build (use to verify changes compile)
-- No test suite, no linter configured.
+- `npm test` → Node's built-in test runner over `test/*.test.mjs` (no extra deps):
+  trust rules, privacy, history, LNURL, geocode, publish. Run it after touching
+  lib/rides.js, lib/privacy.js, lib/lnurl.js, lib/geocode.js, or nostr/relay.js.
+- No linter configured.
 
 ## Architecture (data flow)
 Every user action becomes a **signed Nostr event** → published via
