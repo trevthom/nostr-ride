@@ -52,6 +52,7 @@ src/
     rides.js              # rideStatus/rideEnding/rideVersions/reputation — enforce the trust rules (see Invariants)
     profile.js            # isDriveReady/missingDriveInfo (drive gating)
     image.js              # resizeImage -> small JPEG data URL for kind-0
+    lnurl.js              # Lightning address (lud16) -> invoice via LNURL-pay; checks the BOLT11 amount; LUD-21 isInvoicePaid
   state/AppContext.jsx    # useApp(); holds user/view/rideRequests/activeRide/notifications/wallet/driverOnline/myPosition/geoError; cancelRequest(); refreshData(); broadcasts presence while online
   ui/
     Screen.jsx            # page wrapper: sticky header, optional onBack, optional right slot
@@ -69,22 +70,24 @@ src/
     rides/DriverOfferScreen.jsx   # submit an offer (sub-screen)
     rides/MyRidesScreen.jsx       # Activity tab: my requests (+Cancel) & my offers
     rides/RiderSelectScreen.jsx   # pick a driver from offers (sub-screen)
-    rides/PaymentScreen.jsx       # Lightning payment (SIMULATED)
+    rides/PaymentScreen.jsx       # pays the upfront deposit to the driver, then publishes RIDE_ACCEPT
+    rides/PayDriver.jsx           # reusable: pay N sats to a Lightning address (NWC wallet, or invoice QR + LUD-21 watch)
     rides/RideProgressScreen.jsx  # rider's active ride; complete (rate) / cancel; shows the driver's live location when shared
     rides/DriverActiveRideScreen.jsx # driver's active ride ("driver-active" view); broadcasts encrypted live location to the rider
     routes/DriverRoutesScreen.jsx # UNUSED: not in App.jsx SCREENS (routes feature removed)
     profile/ProfileScreen.jsx     # the "Account" tab: header + completed-trip count + WalletSection + driver-notify toggle + RelayEditor + KeysSection
     profile/WalletSection.jsx     # NWC connect, balance, history, send/receive
     profile/KeysSection.jsx       # npub + nsec (hidden by default)
+    profile/LightningAddressSection.jsx # edit + verify the user's lud16
 ```
 
 ## Nostr event kinds (`src/nostr/eventKinds.js`)
 | Kind | Name | Key tags | Content (JSON) |
 |---|---|---|---|
-| 0 | METADATA | — | `{name, about, communication[]}` |
+| 0 | METADATA | — | `{name, about, communication[], picture, lud16, vehicle}` (+ fields from other apps, kept on merge) |
 | 30078 | RIDE_REQUEST | `d`(id), `t` | `{pickup, dropoff, time, notes, status}` |
 | 30079 | RIDE_OFFER | `e`(request), `p`(rider), `d`, `t` | `{priceSats, upfrontSats, etaMinutes, message}` |
-| 30080 | RIDE_ACCEPT | `e`(offer), `e`(request), `p`(driver), `t` | `{offerId, requestId}` |
+| 30080 | RIDE_ACCEPT | `e`(offer), `e`(request), `p`(driver), `d`, `t` | `{offerId, requestId, paidSats, verified}` |
 | 30081 | RIDE_CANCEL | `e`(request), `t` | `{requestId, reason}` |
 | 30082 | RATING | `p`(ratee), `e`(ride), `d`, `t` | `{rating, review, rideId}` |
 | 30083 | DRIVER_ROUTE | `d`(id), `t` | unused (feature removed) |
@@ -143,8 +146,12 @@ rider's `in_progress` version also carries `driverPubkey`.
   the metadata event. Tap any photo (modal or Account) to expand.
 - **Accept-on-pay**: selecting an offer no longer accepts the ride. RiderSelect just
   sets `activeRide={request,offer,status:"selecting"}` and routes to PaymentScreen, which
-  has a "← Back to offers" escape. Only `finishPaid` publishes RIDE_ACCEPT + flips the
-  request to `in_progress` (with driverPubkey). So the driver's "Driving Now" appears
+  has a "← Back to offers" escape. Payment is REAL: `PayDriver` gets an invoice from the
+  driver's `lud16` (lib/lnurl.js rejects an invoice for the wrong amount) and pays it via
+  NWC, or shows it as a QR for any wallet. Never invoice the rider's own wallet. Only
+  `finishPaid` publishes RIDE_ACCEPT + flips the request to `in_progress` (with
+  driverPubkey and a `p` tag for the driver). The rest of the fare is paid on the
+  rider's "Ride completed" view. So the driver's "Driving Now" appears
   only after the upfront invoice is paid. Cancel in RideProgress now publishes the
   request `cancelled` (+ RIDE_CANCEL) behind a confirm dialog. Reviews under 5 stars
   require a non-empty explanation (rider + driver rating UIs both enforce it).
@@ -154,7 +161,7 @@ rider's `in_progress` version also carries `driverPubkey`.
   `user`, republishes full metadata). On login the context fetches our own profile and
   restores photo/vehicle. `getProfile()` returns `{name,comm,picture,vehicle}`.
 - **Drive gating**: `isDriveReady(user)` (lib/profile.js) requires face photo + plate
-  state/number + year/make/model. DriverBrowse shows a gating message (and an Account
+  state/number + year/make/model + a Lightning address (`lud16`, so riders can pay). DriverBrowse shows a gating message (and an Account
   shortcut) until ready; vehicle photo is optional.
 - **User modal**: tapping any username calls `openProfile(pubkey)` (context state
   `profileModalPubkey`); `ui/UserModal.jsx` renders in App and shows the large photo,
@@ -244,9 +251,9 @@ rider's `in_progress` version also carries `driverPubkey`.
   `finalizeEvent`, used by `useApp().publish`.
 - Real map: **already real** — Leaflet + OSM raster tiles (no WebGL) + OSRM routing
   (`ui/MapView.jsx`, `lib/geocode.js`, `lib/routing.js`).
-- Real Lightning: **already real** via NIP-47 in `nostr/wallet.js` (kinds 23194/23195).
-  The *ride* payment in `rides/PaymentScreen.jsx` is still simulated (no invoice is
-  exchanged between rider/driver yet) — wire it to `payInvoice` once that exists.
+- Real Lightning: **already real** via NIP-47 in `nostr/wallet.js` (kinds 23194/23195),
+  and ride payments go to the driver's Lightning address (`lib/lnurl.js`). There is no
+  escrow: the deposit is a plain peer-to-peer payment.
 
 ## Adding a screen
 1. Create `src/features/<area>/<Name>Screen.jsx` (wrap content in `<Screen>`).

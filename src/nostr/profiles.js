@@ -1,5 +1,6 @@
 // ════════════════════════════════════════════════════════════
-//  PROFILES — Look up a user's name + contact info by public key.
+//  PROFILES — Look up a user's name, contacts, photo, Lightning
+//  address, and vehicle by public key.
 //  Reads the most recent Kind 0 (metadata) event for that user.
 // ════════════════════════════════════════════════════════════
 
@@ -37,6 +38,7 @@ export function getProfile(pubkey) {
       .filter((c) => c && typeof c === "object")
       .map((c) => ({ platform: str(c.platform), handle: str(c.handle) })),
     picture: str(meta.picture),
+    lud16: str(meta.lud16).trim(), // Lightning address: where riders pay this user
     vehicle: v && {
       picture: str(v.picture),
       plateState: str(v.plateState),

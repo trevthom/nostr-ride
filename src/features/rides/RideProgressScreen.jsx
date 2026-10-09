@@ -16,16 +16,34 @@ import { THEME } from "../../theme.js";
 import Screen from "../../ui/Screen.jsx";
 import Button from "../../ui/Button.jsx";
 import MapView from "../../ui/MapView.jsx";
+import SatsAmount from "../../ui/SatsAmount.jsx";
+import PayDriver from "./PayDriver.jsx";
+
+const parse = (e) => { try { return JSON.parse(e.content); } catch { return null; } };
+
+// The driver's offer for this ride. When the rider opens the ride from
+// Activity, activeRide has no offer, so find it from the driver the
+// request names.
+function findOffer(versions, driverPubkey) {
+  if (!driverPubkey) return null;
+  const offers = relay.query({ kinds: [EVENT_KINDS.RIDE_OFFER], authors: [driverPubkey], "#e": versions.map((e) => e.id) });
+  return offers.sort((a, b) => b.created_at - a.created_at)[0] || null;
+}
 
 export default function RideProgressScreen() {
   const { user, publish, setView, activeRide, setActiveRide, refreshData, openProfile, pullRecent, pushNotice } = useApp();
   const [rating, setRating] = useState(5);
+  const [restPaid, setRestPaid] = useState(false);
   const [review, setReview] = useState("");
   const [driverLoc, setDriverLoc] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const vehRef = useRef(null);
 
-  const driverPubkey = activeRide?.offer?.pubkey;
+  // Latest version of this request (for derived status) and its driver.
+  const versions = activeRide ? rideVersions(activeRide.request) : [];
+  const liveReq = versions[0];
+  const driverPubkey = activeRide?.offer?.pubkey || (liveReq && parse(liveReq)?.driverPubkey);
+  const offerEvent = activeRide?.offer || findOffer(versions, driverPubkey);
 
   useEffect(() => {
     if (!driverPubkey) return;
@@ -53,9 +71,9 @@ export default function RideProgressScreen() {
 
   if (!activeRide) return null;
   const req = JSON.parse(activeRide.request.content);
+  const offer = offerEvent ? parse(offerEvent) : null;
+  const restDue = offer ? Math.max(0, (offer.priceSats || 0) - (offer.upfrontSats || 0)) : 0;
 
-  // Latest version of this request (for derived status).
-  const liveReq = rideVersions(activeRide.request)[0];
   const status = rideStatus(liveReq);
   const ending = rideEnding(liveReq);
   const ended = status === "completed" || status === "cancelled";
@@ -92,7 +110,25 @@ export default function RideProgressScreen() {
       <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: THEME.pageBg }}>
         <div className="w-full max-w-sm text-center">
           <h2 className="text-white text-xl font-bold mb-1 font-display">{heading}</h2>
-          <p className="text-white/40 text-sm mb-6">Leave an optional review for your driver.</p>
+
+          {/* The rest of the fare is due at drop-off (completed rides only). */}
+          {status === "completed" && restDue > 0 && (
+            <div className="bg-white/5 rounded-2xl border border-white/10 p-4 my-4 text-left">
+              {restPaid ? (
+                <p className="text-emerald-400 text-sm text-center">✓ Rest of the fare paid</p>
+              ) : (
+                <>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-white/60 text-sm">Rest of the fare</span>
+                    <SatsAmount sats={restDue} className="text-lg font-bold text-amber-400" usdClassName="text-white/50 text-xs" />
+                  </div>
+                  <PayDriver amountSats={restDue} address={driver?.lud16} memo="NostrRide fare" onPaid={() => setRestPaid(true)} />
+                </>
+              )}
+            </div>
+          )}
+
+          <p className="text-white/50 text-sm mb-6">Leave an optional review for your driver.</p>
           <div className="flex justify-center gap-2 mb-6">
             {[1, 2, 3, 4, 5].map((star) => (
               <button key={star} onClick={() => setRating(star)} className={`text-3xl ${star <= rating ? "text-amber-400" : "text-white/20"}`}>★</button>
@@ -116,7 +152,6 @@ export default function RideProgressScreen() {
   }
 
   // ── In-progress view (rider) ──
-  const offer = activeRide.offer ? JSON.parse(activeRide.offer.content) : null;
 
   return (
     <Screen title="Ride In Progress">

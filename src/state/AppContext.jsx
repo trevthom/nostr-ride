@@ -250,10 +250,11 @@ export function AppProvider({ children }) {
     (async () => {
       await relay.fetchProfile(user.publicKey);
       const p = getProfile(user.publicKey);
-      if (alive && p && (p.picture || p.vehicle)) {
+      if (alive && p && (p.picture || p.vehicle || p.lud16)) {
         setUser((u) => ({
           ...u,
           picture: u.picture || p.picture || "",
+          lud16: u.lud16 || p.lud16 || "",
           vehicle: u.vehicle || p.vehicle || null,
         }));
       }

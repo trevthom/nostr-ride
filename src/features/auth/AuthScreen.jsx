@@ -70,7 +70,7 @@ export default function AuthScreen({ onLogin }) {
     if (typed && typed !== p.name) {
       relay.publish(buildSignedEvent(EVENT_KINDS.METADATA, { ...existing, name: typed }, [], keys.sk));
     }
-    onLogin({ ...keys, name: typed || p.name || "Anonymous Rider", comm: p.comm, picture: p.picture, vehicle: p.vehicle });
+    onLogin({ ...keys, name: typed || p.name || "Anonymous Rider", comm: p.comm, picture: p.picture, lud16: p.lud16, vehicle: p.vehicle });
   };
 
   // Pressing Enter in a field triggers the screen's primary action.

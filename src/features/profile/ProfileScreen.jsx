@@ -19,6 +19,7 @@ import Screen from "../../ui/Screen.jsx";
 import RelayEditor from "../../ui/RelayEditor.jsx";
 import WalletSection from "./WalletSection.jsx";
 import KeysSection from "./KeysSection.jsx";
+import LightningAddressSection from "./LightningAddressSection.jsx";
 
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 const CURRENT_YEAR = new Date().getFullYear();
@@ -67,6 +68,7 @@ export default function ProfileScreen() {
           about: base.about ?? "NostrRide user",
           communication: next.comm || [],
           picture: next.picture || "",
+          ...(next.lud16 !== undefined && { lud16: next.lud16 }),
           vehicle: next.vehicle || {},
         },
         [],
@@ -272,6 +274,9 @@ export default function ProfileScreen() {
             them up. Removing any required item turns off driving until it's added back.
           </p>
         </div>
+        {/* Lightning address — where riders pay this user (required to drive) */}
+        <LightningAddressSection value={user.lud16 || ""} onSave={(lud16) => saveProfile({ lud16 })} />
+
         {/* Contact methods — add as many as you like */}
         <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-3">
           <p className="text-white/40 text-xs uppercase tracking-wider">Contact Methods</p>

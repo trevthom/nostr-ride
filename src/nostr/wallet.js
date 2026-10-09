@@ -115,9 +115,10 @@ export async function listTransactions(conn) {
   }));
 }
 
-// Pay a BOLT11 invoice with the connected wallet.
+// Pay a BOLT11 invoice with the connected wallet. Payments can take a
+// while to route, so wait longer than for a balance check.
 export async function payInvoice(conn, invoice) {
-  return nip47Request(conn, "pay_invoice", { invoice });
+  return nip47Request(conn, "pay_invoice", { invoice }, 60000);
 }
 
 // Ask the wallet to create an invoice; returns the BOLT11 string.
