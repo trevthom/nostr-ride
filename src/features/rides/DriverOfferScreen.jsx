@@ -11,9 +11,10 @@ import Screen from "../../ui/Screen.jsx";
 import Button from "../../ui/Button.jsx";
 import MapView from "../../ui/MapView.jsx";
 import { satsToUsd, formatUsd } from "../../ui/SatsAmount.jsx";
+import { seal } from "../../lib/privacy.js";
 
 export default function DriverOfferScreen() {
-  const { publish, setView, selectedRequest, refreshData, btcUsd } = useApp();
+  const { user, publish, setView, selectedRequest, refreshData, btcUsd } = useApp();
   const [price, setPrice] = useState("");
   const [upfront, setUpfront] = useState("");
   const [eta, setEta] = useState("10");
@@ -48,6 +49,11 @@ export default function DriverOfferScreen() {
         upfrontSats: deposit, // required from the rider on acceptance
         etaMinutes: parseInt(eta),
         message: "",
+        // The plate is private: only this rider can read it.
+        plate: seal(user.sk, selectedRequest.pubkey, {
+          plateState: user.vehicle?.plateState || "",
+          plateNumber: user.vehicle?.plateNumber || "",
+        }),
       },
       [
         ["e", selectedRequest.id], // which request this offer is for
@@ -139,7 +145,8 @@ export default function DriverOfferScreen() {
         </div>
 
         <p className="text-white/30 text-xs">
-          Your vehicle and plate (from your Account) are shown to the rider automatically.
+          Your vehicle (from your Account) is shown to the rider. Your plate is sent privately to this rider only.
+          The pickup above is approximate; you get the exact address when the rider accepts.
         </p>
 
         {error && <p className="text-rose-400 text-xs">{error}</p>}

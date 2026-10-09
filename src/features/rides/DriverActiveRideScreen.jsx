@@ -15,6 +15,7 @@ import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { getProfile } from "../../nostr/profiles.js";
 import { fullNpub } from "../../nostr/keys.js";
 import { rideStatus } from "../../lib/rides.js";
+import { exactTrip } from "../../lib/privacy.js";
 import { THEME } from "../../theme.js";
 import Screen from "../../ui/Screen.jsx";
 import Button from "../../ui/Button.jsx";
@@ -67,7 +68,10 @@ export default function DriverActiveRideScreen() {
   }, [sharing, riderPubkey, user]);
 
   if (!selectedRequest) return null;
-  const req = JSON.parse(selectedRequest.content);
+  // The rider sends the exact pickup/dropoff (sealed) when they accept;
+  // until it arrives we only have the public, approximate area.
+  const exact = exactTrip(selectedRequest, user);
+  const req = exact || JSON.parse(selectedRequest.content);
   const riderProfile = getProfile(riderPubkey);
 
   // Driver completes the ride → publish a RIDE_COMPLETE (the rider's screen
@@ -149,7 +153,8 @@ export default function DriverActiveRideScreen() {
           <p className="text-white/40 text-xs uppercase tracking-wider mb-1">Rider</p>
           {riderProfile?.name && <p className="text-white font-bold text-sm">{riderProfile.name}</p>}
           <p className="text-white/50 text-xs font-mono break-all">{fullNpub(riderPubkey)}</p>
-          <p className="text-white/40 text-sm mt-2">{req.pickup.name} → {req.dropoff.name}</p>
+          <p className="text-white/50 text-sm mt-2">{req.pickup.name} → {req.dropoff.name}</p>
+          {!exact && <p className="text-amber-400/90 text-xs">Approximate area — the exact address hasn't arrived yet.</p>}
           <span className="text-cyan-400 text-xs">View profile →</span>
         </button>
 

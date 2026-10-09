@@ -10,6 +10,7 @@ import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { buildSignedEvent } from "../../nostr/events.js";
 import { getMetadata } from "../../nostr/profiles.js";
+import { sealVehicle } from "../../lib/privacy.js";
 import { reputation } from "../../lib/rides.js";
 import { isDriveReady } from "../../lib/profile.js";
 import { resizeImage } from "../../lib/image.js";
@@ -69,7 +70,8 @@ export default function ProfileScreen() {
           communication: next.comm || [],
           picture: next.picture || "",
           ...(next.lud16 !== undefined && { lud16: next.lud16 }),
-          vehicle: next.vehicle || {},
+          // Plate is sealed to ourselves; riders get it privately in offers.
+          vehicle: sealVehicle(next.vehicle, next.sk, next.publicKey),
         },
         [],
         next.sk
@@ -270,8 +272,8 @@ export default function ProfileScreen() {
             {savedVeh ? "Saved" : "Save vehicle info"}
           </button>
           <p className="text-white/30 text-[11px]">
-            Your face photo and these details are shared with other users so riders know who's picking
-            them up. Removing any required item turns off driving until it's added back.
+            Your face photo and vehicle are public so riders know who's picking them up. Your plate
+            stays private: only riders you make an offer to can see it. Removing any required item turns off driving until it's added back.
           </p>
         </div>
         {/* Lightning address — where riders pay this user (required to drive) */}

@@ -19,6 +19,7 @@ import { useGeolocation } from "../lib/useGeolocation.js";
 import { haversineDistance } from "../lib/geo.js";
 import { isRideExpired } from "../lib/rides.js";
 import { getProfile } from "../nostr/profiles.js";
+import { myVehicle } from "../lib/privacy.js";
 import { DEFAULT_NOTIFY_RADIUS_MILES } from "../config/settings.js";
 import { getSetting, setSetting } from "../config/relays.js";
 
@@ -255,7 +256,7 @@ export function AppProvider({ children }) {
           ...u,
           picture: u.picture || p.picture || "",
           lud16: u.lud16 || p.lud16 || "",
-          vehicle: u.vehicle || p.vehicle || null,
+          vehicle: u.vehicle || myVehicle(u.publicKey, u.sk),
         }));
       }
     })();

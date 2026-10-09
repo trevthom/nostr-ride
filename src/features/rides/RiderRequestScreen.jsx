@@ -2,12 +2,15 @@
 //  RIDER REQUEST — A rider TYPES a pickup and dropoff address
 //  (autocomplete), adds details, and publishes a Kind 30078 ride
 //  request. The map below is a read-only preview of the route.
+//  Only a coarse area is public; the exact points are sealed to the
+//  rider and later to the chosen driver (lib/privacy.js).
 // ════════════════════════════════════════════════════════════
 
 import { useState } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { haversineDistance } from "../../lib/geo.js";
+import { publicPlace, seal } from "../../lib/privacy.js";
 import { THEME } from "../../theme.js";
 import Screen from "../../ui/Screen.jsx";
 import Button from "../../ui/Button.jsx";
@@ -15,7 +18,7 @@ import MapView from "../../ui/MapView.jsx";
 import AddressInput from "../../ui/AddressInput.jsx";
 
 export default function RiderRequestScreen() {
-  const { publish, setView, refreshData } = useApp();
+  const { user, publish, setView, refreshData } = useApp();
   const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
   const [time, setTime] = useState("ASAP");
@@ -33,7 +36,14 @@ export default function RiderRequestScreen() {
     }
     publish(
       EVENT_KINDS.RIDE_REQUEST,
-      { pickup, dropoff, time, notes, status: "requested" },
+      {
+        pickup: publicPlace(pickup),
+        dropoff: publicPlace(dropoff),
+        time,
+        notes,
+        status: "requested",
+        sealed: seal(user.sk, user.publicKey, { pickup, dropoff }),
+      },
       [["d", "ride-" + Date.now()], ["t", "ride-request"]]
     );
     setSubmitted(true);
@@ -151,7 +161,7 @@ function Confirmation() {
       <div className="text-center">
         <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4 text-4xl">✓</div>
         <h2 className="text-white text-xl font-bold mb-2">Request Published</h2>
-        <p className="text-white/40 text-sm">Broadcasted to Nostr. Drivers will see it now.</p>
+        <p className="text-white/50 text-sm">Broadcast to Nostr. Drivers see only the approximate area until you accept an offer.</p>
       </div>
     </div>
   );

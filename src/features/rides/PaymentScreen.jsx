@@ -12,6 +12,7 @@ import { useApp } from "../../state/AppContext.jsx";
 import { relay } from "../../nostr/relay.js";
 import { getProfile } from "../../nostr/profiles.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
+import { exactTrip, seal } from "../../lib/privacy.js";
 import { THEME } from "../../theme.js";
 import Button from "../../ui/Button.jsx";
 import Screen from "../../ui/Screen.jsx";
@@ -19,7 +20,7 @@ import SatsAmount from "../../ui/SatsAmount.jsx";
 import PayDriver from "./PayDriver.jsx";
 
 export default function PaymentScreen() {
-  const { publish, setView, activeRide, setActiveRide, refreshData, liveTick } = useApp();
+  const { user, publish, setView, activeRide, setActiveRide, refreshData, liveTick } = useApp();
   const [paid, setPaid] = useState(false);
   const driverPubkey = activeRide?.offer?.pubkey;
 
@@ -47,9 +48,17 @@ export default function PaymentScreen() {
   // mark the request in_progress, then move to the live ride screen.
   const finishPaid = ({ verified = false } = {}) => {
     const reqContent = JSON.parse(activeRide.request.content);
+    // Only now does the chosen driver get the exact pickup/dropoff.
+    const trip = exactTrip(activeRide.request, user);
     publish(
       EVENT_KINDS.RIDE_ACCEPT,
-      { offerId: activeRide.offer.id, requestId: activeRide.request.id, paidSats: dueNow, verified },
+      {
+        offerId: activeRide.offer.id,
+        requestId: activeRide.request.id,
+        paidSats: dueNow,
+        verified,
+        ...(trip && { sealed: seal(user.sk, driverPubkey, trip) }),
+      },
       [
         ["e", activeRide.offer.id],
         ["e", activeRide.request.id],

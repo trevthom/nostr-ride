@@ -10,12 +10,15 @@ import { useApp } from "../../state/AppContext.jsx";
 import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { isRideExpired, rideStatus, rideEnding, rideVersions } from "../../lib/rides.js";
+import { exactTrip } from "../../lib/privacy.js";
 import Screen from "../../ui/Screen.jsx";
 import Collapsible from "../../ui/Collapsible.jsx";
 import SatsAmount from "../../ui/SatsAmount.jsx";
 
 const DAY = 86400000;
 const parse = (e) => { try { return JSON.parse(e.content); } catch { return null; } };
+// Exact pickup/dropoff when we may see them (rider, or accepted driver).
+const tripOf = (r, user) => exactTrip(r, user) || parse(r);
 const fmtTime = (sec) => new Date(sec * 1000).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
 
 export default function MyRidesScreen() {
@@ -73,7 +76,7 @@ export default function MyRidesScreen() {
         {drivingNow.length > 0 && (
           <Section label="Driving Now">
             {drivingNow.map((r) => {
-              const c = parse(r);
+              const c = tripOf(r, user);
               return (
                 <div key={r.id} className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 mb-2">
                   <div className="flex items-center justify-between mb-2">
@@ -161,7 +164,7 @@ function Section({ label, children }) {
 // the review the user left for the other party (if any).
 function PastRow({ req, role }) {
   const { user } = useApp();
-  const c = parse(req);
+  const c = tripOf(req, user);
   if (!c) return null;
   const completed = rideStatus(req) === "completed";
   // When it ended: the complete/cancel event's time, else the request's.
@@ -265,7 +268,9 @@ function RateRider({ req }) {
 
 // A row for one of the user's own ACTIVE requests, with the right action.
 function MyRequestRow({ req, onCancel, onViewOffers, onViewActive }) {
+  const { user } = useApp();
   const c = parse(req);
+  const trip = tripOf(req, user);
   if (!c) return null;
   const offers = relay.query({ kinds: [EVENT_KINDS.RIDE_OFFER], "#e": [req.id] });
   const canCancel = c.status === "requested" || c.status === "accepted";
@@ -280,7 +285,7 @@ function MyRequestRow({ req, onCancel, onViewOffers, onViewActive }) {
   return (
     <div className="rounded-xl border border-white/10 p-4 mb-2 bg-white/[0.02]">
       <div className="flex items-center justify-between mb-2">
-        <div className="text-sm text-white/80">{c.pickup.name} → {c.dropoff.name}</div>
+        <div className="text-sm text-white/80">{trip.pickup.name} → {trip.dropoff.name}</div>
         <span className={`text-xs px-2 py-0.5 rounded-full ${statusStyle}`}>{c.status}</span>
       </div>
 

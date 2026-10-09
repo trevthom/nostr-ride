@@ -52,6 +52,7 @@ src/
     rides.js              # rideStatus/rideEnding/rideVersions/reputation — enforce the trust rules (see Invariants)
     profile.js            # isDriveReady/missingDriveInfo (drive gating)
     image.js              # resizeImage -> small JPEG data URL for kind-0
+    privacy.js            # publicPlace (coarse), seal/unseal (NIP-44), exactTrip(request,user), sealVehicle/myVehicle/offerPlate
     lnurl.js              # Lightning address (lud16) -> invoice via LNURL-pay; checks the BOLT11 amount; LUD-21 isInvoicePaid
   state/AppContext.jsx    # useApp(); holds user/view/rideRequests/activeRide/notifications/wallet/driverOnline/myPosition/geoError; cancelRequest(); refreshData(); broadcasts presence while online
   ui/
@@ -85,9 +86,9 @@ src/
 | Kind | Name | Key tags | Content (JSON) |
 |---|---|---|---|
 | 0 | METADATA | — | `{name, about, communication[], picture, lud16, vehicle}` (+ fields from other apps, kept on merge) |
-| 30078 | RIDE_REQUEST | `d`(id), `t` | `{pickup, dropoff, time, notes, status}` |
-| 30079 | RIDE_OFFER | `e`(request), `p`(rider), `d`, `t` | `{priceSats, upfrontSats, etaMinutes, message}` |
-| 30080 | RIDE_ACCEPT | `e`(offer), `e`(request), `p`(driver), `d`, `t` | `{offerId, requestId, paidSats, verified}` |
+| 30078 | RIDE_REQUEST | `d`(id), `t`, `p`(driver, once accepted) | `{pickup, dropoff, time, notes, status, sealed}` — pickup/dropoff are COARSE; `sealed` = exact trip, NIP-44 to the rider |
+| 30079 | RIDE_OFFER | `e`(request), `p`(rider), `d`, `t` | `{priceSats, upfrontSats, etaMinutes, message, plate}` — `plate` NIP-44 to the rider |
+| 30080 | RIDE_ACCEPT | `e`(offer), `e`(request), `p`(driver), `d`, `t` | `{offerId, requestId, paidSats, verified, sealed}` — `sealed` = exact trip, NIP-44 to the driver |
 | 30081 | RIDE_CANCEL | `e`(request), `t` | `{requestId, reason}` |
 | 30082 | RATING | `p`(ratee), `e`(ride), `d`, `t` | `{rating, review, rideId}` |
 | 30083 | DRIVER_ROUTE | `d`(id), `t` | unused (feature removed) |
@@ -108,6 +109,12 @@ rider's `in_progress` version also carries `driverPubkey`.
 - **Kind 0 is shared with every Nostr app**: never publish a fresh kind-0 over
   an existing one. Writes start from `getMetadata(pubkey)` and merge (Account
   `saveProfile`); importing an nsec keeps the existing profile.
+- **Privacy (lib/privacy.js)**: never publish an exact address or a license plate in
+  clear. Requests carry `publicPlace()` points (area name + ~1 km grid) and the exact
+  trip sealed to the rider; RIDE_ACCEPT seals it to the chosen driver. Read trips with
+  `exactTrip(request, user) || content`. The plate lives sealed in kind-0
+  `vehicle.sealedPlate` (open with `myVehicle`) and is sealed to the rider in each offer
+  (`offerPlate`). Old events with clear values still display.
 - **Untrusted text into HTML**: React escapes JSX, but Leaflet `bindPopup`
   strings are raw HTML — escape relay-sourced values (`esc` in MapView).
 - **Events store `pubkey` as hex**, never npub. Convert for display only via
@@ -234,7 +241,8 @@ rider's `in_progress` version also carries `driverPubkey`.
   moving on a live map. Driver finds the rider via the request author pubkey; rider
   finds the driver via `activeRide.offer.pubkey`.
 - **Public visibility**: ride requests/offers are public on the relays (anyone on
-  those relays can read them) — inherent to the open model. Remote users' display
+  those relays can read them) — inherent to the open model. That's why exact points
+  and plates are sealed (see Privacy); notes, prices, and approximate areas are public. Remote users' display
   names won't show unless we fetch their kind-0 metadata (we don't sync the global
   kind-0 firehose), so they appear as `shortNpub`. The logged-in user and demo
   users show names fine.

@@ -12,6 +12,7 @@ import { getProfile } from "../../nostr/profiles.js";
 import { shortNpub } from "../../nostr/keys.js";
 import { latestVersions } from "../../nostr/replaceable.js";
 import { reputation } from "../../lib/rides.js";
+import { exactTrip, offerPlate } from "../../lib/privacy.js";
 import { satsToUsd, formatUsd } from "../../ui/SatsAmount.jsx";
 import { THEME } from "../../theme.js";
 import Screen from "../../ui/Screen.jsx";
@@ -26,7 +27,7 @@ export default function RiderSelectScreen() {
   const { user, publish, setView, selectedRequest, refreshData, setActiveRide, liveTick } = useApp();
 
   if (!selectedRequest) return null;
-  const req = JSON.parse(selectedRequest.content);
+  const req = exactTrip(selectedRequest, user) || JSON.parse(selectedRequest.content);
   // latestVersions collapses a driver re-offering the same request; liveTick
   // is referenced so new offers arriving over relays re-run this read.
   void liveTick;
@@ -68,10 +69,11 @@ export default function RiderSelectScreen() {
 
 // One driver offer with price, ETA, rating, and an Accept button.
 function OfferCard({ offer, onAccept }) {
-  const { btcUsd, openProfile } = useApp();
+  const { user, btcUsd, openProfile } = useApp();
   useEffect(() => { relay.fetchProfile(offer.pubkey); }, [offer.pubkey]);
   const c = JSON.parse(offer.content);
   const profile = getProfile(offer.pubkey);
+  const plate = offerPlate(offer, user); // sent privately to this rider
   // Driver-role reviews only, and only from that ride's real rider
   // (reputation() rejects ratings anyone else signs).
   const { avg } = reputation(offer.pubkey).driverReviews;
@@ -97,6 +99,7 @@ function OfferCard({ offer, onAccept }) {
               ? [profile.vehicle.year, profile.vehicle.make, profile.vehicle.model].filter(Boolean).join(" ")
               : "Tap name for details"}
           </p>
+          {plate && <p className="text-white/50 text-[11px]">Plate: {plate.plateState} · {plate.plateNumber}</p>}
         </div>
         {avgRating && <span className="text-amber-400 text-xs font-medium">★ {avgRating}</span>}
       </div>

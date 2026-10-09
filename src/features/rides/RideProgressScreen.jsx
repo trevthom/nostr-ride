@@ -18,6 +18,7 @@ import Button from "../../ui/Button.jsx";
 import MapView from "../../ui/MapView.jsx";
 import SatsAmount from "../../ui/SatsAmount.jsx";
 import PayDriver from "./PayDriver.jsx";
+import { exactTrip, offerPlate } from "../../lib/privacy.js";
 
 const parse = (e) => { try { return JSON.parse(e.content); } catch { return null; } };
 
@@ -70,7 +71,8 @@ export default function RideProgressScreen() {
   }, [vehStr]); // eslint-disable-line
 
   if (!activeRide) return null;
-  const req = JSON.parse(activeRide.request.content);
+  const req = exactTrip(activeRide.request, user) || JSON.parse(activeRide.request.content);
+  const plate = offerPlate(offerEvent, user);
   const offer = offerEvent ? parse(offerEvent) : null;
   const restDue = offer ? Math.max(0, (offer.priceSats || 0) - (offer.upfrontSats || 0)) : 0;
 
@@ -197,8 +199,8 @@ export default function RideProgressScreen() {
                 {driver?.vehicle && (driver.vehicle.make || driver.vehicle.model) && (
                   <p className="text-white/40 text-xs">{[driver.vehicle.year, driver.vehicle.make, driver.vehicle.model].filter(Boolean).join(" ")}</p>
                 )}
-                {driver?.vehicle?.plateState && driver?.vehicle?.plateNumber && (
-                  <p className="text-white/30 text-[11px]">Plate: {driver.vehicle.plateState} · {driver.vehicle.plateNumber}</p>
+                {plate && (
+                  <p className="text-white/50 text-[11px]">Plate: {plate.plateState} · {plate.plateNumber}</p>
                 )}
               </div>
               <span className="ml-auto text-cyan-400 text-xs">View →</span>

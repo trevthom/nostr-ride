@@ -218,7 +218,7 @@ function RequestCard({ req, isMine, onOffer }) {
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-white/30 text-xs">{dist.toFixed(1)} mi</span>
+          <span className="text-white/50 text-xs">≈ {dist.toFixed(1)} mi · approximate areas</span>
           {!isMine && (
             <button
               onClick={onOffer}

@@ -12,6 +12,7 @@ import { buildSignedEvent } from "../../nostr/events.js";
 import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { getMetadata, getProfile } from "../../nostr/profiles.js";
+import { myVehicle } from "../../lib/privacy.js";
 import { useRelays, setRelays } from "../../config/relays.js";
 import { THEME } from "../../theme.js";
 import Button from "../../ui/Button.jsx";
@@ -70,7 +71,7 @@ export default function AuthScreen({ onLogin }) {
     if (typed && typed !== p.name) {
       relay.publish(buildSignedEvent(EVENT_KINDS.METADATA, { ...existing, name: typed }, [], keys.sk));
     }
-    onLogin({ ...keys, name: typed || p.name || "Anonymous Rider", comm: p.comm, picture: p.picture, lud16: p.lud16, vehicle: p.vehicle });
+    onLogin({ ...keys, name: typed || p.name || "Anonymous Rider", comm: p.comm, picture: p.picture, lud16: p.lud16, vehicle: myVehicle(keys.publicKey, keys.sk) });
   };
 
   // Pressing Enter in a field triggers the screen's primary action.
