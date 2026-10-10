@@ -19,7 +19,7 @@ function bytesToHex(bytes) {
 }
 
 // Build the full keypair object from a secret key (bytes).
-function fromSecretKey(sk) {
+export function keypairFromSecretKey(sk) {
   const publicKey = getPublicKey(sk);
   return {
     sk,
@@ -32,7 +32,7 @@ function fromSecretKey(sk) {
 
 // Create a brand-new random keypair.
 export function generateKeypair() {
-  return fromSecretKey(generateSecretKey());
+  return keypairFromSecretKey(generateSecretKey());
 }
 
 // Import an existing identity from a pasted "nsec1..." string.
@@ -42,7 +42,7 @@ export function keypairFromNsec(nsec) {
   if (decoded.type !== "nsec") {
     throw new Error("That is not an nsec key.");
   }
-  return fromSecretKey(decoded.data);
+  return keypairFromSecretKey(decoded.data);
 }
 
 // Turn a hex public key into a shortened npub for display,

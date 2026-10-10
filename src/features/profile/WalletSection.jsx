@@ -14,8 +14,8 @@ import {
   listTransactions,
   payInvoice,
   makeInvoice,
+  isInvoiceSettled,
 } from "../../nostr/wallet.js";
-import { THEME } from "../../theme.js";
 import QRCode from "../../ui/QRCode.jsx";
 
 export default function WalletSection() {
@@ -80,26 +80,25 @@ export default function WalletSection() {
   if (!wallet.connected) {
     return (
       <div>
-        <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Lightning Wallet</p>
-        <div className="bg-white/5 rounded-xl border border-white/10 p-4">
-          <p className="text-white/50 text-xs mb-3">
+        <p className="text-neutral-500 text-xs uppercase tracking-wider font-semibold mb-2">Lightning Wallet</p>
+        <div className="bg-neutral-100 rounded-xl border border-neutral-200 p-4">
+          <p className="text-neutral-500 text-xs mb-3">
             Paste your Nostr Wallet Connect string to pay and get paid in sats. We read your real
             balance directly from your wallet.
           </p>
-          <input
+          <input aria-label="Nostr Wallet Connect string"
             value={uri}
             onChange={(e) => setUri(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && uri && !connecting) { e.preventDefault(); handleConnect(); } }}
             placeholder="nostr+walletconnect://..."
             spellCheck={false}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono placeholder-white/20 focus:outline-none focus:border-cyan-500/50 mb-2"
+            className="w-full bg-neutral-100 border border-neutral-200 rounded-lg px-3 py-2 text-black text-xs font-mono placeholder-neutral-500 focus:outline-none focus:border-black mb-2"
           />
-          {error && <p className="text-rose-400 text-xs mb-2">{error}</p>}
+          {error && <p className="text-red-600 text-xs mb-2">{error}</p>}
           <button
             onClick={handleConnect}
             disabled={!uri || connecting}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-30"
-            style={{ background: THEME.brandGradient }}
+            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white bg-black disabled:bg-neutral-200 disabled:text-neutral-400"
           >
             {connecting ? "Connecting…" : "Connect Wallet"}
           </button>
@@ -112,29 +111,28 @@ export default function WalletSection() {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-white/40 text-xs uppercase tracking-wider">Lightning Wallet</p>
+        <p className="text-neutral-500 text-xs uppercase tracking-wider font-semibold">Lightning Wallet</p>
         <div className="flex gap-3">
-          <button onClick={refresh} className="text-cyan-400 text-xs">Refresh</button>
-          <button onClick={disconnect} className="text-rose-400/60 text-xs">Disconnect</button>
+          <button onClick={refresh} className="text-blue-600 text-xs">Refresh</button>
+          <button onClick={disconnect} className="text-red-600 text-xs">Disconnect</button>
         </div>
       </div>
 
       <div
-        className="rounded-2xl border border-amber-500/20 p-5 mb-3"
-        style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.10), rgba(249,115,22,0.05))" }}
+        className="rounded-2xl bg-neutral-100 p-5 mb-3"
       >
-        <p className="text-white/40 text-xs">Balance</p>
+        <p className="text-neutral-500 text-xs">Balance</p>
         {loading && balance === null ? (
-          <p className="text-white/40 text-lg">Loading…</p>
+          <p className="text-neutral-500 text-lg">Loading…</p>
         ) : loadError ? (
-          <p className="text-rose-400 text-sm">{loadError}</p>
+          <p className="text-red-600 text-sm">{loadError}</p>
         ) : (
-          <p className="text-white text-3xl font-bold">
-            {(balance ?? 0).toLocaleString()} <span className="text-amber-400 text-base">sats</span>
+          <p className="text-black text-3xl font-bold">
+            {(balance ?? 0).toLocaleString()} <span className="text-amber-700 text-base">sats</span>
           </p>
         )}
         {balance != null && btcUsd && (
-          <p className="text-white/40 text-sm mt-0.5">≈ ${(balance * 1e-8 * btcUsd).toFixed(2)}</p>
+          <p className="text-neutral-500 text-sm mt-0.5">≈ ${(balance * 1e-8 * btcUsd).toFixed(2)}</p>
         )}
         <div className="flex gap-2 mt-4">
           <ActionBtn onClick={() => setPanel(panel === "send" ? null : "send")} active={panel === "send"}>↑ Send</ActionBtn>
@@ -145,19 +143,19 @@ export default function WalletSection() {
       {panel === "send" && <SendPanel wallet={wallet} onSent={() => { setPanel(null); refresh(); }} />}
       {panel === "receive" && <ReceivePanel wallet={wallet} onSettled={refresh} />}
 
-      <p className="text-white/30 text-xs uppercase tracking-widest mt-4 mb-2">Transactions</p>
+      <p className="text-neutral-500 text-xs uppercase tracking-widest mt-4 mb-2">Transactions</p>
       <div className="space-y-2">
-        {loading && <p className="text-white/30 text-xs">Loading…</p>}
+        {loading && <p className="text-neutral-500 text-xs">Loading…</p>}
         {!loading && txns.length === 0 && (
-          <p className="text-white/30 text-xs">No transactions yet.</p>
+          <p className="text-neutral-500 text-xs">No transactions yet.</p>
         )}
         {txns.map((tx) => (
-          <div key={tx.id} className="flex items-center justify-between bg-white/[0.02] border border-white/10 rounded-lg px-3 py-2">
+          <div key={tx.id} className="flex items-center justify-between bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2">
             <div>
-              <p className="text-white/80 text-sm">{tx.memo}</p>
-              <p className="text-white/30 text-[10px]">{tx.ts ? new Date(tx.ts).toLocaleString() : ""}</p>
+              <p className="text-neutral-700 text-sm">{tx.memo}</p>
+              <p className="text-neutral-500 text-[11px]">{tx.ts ? new Date(tx.ts).toLocaleString() : ""}</p>
             </div>
-            <span className={`text-sm font-medium ${tx.type === "received" ? "text-emerald-400" : "text-rose-400"}`}>
+            <span className={`text-sm font-medium ${tx.type === "received" ? "text-green-700" : "text-red-600"}`}>
               {tx.type === "received" ? "+" : "−"}{tx.amountSats.toLocaleString()}
             </span>
           </div>
@@ -172,7 +170,7 @@ function ActionBtn({ children, onClick, active }) {
     <button
       onClick={onClick}
       className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-all ${
-        active ? "bg-white/15 text-white border-white/20" : "bg-white/5 text-white/70 border-white/10"
+        active ? "bg-neutral-200 text-black border-neutral-300" : "bg-neutral-100 text-neutral-700 border-neutral-200"
       }`}
     >
       {children}
@@ -199,77 +197,103 @@ function SendPanel({ wallet, onSent }) {
 
   if (done) {
     return (
-      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 mb-1 text-center">
-        <p className="text-emerald-400 text-sm font-medium">✓ Payment sent</p>
+      <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-1 text-center">
+        <p className="text-green-700 text-sm font-medium">✓ Payment sent</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-1 space-y-2">
-      <input
+    <div className="bg-neutral-100 border border-neutral-200 rounded-xl p-4 mb-1 space-y-2">
+      <input aria-label="Lightning invoice to pay"
         value={invoice}
         onChange={(e) => setInvoice(e.target.value)}
         placeholder="Paste a Lightning invoice (lnbc...)"
         spellCheck={false}
-        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono placeholder-white/20 focus:outline-none focus:border-cyan-500/50"
+        className="w-full bg-neutral-100 border border-neutral-200 rounded-lg px-3 py-2 text-black text-xs font-mono placeholder-neutral-500 focus:outline-none focus:border-black"
       />
-      {status && status !== "sending" && <p className="text-rose-400 text-xs">{status}</p>}
+      {status && status !== "sending" && <p className="text-red-600 text-xs">{status}</p>}
       <button
         onClick={send}
         disabled={!invoice || status === "sending"}
-        className="w-full py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-30"
-        style={{ background: THEME.driverGradient }}
+        className="w-full py-2 rounded-lg text-sm font-semibold text-white bg-black disabled:bg-neutral-200 disabled:text-neutral-400"
       >
         {status === "sending" ? "Paying…" : "Pay Invoice"}
       </button>
-      <p className="text-white/20 text-[10px]">Tip: in a live build, the camera scans a QR to fill this in.</p>
+      <p className="text-neutral-500 text-[11px]">Tip: in a live build, the camera scans a QR to fill this in.</p>
     </div>
   );
 }
 
-// ── Receive: ask the wallet for a real invoice; show string + QR ──
+// ── Receive: ask the wallet for a real invoice; show string + QR, then
+//    watch it (lookup_invoice) and refresh the balance once it's paid ──
 function ReceivePanel({ wallet, onSettled }) {
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
   const [invoice, setInvoice] = useState("");
   const [status, setStatus] = useState(""); // "", "creating", error text
+  const [paid, setPaid] = useState(false);
+  const [canWatch, setCanWatch] = useState(true); // false if the wallet can't look invoices up
+
+  // Check every 3 s for up to 10 min; stop if the wallet can't tell us.
+  useEffect(() => {
+    if (!invoice || paid) return;
+    let stop = false;
+    let checking = false;
+    const started = Date.now();
+    const id = setInterval(async () => {
+      if (checking) return;
+      if (Date.now() - started > 600000) { clearInterval(id); return; }
+      checking = true;
+      try {
+        if (await isInvoiceSettled(wallet, invoice)) {
+          clearInterval(id);
+          if (!stop) { setPaid(true); onSettled?.(); }
+        }
+      } catch {
+        clearInterval(id);
+        if (!stop) setCanWatch(false);
+      }
+      checking = false;
+    }, 3000);
+    return () => { stop = true; clearInterval(id); };
+  }, [invoice, paid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const create = async () => {
+    const sats = parseInt(amount, 10);
+    if (!(sats > 0)) { setStatus("Enter an amount above 0 sats."); return; }
     setStatus("creating");
     try {
-      const inv = await makeInvoice(wallet, parseInt(amount || "0"), memo);
+      const inv = await makeInvoice(wallet, sats, memo);
       setInvoice(inv);
       setStatus("");
-      onSettled?.();
     } catch (e) {
       setStatus(e.message || "Couldn't create an invoice.");
     }
   };
 
   return (
-    <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-1 space-y-2">
+    <div className="bg-neutral-100 border border-neutral-200 rounded-xl p-4 mb-1 space-y-2">
       {!invoice ? (
         <>
-          <input
+          <input aria-label="Amount in sats"
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="Amount (sats)"
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-cyan-500/50"
+            className="w-full bg-neutral-100 border border-neutral-200 rounded-lg px-3 py-2 text-black text-sm placeholder-neutral-500 focus:outline-none focus:border-black"
           />
-          <input
+          <input aria-label="Memo"
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             placeholder="Memo (optional)"
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder-white/20 focus:outline-none focus:border-cyan-500/50"
+            className="w-full bg-neutral-100 border border-neutral-200 rounded-lg px-3 py-2 text-black text-sm placeholder-neutral-500 focus:outline-none focus:border-black"
           />
-          {status && status !== "creating" && <p className="text-rose-400 text-xs">{status}</p>}
+          {status && status !== "creating" && <p className="text-red-600 text-xs">{status}</p>}
           <button
             onClick={create}
             disabled={!amount || status === "creating"}
-            className="w-full py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-30"
-            style={{ background: THEME.brandGradient }}
+            className="w-full py-2 rounded-lg text-sm font-semibold text-white bg-black disabled:bg-neutral-200 disabled:text-neutral-400"
           >
             {status === "creating" ? "Creating…" : "Generate Invoice"}
           </button>
@@ -279,10 +303,13 @@ function ReceivePanel({ wallet, onSettled }) {
           <div className="flex justify-center mb-3">
             <QRCode value={invoice} size={170} />
           </div>
-          <p className="text-white/60 text-[10px] font-mono break-all bg-white/5 rounded-lg p-2">{invoice}</p>
-          <button onClick={() => navigator.clipboard?.writeText(invoice)} className="text-cyan-400 text-xs mt-2">
+          <p className="text-neutral-500 text-[11px] font-mono break-all bg-neutral-100 rounded-lg p-2">{invoice}</p>
+          <button onClick={() => navigator.clipboard?.writeText(invoice)} className="text-blue-600 text-xs mt-2">
             Copy invoice
           </button>
+          <p className={`text-xs mt-2 ${paid ? "text-green-700" : "text-neutral-500"}`} role="status">
+            {paid ? "✓ Received" : canWatch ? "Waiting for payment…" : "Your wallet can't confirm payments here. Tap Refresh to check your balance."}
+          </p>
         </div>
       )}
     </div>

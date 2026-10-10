@@ -1,20 +1,21 @@
 // ════════════════════════════════════════════════════════════
 //  NOTICE BANNER — Transient banners pinned to the top. Each one auto-
-//  dismisses after 3s and can be swiped away (up / left / right).
+//  dismisses after 6s and can be swiped away (up / left / right).
 //  Rendered above everything (very high z-index).
 // ════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../state/AppContext.jsx";
+import Icon from "./Icon.jsx";
 
 function Banner({ notice, onClose }) {
   const [drag, setDrag] = useState({ x: 0, y: 0 });
   const start = useRef(null);
   const closed = useRef(false);
 
-  // Auto-dismiss after 3 seconds.
+  // Auto-dismiss after 6 seconds.
   useEffect(() => {
-    const t = setTimeout(() => onClose(notice.id), 3000);
+    const t = setTimeout(() => onClose(notice.id), 6000);
     return () => clearTimeout(t);
   }, [notice.id, onClose]);
 
@@ -47,17 +48,18 @@ function Banner({ notice, onClose }) {
       onTouchStart={onDown}
       onTouchMove={onMove}
       onTouchEnd={onUp}
-      className="pointer-events-auto mx-auto max-w-md w-[92%] rounded-xl border border-white/15 px-4 py-3 shadow-lg flex items-center gap-3 select-none"
+      className="pointer-events-auto mx-auto max-w-md w-[92%] rounded-2xl px-4 py-3 shadow-xl flex items-center gap-3 select-none bg-black text-white"
       style={{
-        background: "linear-gradient(135deg, rgba(6,182,212,0.95), rgba(16,185,129,0.92))",
-        color: "#04211c",
         transform: `translate(${drag.x}px, ${Math.min(0, drag.y)}px)`,
         transition: start.current ? "none" : "transform 0.15s ease",
         cursor: "grab",
       }}
     >
+      <Icon name="bell" size={18} />
       <span className="text-sm font-medium flex-1">{notice.message}</span>
-      <button onClick={finish} className="text-[#04211c]/70 text-lg leading-none px-1">×</button>
+      <button type="button" onClick={finish} aria-label="Dismiss" className="p-1 -mr-1 text-white/70">
+        <Icon name="x" size={16} />
+      </button>
     </div>
   );
 }
@@ -66,7 +68,7 @@ export default function NoticeBanner() {
   const { notices, dismissNotice } = useApp();
   if (!notices || notices.length === 0) return null;
   return (
-    <div className="fixed top-3 inset-x-0 z-[10050] flex flex-col gap-2 pointer-events-none">
+    <div role="status" aria-live="polite" className="fixed top-3 inset-x-0 z-[10050] flex flex-col gap-2 pointer-events-none">
       {notices.map((n) => (
         <Banner key={n.id} notice={n} onClose={dismissNotice} />
       ))}

@@ -1,10 +1,17 @@
 # NostrRide 🚗⚡
 
-A mobile-first, decentralized ridesharing app built on **Nostr**. No central
-server, no database — everything is a Nostr event. Lightning payments via
-**Nostr Wallet Connect**.
+A decentralized ridesharing system built on **Nostr**. No central server, no
+database: every ride is a set of signed Nostr events, and payments go straight
+from rider to driver over **Lightning**.
 
-This guide is written for someone with **no coding experience**. Follow it
+It is **two separate apps** that find each other through Nostr relays:
+
+| App | For | Looks like | Port |
+|---|---|---|---|
+| **Rider** (`apps/rider`) | people who need a ride | Uber / Lyft: "Where to?", fare, driver on the map | 5173 |
+| **Driver** (`apps/driver`) | people who drive | Uber Driver: big GO button, request cards, earnings | 5174 |
+
+Full documentation is in [`docs/index.md`](docs/index.md). This guide is written for someone with **no coding experience**. Follow it
 top to bottom.
 
 ---
@@ -20,154 +27,125 @@ one at a time (press Enter after each):
 ```bash
 cd path/to/nostr-ride      # go into the project folder
 npm install                # download building blocks (one time, ~1 min)
-npm run dev                # start the app
+npm run dev                # start BOTH apps
 ```
 
-Open the `http://localhost:5173/` address it prints. To stop it: `Ctrl + C`.
+Then open **two browser windows** side by side:
 
-> **Needs internet** for styling (Tailwind loads from a CDN) and fonts.
-> No API keys or accounts required. Demo data is preloaded.
+- Rider app: http://localhost:5173/
+- Driver app: http://localhost:5174/
 
----
+To stop: `Ctrl + C`. To run only one app: `npm run dev:rider` or `npm run dev:driver`.
 
-## 2. Sign in
-
-On the first screen you can either:
-- **Create account** — generate a fresh Nostr identity, or
-- **Login with key** — paste an existing `nsec1...` secret key to log in as that
-  identity.
-
-Either way these are **real Nostr keys**. Your `npub` (public) and `nsec`
-(secret, hidden by default) are visible later under the **Profile** tab.
-
-> **This is now a real multi-user app.** Ride requests, offers, acceptances,
-> ratings, routes, and live location all travel over public Nostr relays (listed
-> in `src/config/settings.js`), so they sync **across devices and people**. Open
-> the app on two devices to see one create a request and the other respond. (The
-> small set of preloaded demo requests stays local to each device and isn't sent
-> to relays.) Reloading the page logs you out and clears the local cache.
+> **Needs internet** for styling (Tailwind loads from a CDN), fonts, the map, and the relays.
+> No API keys or accounts required. While you run `npm run dev`, the driver app also
+> shows a couple of fake demo requests (never in a production build).
 
 ---
 
-## 3. The five tabs
+## 2. Sign in (both apps)
 
-| Tab | What it does |
-|---|---|
-| **Ride** | Create a ride request by **typing real pickup/dropoff addresses** (live search), with a map showing the **driving route**. |
-| **Drive** | Toggle online/offline at the top, browse open requests, and make offers (the offer screen shows the route on a map). |
-| **Activity** | Your requests (with **Cancel**) and the offers you've made. |
-| **Routes** | Define recurring driver routes (for match notifications). |
-| **Profile** | Identity, ratings, **Lightning wallet**, relays, and your keys. |
+On the first screen either:
+- **Create account** — makes a fresh Nostr identity, then asks you to save your secret key, or
+- **I have a key** — paste an existing `nsec1...` key.
 
-**Full ride flow:** Ride → publish → (as a driver from another browser/profile)
-Drive → Offer → back as the rider → Activity → View offers → Accept → pay with
-Lightning → Ride In Progress → Complete → rate.
-
-**Wallet:** Profile → paste a **real** Nostr Wallet Connect string
-(`nostr+walletconnect://...`) from a wallet that supports NWC (e.g. Alby Hub,
-Coinos). The app reads your **real balance and transactions** from that wallet
-and can send (pay an invoice) or receive (generate an invoice shown as text +
-QR). If the wallet can't be reached, you'll see an error — the app never shows
-made-up numbers. The online/offline toggle on Drive is a presence switch for the
-upcoming nearby-drivers map; turning it off does not stop you from offering rides.
+These are **real Nostr keys**. With **Remember me** (on by default) your key is
+saved on this device, encrypted with a password you choose, so a reload only asks for
+that password. Use a different account in each app window to play both sides.
 
 ---
 
-## 3.5 Live location (nearby drivers)
+## 3. A ride, step by step
 
-The **Drive** tab has a live map of nearby drivers. This is real and works
-**across devices** over public Nostr relays:
+**Driver app** (once):
+1. **Account** tab → add a **photo**, your **vehicle** (year, make, model, plate) and a
+   **Lightning address** (like `you@wallet.com`; riders pay you there).
+2. **Drive** tab → tap the green **GO** button (allow location when asked).
 
-1. Open the app and go to **Drive**.
-2. Flip the toggle to **online**. Your browser asks for location permission —
-   allow it.
-3. Your car appears on the map (cyan). Your **approximate** location (rounded to
-   ~100 m for privacy) is broadcast to relays every 15 seconds.
-4. Anyone else who is online — **open the app in a second browser/phone and go
-   online** — appears on the same map in real time. Stale drivers drop off after
-   ~45 seconds.
+**Rider app:**
+1. **Where to?** → type a destination (pickup defaults to where you are) → see the **fare** →
+   **Request NostrRide**. (Pick **Schedule** to reserve a ride for later: it waits under *Activity → Upcoming*.)
+2. Wait for **"Finding your driver…"**. Nearby online drivers are shown as cars on the map.
 
-How it works: location is sent as **ephemeral** Nostr events (relays forward them
-to live viewers but never store them, so no location history is kept).
+**Driver app:**
+3. A **request card** pops up with the fare, pickup distance and the rider's rating. Tap **Accept**.
 
-**During an active ride (end-to-end):**
-1. A rider accepts a driver's offer.
-2. The driver opens **My Activity** and sees a **Driving Now** card → taps
-   **Share live location**.
-3. The driver's **exact** location is now broadcast to that rider only,
-   end-to-end encrypted (NIP-44), every few seconds.
-4. The rider's **Ride In Progress** screen shows the driver's car moving live on
-   the map.
+**Rider app:**
+4. Pick a driver (fastest first) → **pay the deposit** with your connected wallet, or scan the
+   invoice with any Lightning wallet. The ride is confirmed when it is paid.
+5. Watch the car come to you. The driver's exact position is end-to-end encrypted and only you can see it.
 
-The driver can stop sharing anytime, and only the matched rider can decrypt it.
+**Driver app:**
+6. Follow the route to the pickup → **I've arrived** → **Start trip** → **Complete trip**.
 
-**Requirements & notes:**
-- The map uses **Leaflet** with OpenStreetMap tiles — it renders with normal page
-  elements and needs **no WebGL**, so it works in essentially any browser.
-- Location needs `https://` or `http://localhost`, so `npm run dev` works fine.
-- These use the public relays in `src/config/settings.js`. Edit that list to use
-  your own relays.
-- Going online shares your approximate location publicly while online. Turning the
-  toggle off stops all broadcasting immediately.
-- Browsers stop GPS updates when the tab is backgrounded or the screen is off —
-  that's a web limitation. Continuous background tracking would require a native
-  app.
+**Rider app:**
+7. Pay the **rest of the fare**, rate your driver, tap **Done**. The driver rates you too, and
+   the trip shows up under *Earnings* (driver) and *Activity* (rider).
+
+**Money:** the deposit (default 20%, the driver can change it) is paid when you choose a driver;
+the rest after the trip. Both go straight to the driver's Lightning address. There is **no
+escrow**, so the deposit is not refunded if you cancel after the driver is on the way.
+
+**Wallet:** *Account* → paste a **real** Nostr Wallet Connect string (`nostr+walletconnect://...`)
+from a wallet that supports NWC (Alby Hub, Coinos…) to pay in one tap. The app reads your real
+balance from that wallet and never shows made-up numbers. Without one you can still pay any
+invoice from another wallet.
 
 ---
 
-## 4. Where to change things
+## 4. Privacy, in short
+
+- Public relays only see an **approximate area** (about 1 km) for pickup and dropoff.
+  The exact addresses are encrypted: first to you, then to the driver you choose.
+- Your **license plate** is encrypted and sent only to the rider you drive.
+- A driver who is online shares an **approximate** location (about 100 m) publicly. During a ride the
+  exact location goes only to the matched rider, encrypted.
+- Ride requests, fares and offers are public on the relays you use.
+- Looking up your address from GPS sends your position (rounded to about 10 m) to the free Photon
+  geocoder. Swap that service for your own before a real launch.
+
+---
+
+## 5. Where to change things
 
 | I want to change... | Open this file |
 |---|---|
-| Match radius, relay list, demo data on/off, contact options | `src/config/settings.js` |
-| Colors and gradients | `src/theme.js` |
-| Map locations / the city | `src/lib/locations.js` |
+| Fare formula, deposit %, request timers, demo data | `src/config/settings.js` |
+| Default relay list | `src/config/relays.js` |
+| Colors | `src/theme.js` (and Tailwind classes in the screens) |
 | What a button looks like (everywhere) | `src/ui/Button.jsx` |
-| The page header / back button | `src/ui/Screen.jsx` |
-| The bottom tab bar | `src/ui/BottomNav.jsx` |
-| The map | `src/ui/MapView.jsx` |
-| A specific screen | the matching file in `src/features/...` |
+| The bottom sheet, tab bar, page layout | `src/ui/Layout.jsx` |
+| The map (tiles, pins, cars) | `src/ui/MapView.jsx` |
+| A rider screen | `src/rider/screens/…` |
+| A driver screen | `src/driver/screens/…` |
 | Nostr event types | `src/nostr/eventKinds.js` |
+| The map's starting city | `src/lib/locations.js` (first entry) |
 
 Each file is small (under ~300 lines) and starts with a comment explaining it.
 
 ---
 
-## 5. Editing with Claude Code (recommended)
-
-This repo includes a **`CLAUDE.md`** file — a dense map of the project that
-lets Claude Code understand everything without reading every file (saving
-tokens and giving better edits).
-
-To put it in a Git repository:
+## 6. Build for the web
 
 ```bash
-cd path/to/nostr-ride
-git init
-git add .
-git commit -m "Initial commit"
+npm run build      # makes dist/rider and dist/driver
+npm test           # runs the automated checks
 ```
 
-Then open the folder with Claude Code and ask for changes. It will read
-`CLAUDE.md` automatically.
+Put each folder on any static host (they deploy separately, e.g. `ride.example.com` and
+`drive.example.com`). Location needs `https://`. Browsers stop GPS when the tab is in the
+background, so the driver app keeps the screen awake while online (where the browser allows it). A driver can go
+online only with a good GPS fix (about 200 m or better), so a laptop's Wi-Fi position never shows up as a car.
+
+> **About the map services:** the app uses free public endpoints — OpenStreetMap map tiles, Photon (address search) and OSRM (driving routes). They are fine for development but
+> rate-limited and not meant for heavy traffic. Before a real launch switch to paid or self-hosted
+> ones (Mapbox, MapTiler, your own OSRM/Photon). The files: `src/lib/geocode.js`,
+> `src/lib/routing.js`, and the tile URL in `src/ui/MapView.jsx`.
 
 ---
 
-## 6. Going from "demo" to "real"
+## 7. Editing with Claude Code (recommended)
 
-Each upgrade is isolated to one file (each marked with a `── TO ... ──`
-comment inside it):
-
-1. **Real relays (multi-user)** — `src/nostr/relay.js`
-2. **Signed events** — `src/nostr/events.js` (`finalizeEvent`)
-
-Keys (`src/nostr/keys.js`), the Lightning wallet (`src/nostr/wallet.js`, NIP-47),
-and the maps (MapLibre + OpenStreetMap tiles + OSRM routing + Nominatim address
-search) are already real.
-
-> **About the map services:** the app uses free public endpoints — OpenStreetMap
-> tiles, Nominatim (address search), and OSRM (driving routes). These are great
-> for development but rate-limited and not meant for heavy production traffic. For
-> a real launch, switch to paid or self-hosted equivalents (Mapbox, Maptiler,
-> Google, or your own OSRM/Nominatim). The files to edit are `src/lib/geocode.js`,
-> `src/lib/routing.js`, and the tile URL in `src/ui/MapView.jsx`.
+This repo includes a **`CLAUDE.md`** file — a dense map of the project that lets Claude Code
+understand everything without reading every file. Open the folder with Claude Code and ask for
+changes. It reads `CLAUDE.md` automatically.

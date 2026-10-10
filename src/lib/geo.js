@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  GEO — Pure math helpers for distance and route matching.
+//  GEO — Pure math helpers for distance.
 //  No app logic here, just functions that take numbers in and
 //  return numbers/booleans out. Easy to test, safe to reuse.
 // ════════════════════════════════════════════════════════════
@@ -15,11 +15,4 @@ export function haversineDistance(lat1, lng1, lat2, lng2) {
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-// True if `point` is within `radiusMiles` of ANY point on the route.
-export function isNearRoute(point, routePoints, radiusMiles = 1) {
-  return routePoints.some(
-    (rp) => haversineDistance(point.lat, point.lng, rp.lat, rp.lng) <= radiusMiles
-  );
 }
