@@ -11,7 +11,7 @@ It is **two separate apps** that find each other through Nostr relays:
 | **Rider** (`apps/rider`) | people who need a ride | Uber / Lyft: "Where to?", fare, driver on the map | 5173 |
 | **Driver** (`apps/driver`) | people who drive | Uber Driver: big GO button, request cards, earnings | 5174 |
 
-This guide is written for someone with **no coding experience**. Follow it
+Full documentation is in [`docs/index.md`](docs/index.md). This guide is written for someone with **no coding experience**. Follow it
 top to bottom.
 
 ---
