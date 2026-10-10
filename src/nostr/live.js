@@ -22,7 +22,7 @@ import { finalizeEvent, nip44 } from "nostr-tools";
 import { EVENT_KINDS, APP_TAG } from "./eventKinds.js";
 import { getRelays, onRelaysChange } from "../config/relays.js";
 
-const pool = new SimplePool();
+const pool = new SimplePool({ enablePing: true, enableReconnect: true });
 
 const PRESENCE_TTL_MS = 45000; // a driver is "gone" if silent this long
 const nowSec = () => Math.floor(Date.now() / 1000);

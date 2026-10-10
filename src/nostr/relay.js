@@ -14,7 +14,10 @@
 //      relay event only if it carries our app tag AND has JSON content.
 //
 //  Safety: if relays are unreachable, publish()/query() still work
-//  against the cache, so the app degrades to "local only".
+//  against the cache, so the app degrades to "local only". An event no relay
+//  accepted goes into an OUTBOX (kept in localStorage) and is re-sent with
+//  backoff, when the network returns, and after a reload, so a "trip
+//  complete" is not lost to a bad signal.
 // ════════════════════════════════════════════════════════════
 
 import { SimplePool } from "nostr-tools/pool";
@@ -47,7 +50,12 @@ function isOurs(event) {
 
 class NostrRelay {
   constructor() {
-    this.pool = new SimplePool();
+    // enableReconnect: a dropped relay socket reconnects and re-sends its subscriptions.
+    this.pool = new SimplePool({ enablePing: true, enableReconnect: true });
+    this.outbox = new Map(); // event id -> { event, tries, at } for events no relay accepted yet
+    this.retryDelays = [3000, 8000, 20000, 45000, 90000, 180000]; // ms, by number of tries
+    this.outboxListeners = new Set();
+    this._retryTimer = null;
     this.events = [];
     this.seen = new Set(); // event ids, for de-duping
     // Indexes so query() doesn't scan every event: by kind, and by the
@@ -75,6 +83,7 @@ class NostrRelay {
     if (this.syncing) return;
     this.syncing = true;
     this._resubscribe();
+    this._loadOutbox();
   }
 
   _resubscribe() {
@@ -191,6 +200,59 @@ class NostrRelay {
   // unhandled rejection.
   publish(event) {
     this._store(event);
+    return this._send(event).then((ok) => {
+      if (!ok) this._enqueue(event);
+      return ok;
+    });
+  }
+
+  // ── Outbox: events no relay has accepted yet ──
+  outboxSize() { return this.outbox.size; }
+  onOutbox(fn) { this.outboxListeners.add(fn); return () => this.outboxListeners.delete(fn); }
+
+  _enqueue(event) {
+    if (event.kind >= 20000 && event.kind < 30000) return; // ephemeral: stale by the time it could be re-sent
+    if (!this.outbox.has(event.id)) this.outbox.set(event.id, { event, tries: 0, at: Date.now() });
+    this._saveOutbox();
+    this._schedule();
+  }
+
+  _schedule() {
+    if (this._retryTimer || !this.outbox.size) return;
+    const tries = Math.min(...[...this.outbox.values()].map((o) => o.tries));
+    const delay = this.retryDelays[Math.min(tries, this.retryDelays.length - 1)];
+    this._retryTimer = setTimeout(() => { this._retryTimer = null; this.flushOutbox(); }, delay);
+  }
+
+  // Try every waiting event now (also called when the network returns).
+  async flushOutbox() {
+    const day = 86400000;
+    for (const [id, o] of this.outbox) if (Date.now() - o.at > day) this.outbox.delete(id);
+    await Promise.all(
+      [...this.outbox.values()].map(async (o) => {
+        o.tries++;
+        if (await this._send(o.event)) this.outbox.delete(o.event.id);
+      })
+    );
+    this._saveOutbox();
+    this._schedule();
+  }
+
+  _saveOutbox() {
+    try { localStorage.setItem("nostrride_outbox", JSON.stringify([...this.outbox.values()].map((o) => ({ event: o.event, at: o.at })))); } catch { /* no storage */ }
+    this.outboxListeners.forEach((fn) => { try { fn(this.outbox.size); } catch { /* ignore */ } });
+  }
+
+  _loadOutbox() {
+    try {
+      const saved = JSON.parse(localStorage.getItem("nostrride_outbox") || "[]");
+      saved.forEach((s) => { if (s?.event?.id) { this._store(s.event); this.outbox.set(s.event.id, { event: s.event, tries: 0, at: s.at || Date.now() }); } });
+      if (this.outbox.size) setTimeout(() => this.flushOutbox(), 1500);
+    } catch { /* no storage or bad data */ }
+  }
+
+  // Send to the relays; resolves true once any accepts, false if none do.
+  _send(event) {
     try {
       const sends = this.pool.publish(getRelays(), event);
       return new Promise((resolve) => {

@@ -29,9 +29,8 @@ import { getDrivingRoute, metersToMiles } from "../lib/routing.js";
 import { haversineDistance } from "../lib/geo.js";
 import { SAMPLE_LOCATIONS } from "../lib/locations.js";
 import { THEME } from "../theme.js";
+import { TILE_URL, TILE_ATTRIBUTION as TILE_ATTR } from "../config/services.js";
 
-const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-const TILE_ATTR = "© OpenStreetMap contributors";
 const DEFAULT_CENTER = [SAMPLE_LOCATIONS[0].lat, SAMPLE_LOCATIONS[0].lng];
 
 const shadow = "box-shadow:0 1px 5px rgba(0,0,0,.45)";

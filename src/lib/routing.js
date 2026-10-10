@@ -9,7 +9,9 @@
 //  same return shape.
 // ════════════════════════════════════════════════════════════
 
-const ENDPOINT = "https://router.project-osrm.org/route/v1/driving";
+import { OSRM_URL } from "../config/services.js";
+
+const ENDPOINT = `${OSRM_URL}/route/v1/driving`;
 
 // The map and the screens both ask for the same route; remember answers
 // (by ~1 m coordinates) so each route is fetched once. Failures are not kept.

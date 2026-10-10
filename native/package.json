@@ -1,0 +1,19 @@
+{
+  "name": "nostrride-native",
+  "private": true,
+  "description": "Native shell for the NostrRide driver app (background GPS). Separate from the web build on purpose.",
+  "scripts": {
+    "sync": "cd .. && npm run build:driver && cd native && cap sync",
+    "android": "cap open android",
+    "ios": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "@capacitor-community/background-geolocation": "^1.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}

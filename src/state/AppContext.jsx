@@ -21,8 +21,9 @@ import { getProfile } from "../nostr/profiles.js";
 import { myVehicle } from "../lib/privacy.js";
 import { forgetKey } from "../nostr/keystore.js";
 import { APP_NAME } from "../config/app.js";
-import { getSetting, setSetting } from "../config/relays.js";
+import { getSetting, setSetting, reconnectAll } from "../config/relays.js";
 import { addBlock, removeBlock, isBlocked } from "../lib/blocks.js";
+import { showSystemNotification } from "../lib/notify.js";
 
 const AppContext = createContext(null);
 
@@ -64,7 +65,7 @@ export function AppProvider({ initialView, children }) {
     try {
       if (typeof document !== "undefined" && document.hidden &&
           typeof Notification !== "undefined" && Notification.permission === "granted") {
-        new Notification(APP_NAME, { body: message });
+        showSystemNotification(APP_NAME, message);
       }
     } catch { /* ignore */ }
     return id;
@@ -173,6 +174,20 @@ export function AppProvider({ initialView, children }) {
     });
     return () => { unsub(); clearTimeout(timer); };
   }, [refreshData]);
+
+  // The network came back, or the tab woke up: re-open every relay subscription,
+  // send what is waiting in the outbox, and catch up on what we missed.
+  useEffect(() => {
+    const wake = () => {
+      if (document.visibilityState === "hidden") return;
+      reconnectAll();
+      relay.flushOutbox();
+      pullRecent();
+    };
+    window.addEventListener("online", wake);
+    document.addEventListener("visibilitychange", wake);
+    return () => { window.removeEventListener("online", wake); document.removeEventListener("visibilitychange", wake); };
+  }, [pullRecent]);
 
   // Best-effort: ask for system-notification permission once logged in.
   useEffect(() => {

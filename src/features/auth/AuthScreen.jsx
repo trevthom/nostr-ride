@@ -23,6 +23,7 @@ import { IS_DRIVER_APP, APP_NAME } from "../../config/app.js";
 import Button from "../../ui/Button.jsx";
 import Icon from "../../ui/Icon.jsx";
 import RelayEditor from "../../ui/RelayEditor.jsx";
+import ConnectionBanner from "../../ui/ConnectionBanner.jsx";
 import { Field, inputCls } from "../../ui/Parts.jsx";
 import { UnlockView, BackupStep } from "./AuthSteps.jsx";
 
@@ -145,6 +146,7 @@ export default function AuthScreen({ onLogin }) {
 
   return (
     <div className="h-[100dvh] overflow-y-auto bg-white mx-auto max-w-md sm:border-x sm:border-neutral-200">
+      <ConnectionBanner />
       {/* Brand header */}
       <div className="bg-black text-white px-6 pt-[max(3rem,env(safe-area-inset-top))] pb-10">
         <div className="w-12 h-12 rounded-xl bg-white text-black flex items-center justify-center mb-6">

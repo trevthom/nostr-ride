@@ -20,6 +20,7 @@ import { publishPresence, publishRideLocation } from "../../nostr/live.js";
 import { seedDemoData } from "../../nostr/demoData.js";
 import { useGeolocation } from "../../lib/useGeolocation.js";
 import { useWakeLock } from "../../lib/useWakeLock.js";
+import { isNative } from "../../lib/nativeGeo.js";
 import { haversineDistance } from "../../lib/geo.js";
 import { depositSats, pickupEta, quoteFare, roadMiles, driveMinutes } from "../../lib/fare.js";
 import { isDriveReady } from "../../lib/profile.js";
@@ -103,6 +104,21 @@ export function DriverProvider({ children }) {
     const id = setInterval(beat, LOCATION_EVERY_MS);
     return () => clearInterval(id);
   }, [riderPubkey, user]);
+
+  // In the native shell the page can be throttled in the background, so send a
+  // location when each fix arrives (at most every 5 s) instead of relying on timers.
+  const lastNativeSend = useRef({ ride: 0, presence: 0 });
+  useEffect(() => {
+    if (!isNative() || !myPosition || gps === "stale") return;
+    const now = Date.now();
+    if (riderPubkey && now - lastNativeSend.current.ride > 5000) {
+      lastNativeSend.current.ride = now;
+      publishRideLocation(user, riderPubkey, myPosition);
+    } else if (visible && gps === "good" && now - lastNativeSend.current.presence > 15000) {
+      lastNativeSend.current.presence = now;
+      publishPresence(user, { lat: myPosition.lat, lng: myPosition.lng, vehicle: carLabel(user.vehicle) });
+    }
+  }, [myPosition]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A sleeping phone loses GPS and relay connections: keep the screen on while working.
   useWakeLock(online || !!activeDrive);

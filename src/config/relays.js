@@ -49,6 +49,11 @@ export function setRelays(list) {
   listeners.forEach((fn) => { try { fn(current); } catch { /* ignore */ } });
 }
 
+// Re-open every relay subscription (after the network came back, or the tab woke up).
+export function reconnectAll() {
+  listeners.forEach((fn) => { try { fn(current); } catch { /* ignore */ } });
+}
+
 export function onRelaysChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);

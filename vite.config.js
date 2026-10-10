@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
   const role = mode === "driver" ? "driver" : "rider";
   return {
     root: `apps/${role}`,
+    envDir: fileURLToPath(new URL(".", import.meta.url)), // .env lives at the repo root
     plugins: [react()],
     define: { __APP_ROLE__: JSON.stringify(role) },
     server: {

@@ -1,0 +1,6 @@
+{
+  "appId": "app.nostrride.driver",
+  "appName": "NostrRide Driver",
+  "webDir": "../dist/driver",
+  "server": { "androidScheme": "https" }
+}

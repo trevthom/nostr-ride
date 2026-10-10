@@ -93,6 +93,17 @@ invoice from another wallet.
 
 ---
 
+## 3b. Safety, blocking and disputes
+
+- **Safety button** (rider, during a trip): call emergency services, **share your trip** with a link a friend opens
+  to follow your car live, **SOS**, or report a problem. Before you get in, the app asks you to check the plate,
+  car and driver. Add trusted contacts in *Account*.
+- **Block** a driver or rider from their profile or after a trip. Blocked people no longer show up for you.
+- **Disputes:** every payment and confirmation is a signed record. The driver app checks payments against the
+  driver's own Lightning server and can copy a **trip record** for whoever settles a dispute.
+- **Offline:** the apps install to your home screen, open offline, and send queued updates when you are back online.
+- **Background GPS** needs the native app in `native/` (see its README); a browser stops location when the screen sleeps.
+
 ## 4. Privacy, in short
 
 - Public relays only see an **approximate area** (about 1 km) for pickup and dropoff.
@@ -116,6 +127,7 @@ invoice from another wallet.
 | What a button looks like (everywhere) | `src/ui/Button.jsx` |
 | The bottom sheet, tab bar, page layout | `src/ui/Layout.jsx` |
 | The map (tiles, pins, cars) | `src/ui/MapView.jsx` |
+| Your own map / search / route servers | `.env` (copy `env.example`) |
 | A rider screen | `src/rider/screens/…` |
 | A driver screen | `src/driver/screens/…` |
 | Nostr event types | `src/nostr/eventKinds.js` |
@@ -140,7 +152,7 @@ online only with a good GPS fix (about 200 m or better), so a laptop's Wi-Fi pos
 > **About the map services:** the app uses free public endpoints — OpenStreetMap map tiles, Photon (address search) and OSRM (driving routes). They are fine for development but
 > rate-limited and not meant for heavy traffic. Before a real launch switch to paid or self-hosted
 > ones (Mapbox, MapTiler, your own OSRM/Photon). The files: `src/lib/geocode.js`,
-> `src/lib/routing.js`, and the tile URL in `src/ui/MapView.jsx`.
+> `src/lib/routing.js`. Or set `VITE_TILE_URL`, `VITE_PHOTON_URL` and `VITE_OSRM_URL` in `.env` (see `env.example`).
 
 ---
 

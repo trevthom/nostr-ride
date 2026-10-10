@@ -8,10 +8,12 @@
 // ════════════════════════════════════════════════════════════
 
 import { useEffect } from "react";
+import { isNative } from "./nativeGeo.js";
 
 export function useWakeLock(active) {
   useEffect(() => {
-    if (!active || typeof navigator === "undefined" || !("wakeLock" in navigator)) return;
+    // The native shell keeps tracking with the screen off, so it does not need the screen awake.
+    if (!active || isNative() || typeof navigator === "undefined" || !("wakeLock" in navigator)) return;
     let sentinel = null;
     let stopped = false;
     const acquire = async () => {

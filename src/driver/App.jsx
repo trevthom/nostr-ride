@@ -11,6 +11,7 @@ import { AppFrame, TabBar } from "../ui/Layout.jsx";
 import ErrorBoundary from "../ui/ErrorBoundary.jsx";
 import UserModal from "../ui/UserModal.jsx";
 import NoticeBanner from "../ui/NoticeBanner.jsx";
+import ConnectionBanner from "../ui/ConnectionBanner.jsx";
 import AuthScreen from "../features/auth/AuthScreen.jsx";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import EarningsScreen from "./screens/EarningsScreen.jsx";
@@ -35,6 +36,7 @@ function Shell() {
       </ErrorBoundary>
       {!busy && <TabBar items={tabs} active={view} onChange={setView} />}
       <UserModal />
+      <ConnectionBanner />
       <NoticeBanner />
     </AppFrame>
   );

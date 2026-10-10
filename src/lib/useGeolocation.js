@@ -9,12 +9,14 @@
 //   • The browser shows a permission prompt the first time.
 //   • Geolocation only works on https:// or http://localhost
 //     (so `npm run dev` is fine; a deployed site needs HTTPS).
-//   • Browsers pause GPS while the tab is hidden (see useWakeLock).
+//   • Browsers pause GPS while the tab is hidden (see useWakeLock). Inside the
+//     native shell (native/README.md) the same hook uses background location.
 // ════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useRef } from "react";
 import { haversineDistance } from "./geo.js";
 import { gpsStatus, geoErrorText } from "./gps.js";
+import { isNative, startNativeWatch } from "./nativeGeo.js";
 
 const MIN_MOVE_METERS = 5; // smaller moves are GPS jitter: skip the re-render
 
@@ -32,7 +34,7 @@ export function useGeolocation(enabled) {
       setStatus("searching");
       return;
     }
-    if (!("geolocation" in navigator)) {
+    if (!isNative() && !("geolocation" in navigator)) {
       setError("This browser doesn't support location.");
       setStatus("error");
       return;
@@ -42,28 +44,33 @@ export function useGeolocation(enabled) {
     // position re-renders the whole app, so ignore jitter.
     let last = null;
     const refresh = () => setStatus(gpsStatus(raw.current));
-    const id = navigator.geolocation.watchPosition(
-      (p) => {
-        const next = { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy };
-        raw.current = { pos: next, seenAt: Date.now(), error: "" };
-        setError(""); // a fix arrived; clear any old error (no re-render if already "")
-        refresh();
-        const moved = last ? haversineDistance(last.lat, last.lng, next.lat, next.lng) * 1609.344 : Infinity;
-        if (moved < MIN_MOVE_METERS && Math.abs(next.accuracy - last.accuracy) < MIN_MOVE_METERS) return;
-        last = next;
-        setPos(next);
-      },
-      (e) => {
-        const text = geoErrorText(e);
-        raw.current = { ...raw.current, error: text };
-        setError(text);
-        refresh();
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
-    );
+    const onFix = (p) => {
+      const next = { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy };
+      raw.current = { pos: next, seenAt: Date.now(), error: "" };
+      setError(""); // a fix arrived; clear any old error (no re-render if already "")
+      refresh();
+      const moved = last ? haversineDistance(last.lat, last.lng, next.lat, next.lng) * 1609.344 : Infinity;
+      if (moved < MIN_MOVE_METERS && Math.abs(next.accuracy - last.accuracy) < MIN_MOVE_METERS) return;
+      last = next;
+      setPos(next);
+    };
+    const onError = (e) => {
+      const text = geoErrorText(e);
+      raw.current = { ...raw.current, error: text };
+      setError(text);
+      refresh();
+    };
+    // Native shell: background-capable watcher. Browser: the normal geolocation API.
+    let stop;
+    if (isNative()) {
+      stop = startNativeWatch(onFix, onError);
+    } else {
+      const id = navigator.geolocation.watchPosition(onFix, onError, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+      stop = () => navigator.geolocation.clearWatch(id);
+    }
     const timer = setInterval(refresh, 10000); // a silent GPS must turn "stale"
 
-    return () => { navigator.geolocation.clearWatch(id); clearInterval(timer); };
+    return () => { stop(); clearInterval(timer); };
   }, [enabled]);
 
   return { pos, error, status };

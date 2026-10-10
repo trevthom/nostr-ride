@@ -15,6 +15,7 @@ that talk to each other only over **Nostr** (no server, no DB):
 Stack: **React 18 + Vite**. **Tailwind is loaded from a CDN** in each app's
 `index.html` (NOT a build dependency — do not add `@tailwindcss/vite` or `tailwindcss`
 to package.json; its native binary breaks on some machines, which is why it was removed).
+Full human-readable docs: `docs/index.md` (keep it current).
 Look: white UI, black buttons, bottom sheets over a full-screen map (Inter font).
 
 ## Commands
@@ -25,7 +26,7 @@ Look: white UI, black buttons, bottom sheets over a full-screen map (Inter font)
   `build:rider` / `build:driver` build one. `preview:rider` / `preview:driver` serve a build.
 - `npm test` → Node's built-in test runner over `test/*.test.mjs` (no extra deps):
   trust rules, ride stages, fares, trips, earnings, privacy, history, LNURL, geocode, publish,
-  event ordering, contact links, GPS quality. Run it after touching `lib/*`, `nostr/*`.
+  event ordering, contact links, GPS quality, payment evidence, blocking, trip sharing, native location, outbox. Run it after touching `lib/*`, `nostr/*`.
 - No linter configured.
 - The Vite **mode** picks the app (`vite --mode rider|driver`, see `vite.config.js`); it sets
   `__APP_ROLE__`, read through `src/config/app.js` (`APP_ROLE`, `IS_DRIVER_APP`, `APP_NAME`).
@@ -81,6 +82,7 @@ src/
     settings.js                   # tunables: FARE_RATES, FALLBACK_BTC_USD, DEFAULT_DEPOSIT_PERCENT,
                                   #   REQUEST_CARD_SECONDS, OFFER_TTL_SECONDS, DEFAULT_REQUEST_RADIUS_MILES,
                                   #   USE_DEMO_DATA (dev only), CONTACT_PLATFORMS
+    services.js                   # tile / Photon / OSRM URLs, overridable by VITE_* env (see env.example)
     relays.js                     # DEFAULT_RELAYS, getRelays/setRelays/useRelays, getSetting/setSetting (localStorage)
   nostr/
     eventKinds.js                 # EVENT_KINDS + APP_TAG
@@ -89,6 +91,7 @@ src/
     relay.js                      # SimplePool + local cache: publish, publishLocal, query, onEvent, startSync, fetchRecent, fetchProfile, fetchHistory
     replaceable.js  profiles.js   # latestVersions(); getProfile/getMetadata
     live.js                       # presence (public, coarse) + ride location (NIP-44, ephemeral)
+    share.js                      # "Share my trip": throwaway-key link, encrypted trip updates (kind 30091)
     wallet.js                     # NIP-47 (NWC) client
     demoData.js                   # dev-only fake riders/requests (driver app only)
   lib/
@@ -98,6 +101,12 @@ src/
     earnings.js   # completedDrives, summarizeEarnings
     privacy.js    # publicPlace, seal/unseal, exactTrip, sealVehicle/myVehicle/offerPlate
     contact.js    # contactHref (safe links from untrusted handles)
+    evidence.js   # payment records (30086) + proofLevel + driver-side verifyPayment + disputeRecord; rideConfirm is in rides.js
+    bolt11.js     # paymentHash / preimageMatches
+    blocks.js     # local block list helpers
+    safety.js     # trusted contacts, sms link, trip message
+    nativeGeo.js  # background location via Capacitor (run-time lookup; web build has no dependency)
+    notify.js     # service worker registration + system notifications
     gps.js (gpsStatus/gpsMessage: good|weak|stale) useGeolocation.js (pos, error, status) useWakeLock.js
     geo.js geocode.js (search + reverseGeocode) routing.js (OSRM, cached) image.js lnurl.js locations.js profile.js (isDriveReady)
   state/AppContext.jsx            # shared state (above)
@@ -136,6 +145,9 @@ test/*.test.mjs
 | 30083 | DRIVER_ROUTE | | unused (feature removed) |
 | 30084 | RIDE_COMPLETE | `e`(request), `p`(rider), `d`, `t` | `{requestId}` — by the assigned driver |
 | 30085 | RIDE_STAGE | `e`(request), `p`(rider), `d`="stage-<rideKey>", `t` | `{stage: "arrived" \| "riding"}` — by the assigned driver |
+| 30086 | RIDE_PAYMENT | `e`(request), `p`(driver), `d`="pay-<rideKey>-<phase>", `t` | `{phase:"deposit"\|"rest", amountSats, level, sealed}` — by the rider; `sealed` = `{pr, preimage, verify}` NIP-44 to the driver |
+| 30087 | RIDE_CONFIRM | `e`(request), `p`(driver), `d`="confirm-<rideKey>-<phase>", `t` | `{phase:"boarded"\|"ended"\|"problem", ok, note}` — by the rider |
+| 30091 | TRIP_SHARE (addressable) | `d`="share", `t`, `expiration` | `{sealed}` — signed by a throwaway key; payload encrypted with that key (in the link #fragment) |
 | 30090 | PRESENCE (addressable) | `d`="presence", `t`, `expiration` | `{name, npub, vehicle, lat, lng, ts}` — public, coarsened location |
 | 21100 | RIDE_LOCATION (ephemeral) | `p`(rider), `expiration` | NIP-44 encrypted `{lat, lng, ts}` — exact, to rider only |
 
@@ -147,7 +159,7 @@ rider's `in_progress` version also carries `driverPubkey`. Stage is `enroute`
 - **Trust rules (lib/rides.js)**: relay events are signed, but anyone can sign
   one. A ride's versions are requests with the same **author + d-tag** (never
   d-tag alone). A RIDE_CANCEL counts only from the rider or the assigned driver;
-  a RIDE_COMPLETE and a RIDE_STAGE only from the assigned driver; a RATING only from the
+  a RIDE_COMPLETE and a RIDE_STAGE only from the assigned driver; a RIDE_CONFIRM and a RIDE_PAYMENT only from the ride's rider; a RATING only from the
   other party of that ride (one per rater per ride). Stages only move forward (the
   furthest valid marker wins). Always go through `rideVersions`/`rideStatus`/`rideEnding`/
   `rideStage`/`reputation` — don't re-derive.
@@ -193,6 +205,20 @@ rider's `in_progress` version also carries `driverPubkey`. Stage is `enroute`
   and pays it via NWC or shows a QR (LUD-21 `verify` watched). Never invoice the rider's own
   wallet. Only `confirmDriver` publishes RIDE_ACCEPT + `in_progress`. "Rest paid" is remembered
   in localStorage (`riderPaid`) so it is never paid twice. Deposit is non-refundable after cancel.
+- **Evidence** (no escrow, so keep a trail): the rider app publishes a RIDE_PAYMENT after each payment
+  (`recordPayment`; `PayDriver` returns `{verified, level, pr, preimage, verify}`) and a RIDE_CONFIRM for
+  boarded / ended / problem (`confirmRide`). The rider's `level` is NOT trusted: the driver app re-checks
+  (`verifyPayment`: only a `verify` URL on the host of the driver's own lud16 is fetched).
+- **Blocking** is local (`getSetting("blocked")`, `useApp().blockUser/isBlockedPk`): filter at the data
+  boundary (driver `open` list, rider presence and `offersForRide` in ActiveTrip). Don't re-add blocked people anywhere else.
+- **Outbox**: `relay.publish` queues an event no relay accepted (`nostrride_outbox` in localStorage) and
+  re-sends it with backoff, on `online`/tab wake (`AppContext` → `relay.flushOutbox()` + `reconnectAll()`),
+  and after reload. Ephemeral kinds are never queued. Pools use `enableReconnect`.
+- **Safety / share**: `RiderContext` holds the share state (`share`, `startShare`, `stopShare`, `shareUpdate`);
+  `OnTrip` pushes updates; `src/rider/Track.jsx` (apps/rider/track.html, built with the rider app) is the
+  viewer. The share key is only ever in the URL fragment.
+- **Service worker** (`apps/*/public/sw.js`, production only): caches the shell and hashed assets; never touches
+  relays, tiles or APIs. It cannot receive push while the app is closed. Native shell (`native/`) skips it.
 - **Fare** (`lib/fare.js`): `FARE_RATES` in USD; sats via `btcUsd` (CoinGecko, refreshed every
   5 min). If the price is unavailable `FALLBACK_BTC_USD` is used and the quote screen says so.
   The driver app accepts at the quoted fare (no haggling); the driver sets only the deposit %.
@@ -221,7 +247,7 @@ rider's `in_progress` version also carries `driverPubkey`. Stage is `enroute`
   height so the map pads for it). Tiles = OpenStreetMap (`tile.openstreetmap.org`; free, but its usage policy forbids heavy/commercial traffic — move to a self-hosted or paid tile server before launch), geocoding = Photon (do NOT switch
   type-ahead to Nominatim — its policy forbids it), routes = OSRM (cached in routing.js).
   All are free public dev endpoints: rate-limited, swap for paid/self-hosted before launch
-  (keep the return shapes; the tile URL is a constant in MapView.jsx).
+  (keep the return shapes; URLs come from `config/services.js` / `.env`).
 - **No StrictMode** (see apps/*/main.jsx): it double-mounts the map in dev and caused crashes.
   Keep every hook above a screen's early `return null`.
 - **Login persistence**: with "Remember me" the key is saved encrypted with the user's password
@@ -239,8 +265,9 @@ rider's `in_progress` version also carries `driverPubkey`. Stage is `enroute`
 - Relays: already real (`nostr/relay.js`, `nostr/live.js`). To harden: scope relays/geography,
   add reconnection, fetch remote kind-0 for display names beyond the ones we pull on demand.
 - Signing, maps/geocoding/routing, Lightning (NIP-47 + lud16): already real (see above).
-- Not built yet: in-app chat/call (Contact sheet shows the other person's Signal/Telegram/phone),
-  driver background GPS (needs a native app), driver payout confirmation beyond LUD-21, ride types
+- Native background GPS: `native/` (Capacitor) + `lib/nativeGeo.js`, written but NOT run on a device.
+- Not built yet: push while the app is closed (needs a push server), arbiter/ruling flow, synced block list (NIP-51), in-app chat/call (Contact sheet shows the other person's Signal/Telegram/phone),
+  ride types
   (Comfort/XL), surge pricing.
 
 ## Adding a screen

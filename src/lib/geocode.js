@@ -14,8 +14,10 @@
 //  return shape and nothing else needs to change.
 // ════════════════════════════════════════════════════════════
 
-const ENDPOINT = "https://photon.komoot.io/api/";
-const REVERSE = "https://photon.komoot.io/reverse";
+import { PHOTON_URL } from "../config/services.js";
+
+const ENDPOINT = `${PHOTON_URL}/api/`;
+const REVERSE = `${PHOTON_URL}/reverse`;
 const uniq = (parts) => [...new Set(parts.filter(Boolean))];
 
 // Short name for cards, e.g. "Rupp Arena, Lexington" or "430 W Vine St, Lexington".
