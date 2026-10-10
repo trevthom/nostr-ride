@@ -27,8 +27,9 @@ Payments go straight from rider to driver over **Lightning**.
 15. [Testing](#testing)
 16. [Deploying](#deploying)
 17. [Self-hosting map services](#self-hosting-map-services)
-18. [Known limits and roadmap](#known-limits-and-roadmap)
-19. [Changelog](#changelog)
+18. [Trying it on an iPhone](#trying-it-on-an-iphone-without-the-apple-developer-program)
+19. [Known limits and roadmap](#known-limits-and-roadmap)
+20. [Changelog](#changelog)
 
 ## Quick start
 ```bash
@@ -203,6 +204,12 @@ The app uses three free public services. They are fine for development but not f
 
 Whichever you choose, keep the "© OpenStreetMap contributors" credit (the data licence requires it).
 To switch, copy `env.example` to `.env`, set `VITE_TILE_URL` (and `VITE_PHOTON_URL`, `VITE_OSRM_URL`), and run `npm run build` again. No code changes are needed for a raster server or a hosted provider; PMTiles needs a small code change in `MapView.jsx`.
+
+## Trying it on an iPhone without the Apple Developer Program
+- **Easiest: install it as a web app (PWA).** Put `dist/rider` or `dist/driver` on any free HTTPS host (Netlify Drop, Cloudflare Pages, Vercel, GitHub Pages) or run `npm run dev:rider` (or `dev:driver`) and expose it with a tunnel (`cloudflared tunnel --url http://localhost:5173`, or ngrok). Open the https link in **Safari**, tap Share → **Add to Home Screen**. GPS, the map, maps, payments, the service worker, offline start and the screen wake lock (iOS 16.4+) all work. Plain `http://` LAN addresses do NOT work: Safari only allows location on https.
+- **What the web app cannot do on iOS:** background GPS, and push when the app is closed.
+- **Native build with a free Apple ID** (needed only for background GPS): needs a Mac with Xcode. Build the Capacitor project, run it on your own iPhone with a free "Personal Team"; the app expires after 7 days and you can have 3 at a time. Without a Mac, build an unsigned IPA on a macOS CI runner, then sign and install it with AltStore, SideStore or Sideloadly using your free Apple ID (same 7-day limit). TestFlight and the App Store need the paid program.
+- No Mac and no device? Try the iOS Safari look in a hosted browser-testing service.
 
 ## Known limits and roadmap
 - No escrow. Ideas, from lowest effort: reputation-scaled deposits, signed dispute evidence, Lightning
