@@ -278,6 +278,7 @@ rider's `in_progress` version also carries `driverPubkey`. Stage is `enroute`
 4. Role logic goes in that app's context; anything both apps need goes in `src/state`, `src/ui`, `src/features`, `src/lib`.
 
 ## Conventions
+- **Push everything to `main`** (the owner's standing instruction): commit on `main` and `git push origin main`. Do not leave work on side branches.
 - **Keep `docs/index.md` current**: when you change behavior, update the matching section and add a line to its changelog in the same commit.
 - One feature per folder; files stay under ~300 lines (WalletSection and nostr/relay.js are slightly
   over — split before growing them); each starts with a comment block explaining its purpose.
