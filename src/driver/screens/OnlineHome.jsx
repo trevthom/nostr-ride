@@ -6,14 +6,18 @@
 //              price tags on the map)
 //    request   an incoming-request card with a countdown: Accept / Decline
 //    waiting   "Waiting for <rider> to confirm" after the driver accepted
-//  Accepting publishes an offer at the rider's fare; the rider picks a
-//  driver and pays the deposit, which starts the drive (DriveTrip).
+//  The rider names the price. A driver accepts it, or counters with a higher
+//  price. Either way the reply is an offer; the rider picks a driver and pays
+//  the deposit, which starts the drive (DriveTrip).
 // ════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { useDriver, fareOf } from "../state/DriverContext.jsx";
-import { depositSats, driveMinutes, pickupEta, roadMiles } from "../../lib/fare.js";
+import { clampOffer, depositSats, driveMinutes, pickupEta, roadMiles, usdToSats } from "../../lib/fare.js";
+import { FALLBACK_BTC_USD } from "../../config/settings.js";
+import { satsToUsd } from "../../ui/SatsAmount.jsx";
+import PriceStepper from "../../ui/PriceStepper.jsx";
 import { haversineDistance } from "../../lib/geo.js";
 import { completedDrives, summarizeEarnings } from "../../lib/earnings.js";
 import { isScheduledLater } from "../../lib/trips.js";
@@ -160,13 +164,15 @@ function Incoming({ item, auto, onClose }) {
   const { request, content: c, miles } = item;
   const [left, setLeft] = useState(REQUEST_CARD_SECONDS);
   const [busy, setBusy] = useState(false);
+  const [countering, setCountering] = useState(false); // the driver is naming a different price
   const { profile } = useRiderInfo(request.pubkey);
 
+  // The countdown pauses while the driver is naming a counter-offer.
   useEffect(() => {
-    if (!auto) return;
+    if (!auto || countering) return;
     const id = setInterval(() => setLeft((s) => s - 1), 1000);
     return () => clearInterval(id);
-  }, [auto]);
+  }, [auto, countering]);
   useEffect(() => { if (auto && left <= 0) skip(request); }, [left]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fare = fareOf(request, btcUsd);
@@ -174,7 +180,15 @@ function Incoming({ item, auto, onClose }) {
   const tripMin = c.durationMin ?? driveMinutes(tripMiles);
   const awayMin = miles != null ? pickupEta(miles) : null;
 
-  const accept = () => { setBusy(true); acceptRequest(request); };
+  // A counter-offer starts $1 above the rider's offer and can go up to 3x the suggested price.
+  const rate = btcUsd || FALLBACK_BTC_USD;
+  const offerUsd = Math.max(1, Math.round(satsToUsd(fare, rate)));
+  const suggestedUsd = c.suggestedSats > 0 ? Math.max(1, Math.round(satsToUsd(c.suggestedSats, rate))) : offerUsd;
+  const [counterUsd, setCounterUsd] = useState(offerUsd + 1);
+  const counterSats = usdToSats(clampOffer(counterUsd, Math.max(suggestedUsd, offerUsd)), rate);
+  const price = countering ? counterSats : fare;
+
+  const accept = () => { setBusy(true); acceptRequest(request, countering ? counterSats : undefined); };
   const dismiss = () => { decline(request); onClose(); };
 
   return (
@@ -187,7 +201,10 @@ function Incoming({ item, auto, onClose }) {
       </div>
 
       <div className="flex items-end justify-between">
-        <Money sats={fare} stacked className="text-4xl font-extrabold tracking-tight" subClassName="text-neutral-500 text-sm" />
+        <div>
+          <p className="text-xs font-semibold text-neutral-500 mb-0.5">Rider's offer</p>
+          <Money sats={fare} stacked className="text-4xl font-extrabold tracking-tight" subClassName="text-neutral-500 text-sm" />
+        </div>
         <div className="text-right text-sm text-neutral-600">
           <p>{tripMin} min · {tripMiles.toFixed(1)} mi trip</p>
           {c.time && c.time !== "ASAP" && <p className="font-semibold text-black">{whenText(c.time)}</p>}
@@ -210,16 +227,33 @@ function Incoming({ item, auto, onClose }) {
       <div className="mt-4 pt-3 border-t border-neutral-100"><RiderInfo pubkey={request.pubkey} compact /></div>
       {c.notes && <p className="mt-2 text-sm text-neutral-600 bg-neutral-100 rounded-xl px-3 py-2">“{c.notes}”</p>}
 
+      {c.suggestedSats > 0 && c.suggestedSats !== fare && (
+        <p className="text-xs text-neutral-500 mt-3">For this trip the app suggests {moneyText(c.suggestedSats, btcUsd)}.</p>
+      )}
+
+      {countering && (
+        <div className="mt-3 rounded-2xl bg-neutral-100 px-4 py-3">
+          <p className="text-center text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">Your counter-offer</p>
+          <PriceStepper usd={counterUsd} suggestedUsd={Math.max(suggestedUsd, offerUsd)} min={offerUsd + 1} onChange={setCounterUsd} label="Counter-offer in dollars" />
+          <p className="text-center text-xs text-neutral-500 mt-2">The rider sees your price next to other drivers' and chooses.</p>
+        </div>
+      )}
+
       <p className="text-xs text-neutral-500 mt-3">
-        You'll ask for a {depositPct}% deposit ({moneyText(depositSats(fare, depositPct), btcUsd)}). You get the exact pickup once {profile?.name || "the rider"} confirms you.
+        You'll ask for a {depositPct}% deposit ({moneyText(depositSats(price, depositPct), btcUsd)}). You get the exact pickup once {profile?.name || "the rider"} confirms you.
       </p>
 
       <div className="flex gap-3 mt-4">
         <Button variant="secondary" full={false} onClick={dismiss} aria-label="Decline" className="!px-5"><Icon name="x" size={22} /></Button>
         <Button variant="go" onClick={accept} loading={busy}>
-          {busy ? "Sending…" : `Accept ${moneyText(fare, btcUsd)}`}
+          {busy ? "Sending…" : countering ? `Counter ${moneyText(counterSats, btcUsd)}` : `Accept ${moneyText(fare, btcUsd)}`}
         </Button>
       </div>
+      {!busy && (
+        <button type="button" onClick={() => setCountering((v) => !v)} className="w-full text-center text-sm font-semibold underline mt-3">
+          {countering ? `Accept ${moneyText(fare, btcUsd)} instead` : "Ask for a different price"}
+        </button>
+      )}
     </Sheet>
   );
 }
@@ -243,7 +277,7 @@ function Waiting({ pending, onStop }) {
       </div>
       <div className="mt-4 pt-3 border-t border-neutral-100 text-[15px]">
         <p className="font-medium truncate">{c.pickup.name} → {c.dropoff.name}</p>
-        <p className="text-neutral-600 mt-0.5"><Money sats={JSON.parse(offer.content).priceSats} className="font-semibold" /> fare</p>
+        <p className="text-neutral-600 mt-0.5"><Money sats={JSON.parse(offer.content).priceSats} className="font-semibold" /> {JSON.parse(offer.content).priceSats > (c.fareSats || 0) && c.fareSats ? "counter-offer" : "fare"}</p>
       </div>
       <Button variant="secondary" size="md" className="mt-4" onClick={onStop}>Keep browsing requests</Button>
       <p className="text-neutral-500 text-xs text-center mt-2">If the rider still confirms you, the pickup appears right away.</p>

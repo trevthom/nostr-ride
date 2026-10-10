@@ -1,20 +1,29 @@
 // ════════════════════════════════════════════════════════════
 //  CHECKLIST — What a driver still needs before going online (isDriveReady):
-//  face photo, vehicle, plate, Lightning address. Each row says done or
+//  face photo, vehicle, vehicle photo, plate, license photo, Lightning
+//  address. Each row says done, or names exactly what is missing and
 //  jumps to the Account tab where it is filled in.
 // ════════════════════════════════════════════════════════════
 
 import { useApp } from "../../state/AppContext.jsx";
 import Icon from "../../ui/Icon.jsx";
+import { driveGaps } from "../../lib/profile.js";
+
+const STEPS = [
+  { id: "photo", title: "Profile photo", hint: "Riders see your face before they get in." },
+  { id: "vehicle", title: "Vehicle", hint: "Year, make and model of your car." },
+  { id: "vehiclePhoto", title: "Vehicle photo", hint: "A clear photo of your car." },
+  { id: "plate", title: "License plate", hint: "Shown only to the rider you drive." },
+  { id: "license", title: "Driver's license photo", hint: "Encrypted. Only you can open it." },
+  { id: "lightning", title: "Lightning address", hint: "Where riders pay you, like you@wallet.com." },
+];
 
 export function driveSteps(user) {
-  const v = user?.vehicle || {};
-  return [
-    { id: "photo", title: "Profile photo", hint: "Riders see your face before they get in.", done: !!user?.picture },
-    { id: "vehicle", title: "Vehicle", hint: "Year, make and model of your car.", done: !!(v.year && v.make && v.model) },
-    { id: "plate", title: "License plate", hint: "Shown only to the rider you drive.", done: !!(v.plateState && v.plateNumber) },
-    { id: "lightning", title: "Lightning address", hint: "Where riders pay you, like you@wallet.com.", done: !!user?.lud16 },
-  ];
+  const gaps = driveGaps(user);
+  return STEPS.map((s) => {
+    const gap = gaps.find((g) => g.id === s.id);
+    return { ...s, done: !gap, hint: gap?.missing.length ? `Still needed: ${gap.missing.join(", ")}.` : s.hint };
+  });
 }
 
 export default function Checklist() {

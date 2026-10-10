@@ -39,7 +39,7 @@ const LOCATION_EVERY_MS = 6000;
 const parse = (e) => { try { return JSON.parse(e.content); } catch { return null; } };
 const carLabel = (v) => (v ? [v.year, v.make, v.model].filter(Boolean).join(" ") : "");
 
-// The fare a request carries; older requests without one get an estimate.
+// The price the rider offered; older requests without one get an estimate.
 export function fareOf(request, btcUsd) {
   const c = parse(request) || {};
   if (c.fareSats > 0) return c.fareSats;
@@ -206,11 +206,12 @@ export function DriverProvider({ children }) {
   }, [pending?.request.id, !!activeDrive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Actions ──
-  // "I'll take it": offer to drive at the rider's fare, asking the deposit.
+  // "I'll take it": offer to drive, asking the deposit. With no price given the driver
+  // accepts the rider's offer; a higher `priceSats` is a counter-offer.
   const acceptRequest = useCallback(
-    (request) => {
+    (request, priceSats) => {
       const c = parse(request);
-      const fare = fareOf(request, btcUsd);
+      const fare = priceSats > 0 ? Math.round(priceSats) : fareOf(request, btcUsd);
       const miles = myPosition ? haversineDistance(myPosition.lat, myPosition.lng, c.pickup.lat, c.pickup.lng) : null;
       const demo = request.tags.some((t) => t[0] === "demo");
       const sent = publish(
@@ -220,6 +221,7 @@ export function DriverProvider({ children }) {
           upfrontSats: depositSats(fare, depositPct),
           etaMinutes: miles == null ? 5 : pickupEta(miles),
           message: "",
+          gender: user.gender === "male" || user.gender === "female" ? user.gender : "", // optional, self-declared
           // The plate is private: only this rider can read it.
           plate: seal(user.sk, request.pubkey, {
             plateState: user.vehicle?.plateState || "",

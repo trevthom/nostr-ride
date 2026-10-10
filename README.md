@@ -58,20 +58,20 @@ that password. Use a different account in each app window to play both sides.
 ## 3. A ride, step by step
 
 **Driver app** (once):
-1. **Account** tab → add a **photo**, your **vehicle** (year, make, model, plate) and a
+1. **Account** tab → add a **photo**, your **vehicle** (year, make, model, plate, and a photo of the car), a photo of your **driver's license** (encrypted; only you can open it) and a
    **Lightning address** (like `you@wallet.com`; riders pay you there).
 2. **Drive** tab → tap the green **GO** button (allow location when asked).
 
 **Rider app:**
-1. **Where to?** → type a destination (pickup defaults to where you are) → see the **fare** →
-   **Request NostrRide**. (Pick **Schedule** to reserve a ride for later: it waits under *Activity → Upcoming*.)
+1. **Where to?** → type a destination (pickup fills in from your GPS) → see the **suggested price** → set
+   **your offer** with − / + → **Request ride**. Optional: show female or male drivers first. (Pick **Schedule** to reserve a ride for later: it waits under *Activity → Upcoming*.)
 2. Wait for **"Finding your driver…"**. Nearby online drivers are shown as cars on the map.
 
 **Driver app:**
-3. A **request card** pops up with the fare, pickup distance and the rider's rating. Tap **Accept**.
+3. A **request card** pops up with the rider's offer, pickup distance and the rider's rating. Tap **Accept**, or **Ask for a different price** to counter.
 
 **Rider app:**
-4. Pick a driver (fastest first) → **pay the deposit** with your connected wallet, or scan the
+4. Pick a driver (counter-offers are marked; fastest first) → **pay the deposit** with your connected wallet, or scan the
    invoice with any Lightning wallet. The ride is confirmed when it is paid.
 5. Watch the car come to you. The driver's exact position is end-to-end encrypted and only you can see it.
 
@@ -111,7 +111,8 @@ invoice from another wallet.
 - Your **license plate** is encrypted and sent only to the rider you drive.
 - A driver who is online shares an **approximate** location (about 100 m) publicly. During a ride the
   exact location goes only to the matched rider, encrypted.
-- Ride requests, fares and offers are public on the relays you use.
+- Your driver's license photo is encrypted to the driver's own key. Riders never see it.
+- Ride requests, price offers and replies are public on the relays you use.
 - Looking up your address from GPS sends your position (rounded to about 10 m) to the free Photon
   geocoder. Swap that service for your own before a real launch.
 
@@ -121,7 +122,7 @@ invoice from another wallet.
 
 | I want to change... | Open this file |
 |---|---|
-| Fare formula, deposit %, request timers, demo data | `src/config/settings.js` |
+| Suggested-price formula, offer limits, deposit %, request timers, demo data | `src/config/settings.js` |
 | Default relay list | `src/config/relays.js` |
 | Colors | `src/theme.js` (and Tailwind classes in the screens) |
 | What a button looks like (everywhere) | `src/ui/Button.jsx` |
