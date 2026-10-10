@@ -35,7 +35,7 @@ const parse = (e) => { try { return JSON.parse(e.content); } catch { return null
 export function RiderProvider({ children }) {
   const { user, rideRequests, publish, refreshData, pullRecent, pushNotice, liveTick, setView } = useApp();
   const me = user.publicKey;
-  const { pos: myPosition, error: geoError } = useGeolocation(true);
+  const { pos: myPosition, error: geoError, status: gps } = useGeolocation(true);
 
   // ── Where am I, by name? (one lookup per ~300 m of movement) ──
   const [here, setHere] = useState(null);
@@ -47,9 +47,10 @@ export function RiderProvider({ children }) {
     hereAt.current = { lat: myPosition.lat, lng: myPosition.lng };
     let alive = true;
     const fallback = { name: "Current location", fullName: "Current location", area: "Near you", lat: myPosition.lat, lng: myPosition.lng };
+    const mark = (p) => ({ ...p, fromGps: true }); // so the quote can warn when the fix was weak
     reverseGeocode(myPosition.lat, myPosition.lng)
-      .then((p) => alive && setHere(p || fallback))
-      .catch(() => alive && setHere(fallback));
+      .then((p) => alive && setHere(mark(p || fallback)))
+      .catch(() => alive && setHere(mark(fallback)));
     return () => { alive = false; };
   }, [myPosition?.lat, myPosition?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -228,7 +229,7 @@ export function RiderProvider({ children }) {
   };
 
   const value = {
-    myPosition, geoError, here, drivers,
+    myPosition, geoError, gps, here, drivers,
     plan, setPlan, resetPlan,
     activeRide, focused: !!focused, focusRide: (r) => setFocusId(r ? r.id : null), upcoming, receipt, dismissReceipt,
     sendFailed, requestRide, confirmDriver, cancelRide, rateDriver, recentPlaces,

@@ -17,6 +17,7 @@ import Button from "../../ui/Button.jsx";
 import { MapPage, Sheet, FloatButton } from "../../ui/Layout.jsx";
 import { inputCls } from "../../ui/Parts.jsx";
 import PlaceSearch from "../components/PlaceSearch.jsx";
+import { gpsMessage } from "../../lib/gps.js";
 
 export default function PlanTrip() {
   const { plan, setPlan, here, myPosition, recentPlaces } = useRider();
@@ -43,7 +44,7 @@ export default function PlanTrip() {
 }
 
 function Idle() {
-  const { setPlan, plan, here, drivers, myPosition, geoError, recentPlaces, nearestDriverEta } = useRider();
+  const { setPlan, plan, here, drivers, myPosition, geoError, gps, recentPlaces, nearestDriverEta } = useRider();
   const mapRef = useRef(null);
   const recents = recentPlaces();
   const eta = nearestDriverEta(myPosition);
@@ -86,8 +87,8 @@ function Idle() {
 
         <p className="text-sm text-neutral-500 mt-3 flex items-center gap-2" role="status">
           <span className={`w-2 h-2 rounded-full ${drivers.length ? "bg-green-600" : "bg-neutral-300"}`} aria-hidden="true" />
-          {geoError && !myPosition
-            ? "Turn on location to see drivers near you, or search for a pickup."
+          {gps !== "good"
+            ? `${gpsMessage(gps, myPosition, geoError)} You can also search for a pickup.`
             : drivers.length
             ? `${drivers.length} driver${drivers.length === 1 ? "" : "s"} online nearby${eta ? ` · about ${eta} min away` : ""}`
             : "No drivers online nearby right now. You can still request a ride."}
@@ -99,7 +100,7 @@ function Idle() {
 
 function Quote() {
   const { btcUsd, wallet } = useApp();
-  const { plan, setPlan, drivers, requestRide, nearestDriverEta } = useRider();
+  const { plan, setPlan, drivers, requestRide, nearestDriverEta, gps, myPosition, geoError } = useRider();
   const { pickup, dropoff } = plan;
   const [route, setRoute] = useState(null); // { miles, minutes, straight }
   const [error, setError] = useState("");
@@ -174,6 +175,11 @@ function Quote() {
             {quote ? <Money sats={quote.sats} stacked className="font-bold text-lg" /> : <span className="block w-14 h-6 rounded bg-neutral-200 animate-pulse" />}
           </div>
         </div>
+        {pickup.fromGps && gps !== "good" && (
+          <p className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mt-2" role="alert">
+            Your pickup comes from a weak location. {gpsMessage(gps, myPosition, geoError)} Tap Edit to check the address.
+          </p>
+        )}
         {quote && !quote.live && (
           <p className="text-xs text-amber-700 mt-1.5">Live bitcoin price unavailable, so this uses an estimated rate.</p>
         )}

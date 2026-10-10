@@ -43,6 +43,7 @@ export default function DriveTrip({ request }) {
   const [ask, setAsk] = useState(null); // "complete" | "cancel"
   const [now, setNow] = useState(Date.now());
   const [arrivedAt, setArrivedAt] = useState(null);
+  const [routeInfo, setRouteInfo] = useState(null); // road time from the map's route
   void liveTick;
 
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
@@ -51,10 +52,12 @@ export default function DriveTrip({ request }) {
   const { pickup, dropoff } = trip;
   const target = stage === "riding" ? dropoff : pickup;
   const miles = myPosition ? haversineDistance(myPosition.lat, myPosition.lng, target.lat, target.lng) : null;
-  const eta = miles != null ? pickupEta(miles) : null;
+  // Minutes left: the road route from the car when the router answered, else a straight-line guess.
+  const eta = miles == null ? null : routeInfo && !routeInfo.straight ? routeInfo.minutes : pickupEta(miles);
   const offer = offerFrom(request, user.publicKey); // the fare this driver agreed to
   const fare = offer ? parse(offer)?.priceSats : parse(request)?.fareSats;
-  const route = stage === "riding" ? [pickup, dropoff] : myPosition ? [{ lat: r3(myPosition.lat), lng: r3(myPosition.lng) }, pickup] : null;
+  // The line always starts at the car, so it shows what is LEFT of the trip.
+  const route = myPosition ? [{ lat: r3(myPosition.lat), lng: r3(myPosition.lng) }, target] : stage === "riding" ? [pickup, dropoff] : null;
   const navUrl = exact ? `https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}&travelmode=driving` : null;
 
   const title =
@@ -73,6 +76,7 @@ export default function DriveTrip({ request }) {
           pickup={pickup}
           dropoff={dropoff}
           route={route}
+          onRoute={setRouteInfo}
           cars={myPosition ? [{ pubkey: "me", lat: myPosition.lat, lng: myPosition.lng }] : []}
           fitKey={`${request.id}|${stage}|${myPosition ? "pos" : "nopos"}`}
           padBottom={390}

@@ -19,6 +19,7 @@ import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { publishPresence, publishRideLocation } from "../../nostr/live.js";
 import { seedDemoData } from "../../nostr/demoData.js";
 import { useGeolocation } from "../../lib/useGeolocation.js";
+import { useWakeLock } from "../../lib/useWakeLock.js";
 import { haversineDistance } from "../../lib/geo.js";
 import { depositSats, pickupEta, quoteFare, roadMiles, driveMinutes } from "../../lib/fare.js";
 import { isDriveReady } from "../../lib/profile.js";
@@ -49,9 +50,11 @@ export function DriverProvider({ children }) {
   const { user, rideRequests, publish, refreshData, pullRecent, pushNotice, liveTick, btcUsd } = useApp();
   const me = user.publicKey;
   const driveReady = isDriveReady(user);
-  const { pos: myPosition, error: geoError } = useGeolocation(true);
+  const { pos: myPosition, error: geoError, status: gps } = useGeolocation(true);
   const posRef = useRef(null);
+  const gpsRef = useRef(gps);
   useEffect(() => { posRef.current = myPosition; }, [myPosition]);
+  useEffect(() => { gpsRef.current = gps; }, [gps]);
 
   // ── Settings (saved on this device) ──
   const [depositPct, setDepositPctState] = useState(() => getSetting("depositPct", DEFAULT_DEPOSIT_PERCENT));
@@ -71,7 +74,8 @@ export function DriverProvider({ children }) {
 
   // ── Online / offline ──
   const [online, setOnline] = useState(false);
-  const goOnline = useCallback(() => { if (driveReady && posRef.current) setOnline(true); }, [driveReady]);
+  // Only a good GPS fix may go online: a laptop with a Wi-Fi/IP position must not appear as a car.
+  const goOnline = useCallback(() => { if (driveReady && gpsRef.current === "good") setOnline(true); }, [driveReady]);
   const goOffline = useCallback(() => setOnline(false), []);
   useEffect(() => { if (!driveReady) setOnline(false); }, [driveReady]);
 
@@ -81,7 +85,8 @@ export function DriverProvider({ children }) {
     if (!visible) return;
     const beat = () => {
       const p = posRef.current;
-      if (p) publishPresence(user, { lat: p.lat, lng: p.lng, vehicle: carLabel(user.vehicle) });
+      // Never advertise a weak or stale position.
+      if (p && gpsRef.current === "good") publishPresence(user, { lat: p.lat, lng: p.lng, vehicle: carLabel(user.vehicle) });
     };
     beat();
     const id = setInterval(beat, PRESENCE_EVERY_MS);
@@ -92,11 +97,15 @@ export function DriverProvider({ children }) {
   const riderPubkey = activeDrive?.pubkey;
   useEffect(() => {
     if (!riderPubkey) return;
-    const beat = () => { if (posRef.current) publishRideLocation(user, riderPubkey, posRef.current); };
+    // A weak fix still helps the rider find the car; a stale one would show it in the wrong place.
+    const beat = () => { if (posRef.current && gpsRef.current !== "stale") publishRideLocation(user, riderPubkey, posRef.current); };
     beat();
     const id = setInterval(beat, LOCATION_EVERY_MS);
     return () => clearInterval(id);
   }, [riderPubkey, user]);
+
+  // A sleeping phone loses GPS and relay connections: keep the screen on while working.
+  useWakeLock(online || !!activeDrive);
 
   // Poll so requests and the rider's confirmation arrive even if the live
   // subscription missed them.
@@ -266,7 +275,7 @@ export function DriverProvider({ children }) {
   );
 
   const value = {
-    driveReady, myPosition, geoError,
+    driveReady, myPosition, geoError, gps,
     online, goOnline, goOffline,
     depositPct, setDepositPct, radius, setRadius, alerts, setAlerts,
     open, decline, skip, skipped,

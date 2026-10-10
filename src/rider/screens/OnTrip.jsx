@@ -40,6 +40,7 @@ export default function OnTrip({ request, trip }) {
   const [asking, setAsking] = useState(false);
   const [, setNow] = useState(0);
   const vehicleSeen = useRef(null);
+  const [routeInfo, setRouteInfo] = useState(null); // road time from the map's route
 
   useEffect(() => {
     if (!driverPubkey) return;
@@ -62,7 +63,8 @@ export default function OnTrip({ request, trip }) {
   const { pickup, dropoff } = trip;
   const age = loc ? Math.round((Date.now() - loc.ts) / 1000) : null;
   const live = age != null && age < 45;
-  const toTarget = loc ? pickupEta(miles(loc, stage === "riding" ? dropoff : pickup)) : null;
+  // Minutes left: the road route from the car when the router answered, else a straight-line guess.
+  const toTarget = !loc ? null : routeInfo && !routeInfo.straight ? routeInfo.minutes : pickupEta(miles(loc, stage === "riding" ? dropoff : pickup));
 
   const headline =
     stage === "arrived" ? "Your driver has arrived"
@@ -75,7 +77,8 @@ export default function OnTrip({ request, trip }) {
     : stage === "riding" ? (toTarget != null ? `About ${toTarget} min left` : "Sit back and relax")
     : `Meet at ${pickup.name}`;
 
-  const route = stage === "riding" ? [pickup, dropoff] : loc ? [{ lat: r3(loc.lat), lng: r3(loc.lng) }, pickup] : null;
+  // The line always starts at the car, so it shows what is LEFT of the trip.
+  const route = loc ? [{ lat: r3(loc.lat), lng: r3(loc.lng) }, stage === "riding" ? dropoff : pickup] : stage === "riding" ? [pickup, dropoff] : null;
   const car = carText(profile?.vehicle);
   const contentOffer = offer ? JSON.parse(offer.content) : null;
 
@@ -87,6 +90,7 @@ export default function OnTrip({ request, trip }) {
           dropoff={dropoff}
           route={route}
           routeDashed={stage !== "riding"}
+          onRoute={setRouteInfo}
           cars={loc ? [{ pubkey: driverPubkey || "driver", lat: loc.lat, lng: loc.lng }] : []}
           me={stage === "riding" ? null : myPosition}
           fitKey={`${request.id}|${stage}|${loc ? "loc" : "noloc"}`}

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════
-//  MAP VIEW — A real interactive map (Leaflet + free CARTO "Positron"
-//  tiles built on OpenStreetMap data). Leaflet draws plain DOM elements
+//  MAP VIEW — A real interactive map (Leaflet + free OpenStreetMap
+//  tiles). Leaflet draws plain DOM elements
 //  (no WebGL), so it works in any browser. Fills its parent by default.
 //
 //  Props (all optional):
@@ -30,8 +30,8 @@ import { haversineDistance } from "../lib/geo.js";
 import { SAMPLE_LOCATIONS } from "../lib/locations.js";
 import { THEME } from "../theme.js";
 
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-const TILE_ATTR = "© OpenStreetMap contributors © CARTO";
+const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const TILE_ATTR = "© OpenStreetMap contributors";
 const DEFAULT_CENTER = [SAMPLE_LOCATIONS[0].lat, SAMPLE_LOCATIONS[0].lng];
 
 const shadow = "box-shadow:0 1px 5px rgba(0,0,0,.45)";
@@ -134,7 +134,7 @@ const MapView = forwardRef(function MapView(
       map = L.map(boxRef.current, { zoomControl: false, attributionControl: true });
       map.attributionControl.setPrefix(false);
       map.setView(DEFAULT_CENTER, 12);
-      L.tileLayer(TILE_URL, { attribution: TILE_ATTR, maxZoom: 19, subdomains: "abcd" }).addTo(map);
+      L.tileLayer(TILE_URL, { attribution: TILE_ATTR, maxZoom: 19 }).addTo(map);
       ["route", "pins", "pills", "me", "cars"].forEach((k) => { layers.current[k] = L.layerGroup().addTo(map); });
       mapRef.current = map;
       setTimeout(() => { try { map.invalidateSize(); } catch { /* ignore */ } }, 0);

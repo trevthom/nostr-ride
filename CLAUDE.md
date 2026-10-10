@@ -25,7 +25,7 @@ Look: white UI, black buttons, bottom sheets over a full-screen map (Inter font)
   `build:rider` / `build:driver` build one. `preview:rider` / `preview:driver` serve a build.
 - `npm test` → Node's built-in test runner over `test/*.test.mjs` (no extra deps):
   trust rules, ride stages, fares, trips, earnings, privacy, history, LNURL, geocode, publish,
-  event ordering, contact links. Run it after touching `lib/*`, `nostr/*`.
+  event ordering, contact links, GPS quality. Run it after touching `lib/*`, `nostr/*`.
 - No linter configured.
 - The Vite **mode** picks the app (`vite --mode rider|driver`, see `vite.config.js`); it sets
   `__APP_ROLE__`, read through `src/config/app.js` (`APP_ROLE`, `IS_DRIVER_APP`, `APP_NAME`).
@@ -98,11 +98,12 @@ src/
     earnings.js   # completedDrives, summarizeEarnings
     privacy.js    # publicPlace, seal/unseal, exactTrip, sealVehicle/myVehicle/offerPlate
     contact.js    # contactHref (safe links from untrusted handles)
-    geo.js geocode.js (search + reverseGeocode) routing.js (OSRM, cached) useGeolocation.js image.js lnurl.js locations.js profile.js (isDriveReady)
+    gps.js (gpsStatus/gpsMessage: good|weak|stale) useGeolocation.js (pos, error, status) useWakeLock.js
+    geo.js geocode.js (search + reverseGeocode) routing.js (OSRM, cached) image.js lnurl.js locations.js profile.js (isDriveReady)
   state/AppContext.jsx            # shared state (above)
   ui/                             # shared UI kit
     Layout.jsx    # AppFrame, MapPage (+ measures the Sheet so the map pads for it), Sheet, FloatButton, Screen, TabBar
-    MapView.jsx   # Leaflet + CARTO "Positron" tiles; pins, OSRM route, cars, "me" dot, price pills, ref.fit()
+    MapView.jsx   # Leaflet + OpenStreetMap tiles; pins, OSRM route, cars, "me" dot, price pills, ref.fit()
     Button.jsx Icon.jsx Avatar.jsx Rating.jsx Money.jsx Parts.jsx (Row, Toggle, Field, ConfirmDialog, Modal, Spinner)
     RatingForm.jsx ContactSheet.jsx UserModal.jsx NoticeBanner.jsx ErrorBoundary.jsx RelayEditor.jsx QRCode.jsx SatsAmount.jsx
   features/
@@ -202,7 +203,11 @@ rider's `in_progress` version also carries `driverPubkey`. Stage is `enroute`
   receipt/summary screen for up to 6 h until dismissed (`riderDone` / `driverDone` in localStorage).
 - **Live location**: the driver app broadcasts exact position to the rider (NIP-44, ephemeral) for the
   whole drive and public coarse presence while online and free. Geolocation needs https:// or
-  localhost, and browsers pause GPS when the tab is hidden (a web limit; native apps would fix it).
+  localhost. **GPS quality** (`lib/gps.js`): a fix is `good` (≤ 200 m), `weak` (Wi-Fi/IP/indoors) or
+  `stale` (> 60 s old). A driver can go online, and is advertised, only on a `good` fix; ride location
+  is sent unless `stale`; the rider app warns when a pickup came from a weak fix. Browsers pause GPS when
+  the tab is hidden, so the driver app holds a screen wake lock while online or driving (`useWakeLock`).
+  ETAs use the OSRM road time from the map route (`onRoute`), with a straight-line guess as fallback.
 - **Profiles carry photo + vehicle**: kind-0 has `picture` (small resized JPEG, ~20 KB budget in
   lib/image.js) and `vehicle:{picture,plateState,plateNumber,year,make,model}` (plate sealed).
   `relay.fetchProfile(pubkey)` pulls one user's kind-0 on demand (rider: DriverInfo; driver: RiderInfo).
@@ -213,7 +218,7 @@ rider's `in_progress` version also carries `driverPubkey`. Stage is `enroute`
   bursts (one refresh per 100 ms). MapView redraws cars/pills only when their content changes and
   re-fits only on `fitKey` / sheet-size changes (so users can pan during a trip).
 - **Maps**: one `<MapView>` per screen (it is the background of `MapPage`; the `Sheet` reports its
-  height so the map pads for it). Tiles = CARTO "Positron", geocoding = Photon (do NOT switch
+  height so the map pads for it). Tiles = OpenStreetMap (`tile.openstreetmap.org`; free, but its usage policy forbids heavy/commercial traffic — move to a self-hosted or paid tile server before launch), geocoding = Photon (do NOT switch
   type-ahead to Nominatim — its policy forbids it), routes = OSRM (cached in routing.js).
   All are free public dev endpoints: rate-limited, swap for paid/self-hosted before launch
   (keep the return shapes; the tile URL is a constant in MapView.jsx).

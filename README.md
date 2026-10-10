@@ -134,10 +134,10 @@ npm test           # runs the automated checks
 
 Put each folder on any static host (they deploy separately, e.g. `ride.example.com` and
 `drive.example.com`). Location needs `https://`. Browsers stop GPS when the tab is in the
-background, so a driver needs the screen on; a native app would remove that limit.
+background, so the driver app keeps the screen awake while online (where the browser allows it). A driver can go
+online only with a good GPS fix (about 200 m or better), so a laptop's Wi-Fi position never shows up as a car.
 
-> **About the map services:** the app uses free public endpoints — CARTO map tiles (OpenStreetMap
-> data), Photon (address search) and OSRM (driving routes). They are fine for development but
+> **About the map services:** the app uses free public endpoints — OpenStreetMap map tiles, Photon (address search) and OSRM (driving routes). They are fine for development but
 > rate-limited and not meant for heavy traffic. Before a real launch switch to paid or self-hosted
 > ones (Mapbox, MapTiler, your own OSRM/Photon). The files: `src/lib/geocode.js`,
 > `src/lib/routing.js`, and the tile URL in `src/ui/MapView.jsx`.
