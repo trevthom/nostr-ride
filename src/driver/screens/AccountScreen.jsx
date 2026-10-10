@@ -8,7 +8,7 @@ import { useApp } from "../../state/AppContext.jsx";
 import { useDriver } from "../state/DriverContext.jsx";
 import { Screen } from "../../ui/Layout.jsx";
 import { SectionLabel, Toggle, inputCls } from "../../ui/Parts.jsx";
-import { AccountHeader, ContactMethods, RelaysSection, LogoutButton, useSaveProfile } from "../../features/profile/ProfileParts.jsx";
+import { AccountHeader, ContactMethods, RelaysSection, BlockedSection, LogoutButton, useSaveProfile } from "../../features/profile/ProfileParts.jsx";
 import VehicleSection from "../../features/profile/VehicleSection.jsx";
 import LightningAddressSection from "../../features/profile/LightningAddressSection.jsx";
 import WalletSection from "../../features/profile/WalletSection.jsx";
@@ -71,6 +71,7 @@ export default function AccountScreen() {
 
         <WalletSection />
         <ContactMethods />
+        <BlockedSection />
         <RelaysSection />
         <KeysSection user={user} />
         <LogoutButton />

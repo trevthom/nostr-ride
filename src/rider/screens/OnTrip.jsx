@@ -15,22 +15,26 @@ import { useRider } from "../state/RiderContext.jsx";
 import { subscribeRideLocation } from "../../nostr/live.js";
 import { haversineDistance } from "../../lib/geo.js";
 import { pickupEta } from "../../lib/fare.js";
-import { rideDriver, rideStage } from "../../lib/rides.js";
+import { rideConfirm, rideDriver, rideStage } from "../../lib/rides.js";
+import { offerPlate } from "../../lib/privacy.js";
 import { offerFrom } from "../../lib/trips.js";
 import MapView from "../../ui/MapView.jsx";
+import Button from "../../ui/Button.jsx";
 import Money from "../../ui/Money.jsx";
 import Icon from "../../ui/Icon.jsx";
 import ContactSheet from "../../ui/ContactSheet.jsx";
 import { MapPage, Sheet } from "../../ui/Layout.jsx";
 import { ConfirmDialog } from "../../ui/Parts.jsx";
-import DriverInfo, { useDriverInfo, carText } from "../components/DriverInfo.jsx";
+import DriverInfo, { Plate, useDriverInfo, carText } from "../components/DriverInfo.jsx";
+import SafetySheet from "../components/SafetySheet.jsx";
+import Avatar from "../../ui/Avatar.jsx";
 
 const r3 = (n) => Math.round(n * 1000) / 1000; // ~110 m: limits how often the route is re-fetched
 const miles = (a, b) => haversineDistance(a.lat, a.lng, b.lat, b.lng);
 
 export default function OnTrip({ request, trip }) {
   const { user, pushNotice } = useApp();
-  const { cancelRide, myPosition } = useRider();
+  const { cancelRide, myPosition, share, shareUpdate, confirmRide } = useRider();
   const driverPubkey = rideDriver(request);
   const stage = rideStage(request);
   const offer = offerFrom(request, driverPubkey);
@@ -38,6 +42,7 @@ export default function OnTrip({ request, trip }) {
   const [loc, setLoc] = useState(null); // driver's live position
   const [contact, setContact] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [safety, setSafety] = useState(false);
   const [, setNow] = useState(0);
   const vehicleSeen = useRef(null);
   const [routeInfo, setRouteInfo] = useState(null); // road time from the map's route
@@ -65,6 +70,23 @@ export default function OnTrip({ request, trip }) {
   const live = age != null && age < 45;
   // Minutes left: the road route from the car when the router answered, else a straight-line guess.
   const toTarget = !loc ? null : routeInfo && !routeInfo.straight ? routeInfo.minutes : pickupEta(miles(loc, stage === "riding" ? dropoff : pickup));
+
+  // Keep a shared trip current for the people following the link.
+  const plateInfo = offerPlate(offer, user);
+  const carName = carText(profile?.vehicle);
+  useEffect(() => {
+    if (!share) return;
+    const send = (force) => shareUpdate({
+      name: user.name, driver: profile?.name || "", car: carName, plate: plateInfo ? `${plateInfo.plateState} ${plateInfo.plateNumber}` : "",
+      stage, lat: loc?.lat, lng: loc?.lng, locTs: loc?.ts, eta: toTarget,
+      from: { name: pickup.name, lat: pickup.lat, lng: pickup.lng }, to: { name: dropoff.name, lat: dropoff.lat, lng: dropoff.lng },
+    }, { force });
+    send(true);
+    const id = setInterval(() => send(false), 15000);
+    return () => clearInterval(id);
+  }, [share?.token, share?.sos, stage, loc?.lat, loc?.lng, toTarget]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const confirm = rideConfirm(request);
 
   const headline =
     stage === "arrived" ? "Your driver has arrived"
@@ -112,9 +134,38 @@ export default function OnTrip({ request, trip }) {
           {stage !== "riding" && car && <p className="text-xs text-neutral-500 mt-2">Look for a {car}.</p>}
         </div>
 
+        {/* Check the car before getting in (a common safety step) */}
+        {stage === "arrived" && !confirm.boarded && (
+          <div className="mt-4 rounded-2xl border-2 border-black p-4" role="group" aria-label="Check before you get in">
+            <p className="font-bold mb-2">Check before you get in</p>
+            <div className="flex items-center gap-3 mb-2">
+              <Avatar src={profile?.picture} name={profile?.name} size={44} />
+              <div className="min-w-0">
+                <p className="font-semibold truncate">{profile?.name}</p>
+                <p className="text-sm text-neutral-600 truncate">{carName}</p>
+              </div>
+              <div className="ml-auto"><Plate plate={plateInfo} /></div>
+            </div>
+            <p className="text-xs text-neutral-600 mb-3">Does the plate, car and driver match? Ask the driver to say your name.</p>
+            <div className="flex gap-2">
+              <Button size="md" variant="go" onClick={() => confirmRide(request, "boarded", true)}>It matches</Button>
+              <Button size="md" variant="danger" onClick={() => confirmRide(request, "boarded", false, "Plate, car or driver did not match")}>Doesn't match</Button>
+            </div>
+          </div>
+        )}
+        {confirm.boarded && !confirm.boarded.ok && (
+          <p className="mt-4 text-sm text-red-700 bg-red-50 rounded-xl px-3 py-3" role="alert">
+            Do not get in. Cancel the ride below, and use Safety if you feel unsafe.
+          </p>
+        )}
+        {confirm.boarded?.ok && stage === "arrived" && <p className="mt-3 text-sm text-[#05944f] font-medium">You confirmed the car matches.</p>}
+
         <div className="flex gap-3 mt-4">
           <button type="button" onClick={() => setContact(true)} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-neutral-100 font-semibold text-[15px] active:bg-neutral-200">
             <Icon name="phone" size={18} /> Contact
+          </button>
+          <button type="button" onClick={() => setSafety(true)} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-neutral-100 font-semibold text-[15px] active:bg-neutral-200">
+            <Icon name="shield" size={18} /> Safety{share ? " ●" : ""}
           </button>
           <button type="button" onClick={() => setAsking(true)} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-neutral-100 font-semibold text-[15px] text-red-600 active:bg-neutral-200">
             <Icon name="x" size={18} /> Cancel
@@ -140,6 +191,7 @@ export default function OnTrip({ request, trip }) {
         </div>
       </Sheet>
 
+      <SafetySheet open={safety} onClose={() => setSafety(false)} request={request} destination={dropoff.name} />
       <ContactSheet open={contact} onClose={() => setContact(false)} pubkey={driverPubkey} name={profile?.name} />
       <ConfirmDialog
         open={asking}

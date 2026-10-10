@@ -30,6 +30,8 @@ const APP_KINDS = [
   EVENT_KINDS.RIDE_CANCEL,
   EVENT_KINDS.RIDE_COMPLETE,
   EVENT_KINDS.RIDE_STAGE,
+  EVENT_KINDS.RIDE_PAYMENT,
+  EVENT_KINDS.RIDE_CONFIRM,
   EVENT_KINDS.RATING,
 ];
 
@@ -154,7 +156,7 @@ class NostrRelay {
         .filter((e) => dset.has((e.tags.find((t) => t[0] === "d") || [])[1]))
         .map((e) => e.id);
       for (const ids of chunks(versionIds)) {
-        take(await q({ kinds: [EVENT_KINDS.RIDE_CANCEL, EVENT_KINDS.RIDE_COMPLETE, EVENT_KINDS.RIDE_STAGE, EVENT_KINDS.RATING], "#e": ids }));
+        take(await q({ kinds: [EVENT_KINDS.RIDE_CANCEL, EVENT_KINDS.RIDE_COMPLETE, EVENT_KINDS.RIDE_STAGE, EVENT_KINDS.RIDE_PAYMENT, EVENT_KINDS.RIDE_CONFIRM, EVENT_KINDS.RATING], "#e": ids }));
       }
     } catch (e) {
       console.error("History fetch failed:", e);

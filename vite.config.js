@@ -27,6 +27,13 @@ export default defineConfig(({ mode }) => {
       // it's cached separately and doesn't bloat the main bundle.
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
+        // The rider app also ships the "follow a shared trip" page (track.html).
+        input: role === "rider"
+          ? {
+              index: fileURLToPath(new URL("./apps/rider/index.html", import.meta.url)),
+              track: fileURLToPath(new URL("./apps/rider/track.html", import.meta.url)),
+            }
+          : undefined,
         output: {
           manualChunks: {
             leaflet: ["leaflet"],

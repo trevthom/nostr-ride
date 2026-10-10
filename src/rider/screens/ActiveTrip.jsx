@@ -27,7 +27,7 @@ const parse = (e) => { try { return JSON.parse(e.content); } catch { return null
 export const whenText = (time) => (time === "ASAP" ? "Now" : new Date(time).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }));
 
 export default function ActiveTrip({ request }) {
-  const { user, liveTick } = useApp();
+  const { user, liveTick, isBlockedPk } = useApp();
   const { cancelRide, focused, focusRide } = useRider();
   const [picked, setPicked] = useState(null); // offer id being confirmed
   const [asking, setAsking] = useState(false);
@@ -39,7 +39,7 @@ export default function ActiveTrip({ request }) {
 
   if (status === "in_progress") return <OnTrip request={request} trip={trip} />;
 
-  const offers = offersForRide(request);
+  const offers = offersForRide(request).filter((o) => !isBlockedPk(o.pubkey)); // never show a blocked driver
   const chosen = offers.find((o) => o.id === picked);
   const back = focused ? <FloatButton icon="chevron-left" label="Back to home" onClick={() => focusRide(null)} /> : null;
   const cancelDialog = (

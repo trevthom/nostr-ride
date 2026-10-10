@@ -9,10 +9,11 @@
 //  The driver's live location is sent to the rider by DriverContext.
 // ════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ARRIVE_RADIUS_METERS } from "../../config/settings.js";
 import { useApp } from "../../state/AppContext.jsx";
 import { useDriver } from "../state/DriverContext.jsx";
-import { rideStage } from "../../lib/rides.js";
+import { rideConfirm, rideStage } from "../../lib/rides.js";
 import { exactTrip } from "../../lib/privacy.js";
 import { acceptFor, offerFrom } from "../../lib/trips.js";
 import { haversineDistance } from "../../lib/geo.js";
@@ -31,7 +32,7 @@ const r3 = (n) => Math.round(n * 1000) / 1000;
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 export default function DriveTrip({ request }) {
-  const { user, liveTick } = useApp();
+  const { user, liveTick, pushNotice } = useApp();
   const { myPosition, arrive, startTrip, completeTrip, cancelDrive } = useDriver();
   const stage = rideStage(request);
   const exact = exactTrip(request, user);
@@ -59,6 +60,18 @@ export default function DriveTrip({ request }) {
   // The line always starts at the car, so it shows what is LEFT of the trip.
   const route = myPosition ? [{ lat: r3(myPosition.lat), lng: r3(myPosition.lng) }, target] : stage === "riding" ? [pickup, dropoff] : null;
   const navUrl = exact ? `https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}&travelmode=driving` : null;
+
+  // Close to where the next step happens? Suggest it (never done for the driver).
+  // Only with the exact address: the approximate area can be a kilometer off.
+  const nearTarget = exact && stage !== "arrived" && miles != null && miles * 1609.344 <= ARRIVE_RADIUS_METERS;
+  const nudged = useRef("");
+  useEffect(() => {
+    const k = `${request.id}|${stage}`;
+    if (nearTarget && nudged.current !== k) {
+      nudged.current = k;
+      pushNotice(stage === "riding" ? "You're at the destination. Complete the trip when the rider gets out." : "You're at the pickup. Tap I've arrived.");
+    }
+  }, [nearTarget, stage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const title =
     stage === "enroute" ? `Pick up ${profile?.name || "your rider"}`
@@ -92,6 +105,12 @@ export default function DriveTrip({ request }) {
           </p>
         )}
 
+        {(() => {
+          const c = rideConfirm(request);
+          if (c.problem) return <p className="mt-3 text-sm text-red-700 bg-red-50 rounded-xl px-3 py-2" role="alert">The rider reported a problem: {c.problem.note || "no details"}</p>;
+          if (stage === "arrived" && c.boarded) return <p className={`mt-3 text-sm rounded-xl px-3 py-2 ${c.boarded.ok ? "text-[#05944f] bg-[#e6f4ec]" : "text-red-700 bg-red-50"}`}>{c.boarded.ok ? "The rider confirmed they are in the car." : "The rider says the car or driver did not match. Do not start the trip."}</p>;
+          return null;
+        })()}
         <div className="mt-4 pt-4 border-t border-neutral-100"><RiderInfo pubkey={request.pubkey} /></div>
 
         <div className="flex gap-3 mt-4">
@@ -126,10 +145,15 @@ export default function DriveTrip({ request }) {
           <p className="text-xs text-neutral-500 mt-1">*The rider says the deposit is paid. Check your wallet.</p>
         )}
 
+        {nearTarget && (
+          <p className="mt-3 text-sm font-medium text-[#05944f] bg-[#e6f4ec] rounded-xl px-3 py-2" role="status">
+            {stage === "riding" ? "You're at the destination." : "You're at the pickup. Let the rider know."}
+          </p>
+        )}
         <div className="mt-5">
-          {stage === "enroute" && <Button variant="go" onClick={() => arrive(request)}>I've arrived</Button>}
+          {stage === "enroute" && <Button variant="go" className={nearTarget ? "ring-4 ring-[#05944f]/30 animate-pulse" : ""} onClick={() => arrive(request)}>I've arrived</Button>}
           {stage === "arrived" && <Button variant="go" onClick={() => startTrip(request)}>Start trip</Button>}
-          {stage === "riding" && <Button variant="go" onClick={() => setAsk("complete")}>Complete trip</Button>}
+          {stage === "riding" && <Button variant="go" className={nearTarget ? "ring-4 ring-[#05944f]/30 animate-pulse" : ""} onClick={() => setAsk("complete")}>Complete trip</Button>}
           <Button variant="ghost" size="md" className="mt-1 !text-red-600" onClick={() => setAsk("cancel")}>
             {stage === "arrived" ? "Cancel (rider didn't show)" : "Cancel trip"}
           </Button>

@@ -15,6 +15,8 @@ import Button from "../../ui/Button.jsx";
 import Icon from "../../ui/Icon.jsx";
 import RatingForm from "../../ui/RatingForm.jsx";
 import RiderInfo from "../components/RiderInfo.jsx";
+import BlockButton from "../../ui/BlockButton.jsx";
+import EvidenceCard from "../components/EvidenceCard.jsx";
 
 const parse = (e) => { try { return JSON.parse(e.content); } catch { return null; } };
 
@@ -70,6 +72,8 @@ export default function DriveSummary({ request }) {
           </div>
         )}
 
+        <EvidenceCard request={request} />
+
         <div className="mt-6 pt-5 border-t border-neutral-100">
           <RiderInfo pubkey={request.pubkey} compact />
           <div className="mt-5">
@@ -81,7 +85,8 @@ export default function DriveSummary({ request }) {
           </div>
         </div>
 
-        <Button className="mt-6" variant="go" onClick={() => dismissReceipt(request)}>Back to driving</Button>
+        <div className="mt-4"><BlockButton pubkey={request.pubkey} /></div>
+        <Button className="mt-4" variant="go" onClick={() => dismissReceipt(request)}>Back to driving</Button>
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { buildSignedEvent } from "../../nostr/events.js";
 import { getMetadata } from "../../nostr/profiles.js";
+import { shortNpub } from "../../nostr/keys.js";
 import { sealVehicle } from "../../lib/privacy.js";
 import { reputation } from "../../lib/rides.js";
 import { resizeImage } from "../../lib/image.js";
@@ -187,6 +188,26 @@ export function ContactMethods() {
         />
         <Button size="md" full={false} onClick={add} disabled={!handle.trim()} className="px-4">Add</Button>
       </div>
+    </div>
+  );
+}
+
+// People this user blocked, with Unblock.
+export function BlockedSection() {
+  const { blocked, unblockUser } = useApp();
+  return (
+    <div>
+      <SectionLabel>Blocked people</SectionLabel>
+      {blocked.length === 0 ? (
+        <p className="text-neutral-500 text-sm">No one blocked. You can block someone from their profile or after a trip.</p>
+      ) : (
+        blocked.map((b) => (
+          <div key={b.pubkey} className="flex items-center justify-between py-2 border-b border-neutral-100">
+            <span className="text-[15px] truncate">{b.name || shortNpub(b.pubkey)}</span>
+            <button type="button" onClick={() => unblockUser(b.pubkey)} className="text-sm font-medium underline">Unblock</button>
+          </div>
+        ))
+      )}
     </div>
   );
 }

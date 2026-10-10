@@ -25,6 +25,13 @@ export const REQUEST_CARD_SECONDS = 45;
 // accept again, so nobody gets picked on a stale promise.
 export const OFFER_TTL_SECONDS = 300;
 
+// Safety sheet: the number the "Call emergency services" button dials.
+export const EMERGENCY_NUMBER = "911";
+
+// Driver app: within this many meters of the pickup (or dropoff) the app suggests
+// "I've arrived" (or "Complete trip").
+export const ARRIVE_RADIUS_METERS = 150;
+
 // Driver app: only show requests with a pickup within this many miles.
 export const DEFAULT_REQUEST_RADIUS_MILES = 15;
 

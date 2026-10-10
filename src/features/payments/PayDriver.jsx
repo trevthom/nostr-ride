@@ -6,14 +6,17 @@
 //    • Any other wallet — shows the driver's invoice (QR / string /
 //      lightning: link). If the driver's server supports LUD-21 we
 //      watch for payment; otherwise the rider confirms by hand.
-//  Calls onPaid({ verified }) once.
+//  Calls onPaid(proof) once. proof = { verified, level, pr, preimage, verify }
+//  (level: preimage | wallet | verify | claimed — see lib/evidence.js). It is
+//  kept as evidence for a dispute.
 // ════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { moneyText } from "../../ui/Money.jsx";
 import { payInvoice } from "../../nostr/wallet.js";
-import { requestInvoice, isInvoicePaid } from "../../lib/lnurl.js";
+import { requestInvoice, invoiceStatus } from "../../lib/lnurl.js";
+import { proofLevel } from "../../lib/evidence.js";
 import QRCode from "../../ui/QRCode.jsx";
 import Button from "../../ui/Button.jsx";
 import Icon from "../../ui/Icon.jsx";
@@ -28,17 +31,22 @@ export default function PayDriver({ amountSats, address, memo = "NostrRide fare"
   const [notYet, setNotYet] = useState(false);
   const doneRef = useRef(false);
 
-  const finish = (proof) => {
+  // Build the proof record from how we learned the payment went through.
+  const finish = ({ via, pr, preimage = null, verify = null }) => {
     if (doneRef.current) return;
     doneRef.current = true;
-    onPaid(proof);
+    const level = proofLevel({ via, pr, preimage });
+    onPaid({ verified: level !== "claimed", level, pr, preimage, verify });
   };
 
   // LUD-21: watch the invoice and finish by itself once it's paid.
   useEffect(() => {
     if (!invoice?.verify) return;
     const id = setInterval(async () => {
-      try { if (await isInvoicePaid(invoice.verify)) finish({ verified: true }); } catch { /* retry next tick */ }
+      try {
+        const st = await invoiceStatus(invoice.verify);
+        if (st.settled) finish({ via: "verify", pr: invoice.pr, preimage: st.preimage, verify: invoice.verify });
+      } catch { /* retry next tick */ }
     }, 3000);
     return () => clearInterval(id);
   }, [invoice]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -56,8 +64,8 @@ export default function PayDriver({ amountSats, address, memo = "NostrRide fare"
     setError("");
     try {
       const { pr } = await requestInvoice(address, amountSats, memo);
-      await payInvoice(wallet, pr);
-      finish({ verified: true });
+      const res = await payInvoice(wallet, pr);
+      finish({ via: "wallet", pr, preimage: res?.preimage });
     } catch (e) {
       setError(
         (e.message || "Payment failed.") +
@@ -80,11 +88,12 @@ export default function PayDriver({ amountSats, address, memo = "NostrRide fare"
 
   // "I've paid": check now if we can; otherwise trust the rider.
   const confirmPaid = async () => {
-    if (!invoice.verify) { finish({ verified: false }); return; }
+    if (!invoice.verify) { finish({ via: "claimed", pr: invoice.pr }); return; }
     setBusy("check");
     setNotYet(false);
     try {
-      if (await isInvoicePaid(invoice.verify)) finish({ verified: true });
+      const st = await invoiceStatus(invoice.verify);
+      if (st.settled) finish({ via: "verify", pr: invoice.pr, preimage: st.preimage, verify: invoice.verify });
       else setNotYet(true);
     } catch (e) {
       setError(e.message || "Couldn't check the payment.");

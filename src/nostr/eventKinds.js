@@ -22,6 +22,8 @@ export const EVENT_KINDS = {
   RIDE_CANCEL: 30081, // A cancelled ride
   RIDE_COMPLETE: 30084, // A completed ride (published by the driver)
   RIDE_STAGE: 30085, // Driver progress on an accepted ride: arrived / riding
+  RIDE_PAYMENT: 30086, // Rider's record of a payment (proof sealed to the driver): evidence
+  RIDE_CONFIRM: 30087, // Rider's own confirmation: boarded / trip ended OK or a problem: evidence
   RATING: 30082, // A star rating + review
   DRIVER_ROUTE: 30083, // (removed feature; kept for back-compat)
 
@@ -29,6 +31,10 @@ export const EVENT_KINDS = {
   // short NIP-40 expiration. Stored on relays so other devices can PULL the
   // current set (more reliable cross-device than ephemeral events).
   PRESENCE: 30090, // public: a driver is online (approx location)
+
+  // Trip sharing: addressable, signed by a throwaway key made for one trip; the payload is
+  // encrypted with that key, which lives only in the share link's #fragment.
+  TRIP_SHARE: 30091,
 
   // Ephemeral (20000–29999): relays pass to live subscribers, not stored.
   RIDE_LOCATION: 21100, // encrypted: live location to the matched rider

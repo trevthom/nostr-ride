@@ -24,6 +24,7 @@ import { publicPlace, seal, exactTrip } from "../../lib/privacy.js";
 import { activeRideFor, isOpenRide, upcomingRidesFor } from "../../lib/trips.js";
 import { rideDriver, rideEnding, rideKey, rideStatus, rideVersions } from "../../lib/rides.js";
 import { getSetting, setSetting } from "../../config/relays.js";
+import { newShareToken, publishShare, shareLink } from "../../nostr/share.js";
 
 const RiderContext = createContext(null);
 export const useRider = () => useContext(RiderContext);
@@ -33,7 +34,7 @@ const EMPTY_PLAN = { step: "idle", pickup: null, dropoff: null, when: "ASAP", no
 const parse = (e) => { try { return JSON.parse(e.content); } catch { return null; } };
 
 export function RiderProvider({ children }) {
-  const { user, rideRequests, publish, refreshData, pullRecent, pushNotice, liveTick, setView } = useApp();
+  const { user, rideRequests, publish, refreshData, pullRecent, pushNotice, liveTick, setView, isBlockedPk } = useApp();
   const me = user.publicKey;
   const { pos: myPosition, error: geoError, status: gps } = useGeolocation(true);
 
@@ -57,9 +58,9 @@ export function RiderProvider({ children }) {
   // ── Online drivers nearby (public, coarsened presence) ──
   const [allDrivers, setAllDrivers] = useState([]);
   useEffect(() => subscribePresence(setAllDrivers, { excludePubkey: me }), [me]);
-  const drivers = myPosition
+  const drivers = (myPosition
     ? allDrivers.filter((d) => haversineDistance(myPosition.lat, myPosition.lng, d.lat, d.lng) <= 25)
-    : allDrivers;
+    : allDrivers).filter((d) => !isBlockedPk(d.pubkey));
 
   // ── The trip being planned ──
   const [plan, setPlanState] = useState(EMPTY_PLAN);
@@ -97,6 +98,34 @@ export function RiderProvider({ children }) {
     });
   }, []);
 
+  // ── "Share my trip": a friend follows a link (see nostr/share.js) ──
+  const [shareState, setShareState] = useState(() => getSetting("tripShare", null)); // { key, token, sos }
+  const lastShareAt = useRef(0);
+  const share = shareState && activeRide && shareState.key === rideKey(activeRide) ? shareState : null;
+  const startShare = useCallback((request, { sos = false } = {}) => {
+    const key = rideKey(request);
+    const next = { key, token: shareState?.key === key ? shareState.token : newShareToken(), sos: sos || (shareState?.key === key && !!shareState.sos) };
+    setShareState(next);
+    setSetting("tripShare", next);
+    return next;
+  }, [shareState]);
+  const stopShare = useCallback(() => {
+    if (shareState) publishShare(shareState.token, { ended: true, ts: Date.now() });
+    setShareState(null);
+    setSetting("tripShare", null);
+  }, [shareState]);
+  // Send the trip's state to viewers (at most one update per 4 s unless forced).
+  const shareUpdate = useCallback((payload, { force = false } = {}) => {
+    if (!share) return;
+    const now = Date.now();
+    if (!force && now - lastShareAt.current < 4000) return;
+    lastShareAt.current = now;
+    publishShare(share.token, { ...payload, sos: share.sos, ts: now });
+  }, [share]);
+  const shareUrl = useCallback((s) => shareLink(new URL("track.html", window.location.href).href, s.token), []);
+  // The ride is over: tell viewers, and forget the key.
+  useEffect(() => { if (shareState && !activeRide) stopShare(); }, [!!activeRide]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // While a ride is open, poll so the driver's moves show up even if the
   // live subscription missed them.
   const rideOpen = !!activeRide;
@@ -113,12 +142,12 @@ export function RiderProvider({ children }) {
       if (ev.pubkey === me || ev.created_at < since) return;
       if (!(ev.tags || []).some((t) => t[0] === "p" && t[1] === me)) return;
       const c = parse(ev);
-      if (ev.kind === EVENT_KINDS.RIDE_OFFER) pushNotice("A driver can pick you up. Check the offer.");
+      if (ev.kind === EVENT_KINDS.RIDE_OFFER && !isBlockedPk(ev.pubkey)) pushNotice("A driver can pick you up. Check the offer.");
       else if (ev.kind === EVENT_KINDS.RIDE_STAGE && c?.stage === "arrived") pushNotice("Your driver has arrived.");
       else if (ev.kind === EVENT_KINDS.RIDE_COMPLETE) pushNotice("Your trip is complete.");
       else if (ev.kind === EVENT_KINDS.RIDE_CANCEL) pushNotice("Your driver cancelled the ride.");
     });
-  }, [me, pushNotice]);
+  }, [me, pushNotice, isBlockedPk]);
 
   // ── Actions ──
   const [sendFailed, setSendFailed] = useState(false);
@@ -155,10 +184,46 @@ export function RiderProvider({ children }) {
     [publish, refreshData, resetPlan, user.sk, me, pushNotice, setView]
   );
 
+  // Keep a signed record of a payment (the proof is sealed to the driver, so only
+  // the two of them can read it). phase: "deposit" | "rest".
+  const recordPayment = useCallback(
+    (request, driverPubkey, phase, amountSats, proof) => {
+      publish(
+        EVENT_KINDS.RIDE_PAYMENT,
+        {
+          phase,
+          amountSats,
+          level: proof.level || "claimed",
+          sealed: seal(user.sk, driverPubkey, {
+            requestId: request.id, phase, amountSats, pr: proof.pr || "", preimage: proof.preimage || "", verify: proof.verify || "", at: Date.now(),
+          }),
+        },
+        [["e", request.id], ["p", driverPubkey], ["d", `pay-${rideKey(request)}-${phase}`], ["t", "ride-payment"]]
+      );
+    },
+    [publish, user.sk]
+  );
+
+  // The rider's own signed word on the trip: phase "boarded" or "ended".
+  // ok=false means "I want to report a problem" (note says what).
+  const confirmRide = useCallback(
+    (request, phase, ok = true, note = "") => {
+      const driver = rideDriver(request);
+      publish(
+        EVENT_KINDS.RIDE_CONFIRM,
+        { phase, ok, note: String(note).slice(0, 500) },
+        [["e", request.id], ...(driver ? [["p", driver]] : []), ["d", `confirm-${rideKey(request)}-${phase}`], ["t", "ride-confirm"]]
+      );
+      refreshData();
+    },
+    [publish, refreshData]
+  );
+
   // The rider picked a driver and paid the deposit: accept the offer and
   // hand the driver the exact trip.
   const confirmDriver = useCallback(
-    (request, offerEvent, { verified = false } = {}) => {
+    (request, offerEvent, proof = {}) => {
+      const { verified = false, level = "claimed" } = proof;
       const driver = offerEvent.pubkey;
       const offer = parse(offerEvent) || {};
       const trip = exactTrip(request, user);
@@ -169,6 +234,7 @@ export function RiderProvider({ children }) {
           requestId: request.id,
           paidSats: offer.upfrontSats || 0,
           verified,
+          level,
           ...(trip && { sealed: seal(user.sk, driver, trip) }),
         },
         [["e", offerEvent.id], ["e", request.id], ["p", driver], ["d", "accept-" + request.id], ["t", "ride-accept"]]
@@ -179,9 +245,10 @@ export function RiderProvider({ children }) {
         // p-tag the driver so their app can find this ride on the relays.
         [...request.tags.filter((t) => t[0] !== "p"), ["p", driver]]
       );
+      if ((offer.upfrontSats || 0) > 0) recordPayment(request, driver, "deposit", offer.upfrontSats, proof);
       refreshData();
     },
-    [publish, refreshData, user]
+    [publish, refreshData, user, recordPayment]
   );
 
   // Cancel the ride (open or running). A running ride tells the driver.
@@ -231,8 +298,9 @@ export function RiderProvider({ children }) {
   const value = {
     myPosition, geoError, gps, here, drivers,
     plan, setPlan, resetPlan,
+    share, startShare, stopShare, shareUpdate, shareUrl,
     activeRide, focused: !!focused, focusRide: (r) => setFocusId(r ? r.id : null), upcoming, receipt, dismissReceipt,
-    sendFailed, requestRide, confirmDriver, cancelRide, rateDriver, recentPlaces,
+    sendFailed, requestRide, confirmDriver, recordPayment, confirmRide, cancelRide, rateDriver, recentPlaces,
     nearestDriverEta: (to) => {
       if (!to || !drivers.length) return null;
       const miles = Math.min(...drivers.map((d) => haversineDistance(to.lat, to.lng, d.lat, d.lng)));

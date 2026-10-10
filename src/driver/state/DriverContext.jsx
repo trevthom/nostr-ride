@@ -47,7 +47,7 @@ export function fareOf(request, btcUsd) {
 }
 
 export function DriverProvider({ children }) {
-  const { user, rideRequests, publish, refreshData, pullRecent, pushNotice, liveTick, btcUsd } = useApp();
+  const { user, rideRequests, publish, refreshData, pullRecent, pushNotice, liveTick, btcUsd, isBlockedPk } = useApp();
   const me = user.publicKey;
   const driveReady = isDriveReady(user);
   const { pos: myPosition, error: geoError, status: gps } = useGeolocation(true);
@@ -130,7 +130,7 @@ export function DriverProvider({ children }) {
   const skip = useCallback((request) => setSkipped((l) => [...l, request.id]), []);
 
   const open = rideRequests
-    .filter((r) => r.pubkey !== me && rideStatus(r) === "requested")
+    .filter((r) => r.pubkey !== me && !isBlockedPk(r.pubkey) && rideStatus(r) === "requested")
     .filter((r) => !isRideExpired(parse(r), r.created_at))
     .filter((r) => !declined.includes(r.id))
     .filter((r) => !pending || r.id !== pending.request.id)
@@ -171,7 +171,7 @@ export function DriverProvider({ children }) {
       const mine = (ev.tags || []).some((t) => t[0] === "p" && t[1] === me);
       if (ev.kind === EVENT_KINDS.RIDE_CANCEL && mine) pushNotice("The rider cancelled the ride.");
       else if (ev.kind === EVENT_KINDS.RIDE_ACCEPT && mine) pushNotice("Rider confirmed. Head to the pickup.");
-      else if (ev.kind === EVENT_KINDS.RIDE_REQUEST && alerts && online && !activeDrive) {
+      else if (ev.kind === EVENT_KINDS.RIDE_REQUEST && alerts && online && !activeDrive && !isBlockedPk(ev.pubkey)) {
         const c = parse(ev);
         const p = posRef.current;
         if (c?.status === "requested" && c.pickup && p && haversineDistance(p.lat, p.lng, c.pickup.lat, c.pickup.lng) <= radius) {
@@ -179,7 +179,7 @@ export function DriverProvider({ children }) {
         }
       }
     });
-  }, [me, pushNotice, alerts, online, activeDrive, radius]);
+  }, [me, pushNotice, alerts, online, activeDrive, radius, isBlockedPk]);
 
   // The ride I was waiting on went to someone else (or was cancelled).
   const hadPending = useRef(null);

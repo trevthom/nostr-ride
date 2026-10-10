@@ -5,8 +5,9 @@
 
 import { useApp } from "../../state/AppContext.jsx";
 import { Screen } from "../../ui/Layout.jsx";
-import { AccountHeader, ContactMethods, RelaysSection, LogoutButton } from "../../features/profile/ProfileParts.jsx";
+import { AccountHeader, ContactMethods, RelaysSection, BlockedSection, LogoutButton } from "../../features/profile/ProfileParts.jsx";
 import WalletSection from "../../features/profile/WalletSection.jsx";
+import SafetySection from "../components/SafetySection.jsx";
 import KeysSection from "../../features/profile/KeysSection.jsx";
 
 export default function AccountScreen() {
@@ -16,7 +17,9 @@ export default function AccountScreen() {
       <div className="space-y-7">
         <AccountHeader />
         <WalletSection />
+        <SafetySection />
         <ContactMethods />
+        <BlockedSection />
         <RelaysSection />
         <KeysSection user={user} />
         <LogoutButton />

@@ -8,6 +8,7 @@
 //   • A completion counts only from the assigned driver.
 //   • A rating counts only from the other party of that ride.
 //   • A stage marker (arrived / riding) counts only from the assigned driver.
+//   • A confirmation (boarded / ended) and a payment record count only from the rider.
 // ════════════════════════════════════════════════════════════
 
 import { relay } from "../nostr/relay.js";
@@ -129,6 +130,27 @@ function computeStage(request) {
     best = Math.max(best, RIDE_STAGES.indexOf(parse(e)?.stage));
   });
   return RIDE_STAGES[best];
+}
+
+// The rider's own confirmations of a ride, newest per phase:
+// { boarded?, ended?, problem? }, each {ok, note, at}. ("problem" = reported mid-trip.)
+// Only the rider's count.
+export function rideConfirm(request) {
+  return cached("cfm:" + request.id, () => computeConfirm(request));
+}
+function computeConfirm(request) {
+  const { ids, rider } = rideParties(request);
+  const out = {};
+  relay.query({ kinds: [EVENT_KINDS.RIDE_CONFIRM], "#e": [...ids], authors: [rider] })
+    .filter((e) => ids.has(etagOf(e)))
+    .sort((a, b) => a.created_at - b.created_at)
+    .forEach((e) => {
+      const c = parse(e);
+      if (c && (c.phase === "boarded" || c.phase === "ended" || c.phase === "problem")) {
+        out[c.phase] = { ok: c.ok !== false, note: typeof c.note === "string" ? c.note.slice(0, 500) : "", at: e.created_at };
+      }
+    });
+  return out;
 }
 
 // Reputation for one pubkey, separated by role (rider vs driver).

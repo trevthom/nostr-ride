@@ -9,7 +9,7 @@ import { useState } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { useRider } from "../state/RiderContext.jsx";
 import { getProfile } from "../../nostr/profiles.js";
-import { rideDriver, rideEnding, rideKey, rideStatus } from "../../lib/rides.js";
+import { rideConfirm, rideDriver, rideEnding, rideKey, rideStatus } from "../../lib/rides.js";
 import { exactTrip } from "../../lib/privacy.js";
 import { offerFrom } from "../../lib/trips.js";
 import { getSetting, setSetting } from "../../config/relays.js";
@@ -17,7 +17,8 @@ import Money from "../../ui/Money.jsx";
 import Button from "../../ui/Button.jsx";
 import Icon from "../../ui/Icon.jsx";
 import RatingForm from "../../ui/RatingForm.jsx";
-import { ConfirmDialog } from "../../ui/Parts.jsx";
+import { ConfirmDialog, Modal, inputCls } from "../../ui/Parts.jsx";
+import BlockButton from "../../ui/BlockButton.jsx";
 import PayDriver from "../../features/payments/PayDriver.jsx";
 import DriverInfo from "../components/DriverInfo.jsx";
 
@@ -25,7 +26,7 @@ const parse = (e) => { try { return JSON.parse(e.content); } catch { return null
 
 export default function Receipt({ request }) {
   const { user, liveTick } = useApp();
-  const { dismissReceipt, rateDriver } = useRider();
+  const { dismissReceipt, rateDriver, recordPayment, confirmRide } = useRider();
   void liveTick;
   const key = rideKey(request);
   const driverPubkey = rideDriver(request);
@@ -39,13 +40,24 @@ export default function Receipt({ request }) {
   const [paid, setPaid] = useState(() => getSetting("riderPaid", []).includes(key));
   const [rated, setRated] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [note, setNote] = useState("");
+  const [reported, setReported] = useState(!!rideConfirm(request).ended && !rideConfirm(request).ended.ok);
 
   const rest = o ? Math.max(0, o.priceSats - (o.upfrontSats || 0)) : 0;
   const owes = completed && rest > 0 && !paid;
 
-  const markPaid = () => {
+  const markPaid = (proof) => {
     setSetting("riderPaid", [...getSetting("riderPaid", []), key].slice(-100));
     setPaid(true);
+    // A signed record of the payment (evidence if the driver ever disputes it).
+    if (driverPubkey) recordPayment(request, driverPubkey, "rest", rest, proof);
+  };
+
+  // Leaving the receipt is the rider's signed "the trip ended" (unless they reported a problem).
+  const finish = () => {
+    if (!rideConfirm(request).ended) confirmRide(request, "ended", true);
+    dismissReceipt(request);
   };
 
   if (!completed) {
@@ -109,7 +121,13 @@ export default function Receipt({ request }) {
           </div>
         )}
 
-        <Button className="mt-6" onClick={() => (owes ? setLeaving(true) : dismissReceipt(request))}>Done</Button>
+        {reported ? (
+          <p className="text-sm text-neutral-600 mt-4">Your report was sent. The trip record is saved with it.</p>
+        ) : (
+          <button type="button" onClick={() => setReporting(true)} className="mt-4 text-sm font-medium underline">Report a problem with this trip</button>
+        )}
+        {driverPubkey && <div className="mt-3"><BlockButton pubkey={driverPubkey} /></div>}
+        <Button className="mt-4" onClick={() => (owes ? setLeaving(true) : finish())}>Done</Button>
       </div>
 
       <ConfirmDialog
@@ -119,9 +137,16 @@ export default function Receipt({ request }) {
         confirmLabel="Leave anyway"
         cancelLabel="Pay now"
         danger
-        onConfirm={() => { setLeaving(false); dismissReceipt(request); }}
+        onConfirm={() => { setLeaving(false); finish(); }}
         onCancel={() => setLeaving(false)}
       />
+      <Modal open={reporting} title="Report a problem" onClose={() => setReporting(false)}>
+        <p className="text-neutral-600 text-[15px] mb-3">
+          Say what went wrong. Your report is signed and saved with this trip's payment and driver records.
+        </p>
+        <textarea aria-label="What went wrong" value={note} onChange={(e) => setNote(e.target.value)} rows={4} maxLength={500} className={`${inputCls} resize-none`} placeholder="What happened?" />
+        <Button className="mt-3" disabled={!note.trim()} onClick={() => { confirmRide(request, "ended", false, note.trim()); setReported(true); setReporting(false); }}>Send report</Button>
+      </Modal>
     </div>
   );
 }

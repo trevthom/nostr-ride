@@ -14,6 +14,7 @@ import { reputation } from "../lib/rides.js";
 import Avatar from "./Avatar.jsx";
 import { Rating } from "./Rating.jsx";
 import Icon from "./Icon.jsx";
+import BlockButton from "./BlockButton.jsx";
 
 export default function UserModal() {
   const { profileModalPubkey, closeProfile } = useApp();
@@ -95,6 +96,7 @@ export default function UserModal() {
         )}
 
         <p className="text-neutral-500 text-[11px] font-mono break-all mt-5">{fullNpub(profileModalPubkey)}</p>
+        <div className="mt-3"><BlockButton pubkey={profileModalPubkey} /></div>
       </div>
 
       {/* Expanded photo view */}

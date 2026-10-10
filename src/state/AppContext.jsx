@@ -21,6 +21,8 @@ import { getProfile } from "../nostr/profiles.js";
 import { myVehicle } from "../lib/privacy.js";
 import { forgetKey } from "../nostr/keystore.js";
 import { APP_NAME } from "../config/app.js";
+import { getSetting, setSetting } from "../config/relays.js";
+import { addBlock, removeBlock, isBlocked } from "../lib/blocks.js";
 
 const AppContext = createContext(null);
 
@@ -34,6 +36,8 @@ const APP_EVENT_KINDS = new Set([
   EVENT_KINDS.RIDE_CANCEL,
   EVENT_KINDS.RIDE_COMPLETE,
   EVENT_KINDS.RIDE_STAGE,
+  EVENT_KINDS.RIDE_PAYMENT,
+  EVENT_KINDS.RIDE_CONFIRM,
   EVENT_KINDS.RATING,
 ]);
 
@@ -66,6 +70,12 @@ export function AppProvider({ initialView, children }) {
     return id;
   }, []);
   const dismissNotice = useCallback((id) => setNotices((list) => list.filter((n) => n.id !== id)), []);
+
+  // People this user has blocked (kept on this device).
+  const [blocked, setBlocked] = useState(() => getSetting("blocked", []));
+  const blockUser = useCallback((pubkey, name) => setBlocked((l) => { const n = addBlock(l, pubkey, name); setSetting("blocked", n); return n; }), []);
+  const unblockUser = useCallback((pubkey) => setBlocked((l) => { const n = removeBlock(l, pubkey); setSetting("blocked", n); return n; }), []);
+  const isBlockedPk = useCallback((pubkey) => isBlocked(blocked, pubkey), [blocked]);
 
   // BTC price (USD) so sats amounts can show a fiat estimate. Refreshed
   // periodically; null until first fetch (then USD is just hidden).
@@ -234,6 +244,10 @@ export function AppProvider({ initialView, children }) {
     publish,
     wallet,
     setWallet,
+    blocked,
+    blockUser,
+    unblockUser,
+    isBlockedPk,
     liveTick,
     btcUsd,
   };

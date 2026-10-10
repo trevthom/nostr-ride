@@ -65,8 +65,15 @@ export async function requestInvoice(address, amountSats, comment = "") {
   return { pr: data.pr, verify: typeof data.verify === "string" ? data.verify : null };
 }
 
+// LUD-21: the invoice's status. { settled, preimage } — the preimage (hex) is
+// present once the invoice is paid, and is proof of payment.
+export async function invoiceStatus(verifyUrl) {
+  const data = await getJson(verifyUrl);
+  const preimage = typeof data?.preimage === "string" && /^[0-9a-f]{64}$/i.test(data.preimage) ? data.preimage.toLowerCase() : null;
+  return { settled: data?.settled === true, preimage };
+}
+
 // LUD-21: has the invoice been paid? Returns true / false.
 export async function isInvoicePaid(verifyUrl) {
-  const data = await getJson(verifyUrl);
-  return data?.settled === true;
+  return (await invoiceStatus(verifyUrl)).settled;
 }
