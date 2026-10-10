@@ -149,6 +149,9 @@ Put each folder on any static host (they deploy separately, e.g. `ride.example.c
 background, so the driver app keeps the screen awake while online (where the browser allows it). A driver can go
 online only with a good GPS fix (about 200 m or better), so a laptop's Wi-Fi position never shows up as a car.
 
+**One repository per app.** `trevthom/nostr-ride-rider` and `trevthom/nostr-ride-driver` are generated
+from this repository. Edit code here, then run `node scripts/export-apps.mjs --push`.
+
 > **About the map services:** the app uses free public endpoints — OpenStreetMap map tiles, Photon (address search) and OSRM (driving routes). They are fine for development but
 > rate-limited and not meant for heavy traffic. Before a real launch switch to paid or self-hosted
 > ones (Mapbox, MapTiler, your own OSRM/Photon). The files: `src/lib/geocode.js`,

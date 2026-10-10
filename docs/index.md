@@ -181,6 +181,21 @@ through a local relay). That harness is not in the repo.
 `ride.example.com` and `drive.example.com`). Use `https://` (location needs it). Each app keeps its own
 saved key in the browser.
 
+## Separate repositories (generated)
+Two repositories hold one app each: `trevthom/nostr-ride-rider` and `trevthom/nostr-ride-driver`.
+They are **generated copies**. This repository (`nostr-ride`) is the source of truth.
+Do not edit code in the copies. Change it here, then run:
+
+```
+node scripts/export-apps.mjs --push            # both apps
+node scripts/export-apps.mjs --push --only rider
+node scripts/export-apps.mjs --out ../out      # write files only, no push
+```
+
+The script copies the shared code and one app, drops the other app, writes a `package.json`,
+`vite.config.js` and docs for that app, then commits and pushes to `main` of the copy.
+Each copy installs, tests and builds on its own.
+
 ## Self-hosting map services
 The app uses three free public services. They are fine for development but not for real traffic.
 
@@ -222,6 +237,7 @@ To switch, copy `env.example` to `.env`, set `VITE_TILE_URL` (and `VITE_PHOTON_U
 - Free public map, geocoder and router services need replacing before launch.
 
 ## Changelog
+- **Split repositories** — `scripts/export-apps.mjs` generates the rider and driver repositories from this one.
 - **Evidence, safety, blocking, reliability** — signed payment records and rider confirmations (kinds 30086, 30087); driver re-checks payments; copyable trip record. Safety sheet with car check, share-my-trip link and tracking page, SOS, report a problem, trusted contacts. Local blocking. Driver arrival suggestion. Outbox with retry, reconnect, connection banner, service worker and manifest. Native background-GPS shell (untested on device). Map services configurable through `.env`.
 - **Two apps** — rider and driver apps with an Uber/Lyft-style UI; new ride-stage event (30085); state is derived from events.
 - **Maps and GPS** — OpenStreetMap tiles; GPS quality checks (good / weak / stale); screen wake lock for drivers; road-time ETAs.

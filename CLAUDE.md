@@ -27,6 +27,8 @@ Look: white UI, black buttons, bottom sheets over a full-screen map (Inter font)
 - `npm test` → Node's built-in test runner over `test/*.test.mjs` (no extra deps):
   trust rules, ride stages, fares, trips, earnings, privacy, history, LNURL, geocode, publish,
   event ordering, contact links, GPS quality, payment evidence, blocking, trip sharing, native location, outbox. Run it after touching `lib/*`, `nostr/*`.
+- `node scripts/export-apps.mjs [--push] [--only rider|driver] [--out DIR]` → generates the standalone
+  `trevthom/nostr-ride-rider` / `nostr-ride-driver` repos (generated mirrors: never edit them; change code here, re-export).
 - No linter configured.
 - The Vite **mode** picks the app (`vite --mode rider|driver`, see `vite.config.js`); it sets
   `__APP_ROLE__`, read through `src/config/app.js` (`APP_ROLE`, `IS_DRIVER_APP`, `APP_NAME`).
