@@ -4,7 +4,7 @@
 //  nsec gets everything back. Relays see that a note exists, its size and when it changed: nothing inside.
 //
 //  What goes in (BACKUP_KEYS): the block list, trusted contacts, currency, units, dark mode, request radius / alerts, gender
-//  preference, courier radius, the amount unit, the chosen mint, the relay list, "automatically cash out at", the GoGet role,
+//  preference, the amount unit, the chosen mint, the relay list, "automatically cash out at", 
 //  and the vouch list. What NEVER goes in: ecash (its own 12 words), keys, the outbox, prices, trip leftovers, open/closed sections.
 //  Pure maths and storage; the sending is state/useBackup.js.
 //
@@ -22,8 +22,8 @@ import { getSetting, setSetting, getRelays, setRelays } from "../config/relays.j
 import { EVENT_KINDS } from "../nostr/eventKinds.js";
 import { vouchList } from "./vouches.js";
 
-export const BACKUP_KEYS = ["blocked", "trustedContacts", "currency", "units", "dark", "requestRadius", "requestAlerts", "genderPref", "courierRadius", "amountUnit", "ecashMint"];
-export const BACKUP_PREFIXES = ["autoCashOut_", "goget_context_"];
+export const BACKUP_KEYS = ["blocked", "trustedContacts", "currency", "units", "dark", "requestRadius", "requestAlerts", "genderPref", "amountUnit", "ecashMint"];
+export const BACKUP_PREFIXES = ["autoCashOut_"];
 const HEX64 = /^[0-9a-f]{64}$/;
 export const MAX_BACKUP_BYTES = 60000; // one nip44 message holds 64 KB
 

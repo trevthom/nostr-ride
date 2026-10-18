@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════
-//  MILEAGE — Total miles a person has driven or carried, counted from their own finished
-//  rides (the meter at the finish; the quoted trip if there is none) and completed deliveries
-//  (the quoted route). Miles are stored in miles; lib/units.js only changes how they show.
+//  MILEAGE — Total miles a person has driven, counted from their own finished
+//  rides (the meter at the finish; the quoted trip if there is none).
+//  Miles are stored in miles; lib/units.js only changes how they show.
 //  The total goes into the person's own profile (kind 0 `stats`) so others can read it without
 //  reading job events.
 // ════════════════════════════════════════════════════════════
@@ -17,17 +17,10 @@ export function rideMiles(request) {
   return m > 0 ? m : Number(parse(request)?.distanceMiles) || 0;
 }
 
-// Miles of one delivery: the route as quoted in the request.
-export function deliveryMiles(request) {
-  return Number(parse(request)?.distanceMiles) || 0;
-}
-
-// `drives`: ride requests; `deliveries`: delivery requests. Both are the person's COMPLETED jobs
-// (filter first with completedDrives / completedDeliveries, or pass requests and a pubkey).
-export function milesDriven(rideRequests, pubkey, deliveryRequests = [], deliveryCourier = () => null, deliveryDone = () => false) {
+// Miles of the rides this person drove and finished.
+export function milesDriven(rideRequests, pubkey) {
   let total = 0;
   for (const r of rideRequests) if (parse(r)?.driverPubkey === pubkey && rideStatus(r) === "completed") total += rideMiles(r);
-  for (const r of deliveryRequests) if (deliveryCourier(r) === pubkey && deliveryDone(r)) total += deliveryMiles(r);
   return tenth(total);
 }
 
