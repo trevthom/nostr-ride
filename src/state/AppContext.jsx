@@ -22,6 +22,7 @@ import { syncVouches } from "../nostr/vouchSync.js";
 import MilesSync from "../features/profile/MilesSync.jsx";
 import AudienceSync from "./AudienceSync.jsx";
 import { audienceFor } from "../lib/audience.js";
+import { trustFor } from "../lib/vouches.js";
 import { getPeople, getAudience, addAudience, answerersOf } from "../lib/audienceStore.js";
 import { useBackup } from "./useBackup.js";
 import { applyAppearance, isDark } from "../lib/appearance.js";
@@ -281,7 +282,7 @@ export function AppProvider({ initialView, children }) {
         const d = (tagged.find((t) => t[0] === "d") || [])[1];
         let c = null;
         try { c = typeof content === "string" ? JSON.parse(content) : content; } catch { /* no audience */ }
-        const asked = c && c.status === "requested" ? audienceFor(c, getPeople(), { me: user.publicKey, blocked }) : [];
+        const asked = c && c.status === "requested" ? audienceFor(c, getPeople(), { me: user.publicKey, blocked, trusted: (pk) => !!trustFor(pk, user.publicKey) }) : [];
         to.push(...asked, ...getAudience(d), ...answerersOf(d, user.publicKey));
         addAudience(d, asked);
       }
