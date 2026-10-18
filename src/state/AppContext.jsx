@@ -19,6 +19,7 @@ import { buildSignedEvent } from "../nostr/events.js";
 import { latestVersions } from "../nostr/replaceable.js";
 import { emptyWalletState } from "../nostr/wallet.js";
 import { syncVouches } from "../nostr/vouchSync.js";
+import MilesSync from "../features/profile/MilesSync.jsx";
 import { useBackup } from "./useBackup.js";
 import { applyAppearance, isDark } from "../lib/appearance.js";
 import { setUnits, getUnits } from "../lib/units.js";
@@ -354,7 +355,7 @@ export function AppProvider({ initialView, children }) {
     (async () => {
       await relay.fetchProfile(user.publicKey);
       const p = getProfile(user.publicKey);
-      if (alive && p && (p.picture || p.vehicle || p.lud16 || p.gender || p.rates)) {
+      if (alive && p && (p.picture || p.vehicle || p.lud16 || p.gender || p.rates || p.stats)) {
         setUser((u) => u && ({
           ...u,
           picture: u.picture || p.picture || "",
@@ -362,6 +363,7 @@ export function AppProvider({ initialView, children }) {
           vehicle: u.vehicle || myVehicle(u.publicKey, u.sk),
           gender: u.gender ?? p.gender ?? "",
           rates: u.rates ?? p.rates ?? null,
+          stats: u.stats ?? p.stats ?? null,
         }));
       }
     })();
@@ -410,5 +412,5 @@ export function AppProvider({ initialView, children }) {
     backup,
   };
 
-  return <AppContext.Provider value={value}><Fragment key={settingsEpoch}>{children}</Fragment></AppContext.Provider>;
+  return <AppContext.Provider value={value}><Fragment key={settingsEpoch}><MilesSync />{children}</Fragment></AppContext.Provider>;
 }
