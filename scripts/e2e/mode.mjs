@@ -20,6 +20,7 @@ const step = async (name, fn) => {
     throw e;
   }
 };
+const shot = async (p, name) => { if (process.env.E2E_SHOTS) await p.screenshot({ path: `${process.env.E2E_SHOTS}/${name}.png` }); };
 const tabs = (p) => p.locator('nav[aria-label="Main"]');
 const tabNames = async (p) => (await tabs(p).locator("button").evaluateAll((bs) => bs.map((b) => b.innerText.replace(/\s+/g, " ").trim().replace(/^\d+\s*/, ""))));
 const sw = (p) => p.getByRole("group", { name: "Ride or drive" });
@@ -38,6 +39,7 @@ try {
     if (names.join("|") !== "Ride|Activity|Account") throw new Error("tabs: " + names.join("|"));
     await sw(P).first().waitFor({ timeout: 10000 });
     if ((await face(P)) !== "ride") throw new Error("not in Ride");
+    await shot(P, "ride-home");
   });
 
   await step("one wallet and one set of 12 words: filled in Ride, the same money in Drive", async () => {
@@ -56,6 +58,7 @@ try {
     if (names.join("|") !== "Drive|Earnings|Account") throw new Error("tabs in Drive: " + names.join("|"));
     if ((await face(P)) !== "drive") throw new Error("not in Drive");
     await P.getByText("Vehicle & plate").first().waitFor({ timeout: 10000 }); // the driver's Account: still on the Account tab
+    await shot(P, "drive-account");
     if (await P.getByText("Trusted contacts").count()) throw new Error("a rider-only section shows in Drive");
     await openFold(P, "Wallets");
     await P.getByText("Balance").first().waitFor({ timeout: 10000 });
@@ -83,6 +86,7 @@ try {
     await tap(tabs(P).getByText("Drive", { exact: true }));
     await P.getByRole("button", { name: "Go online" }).click({ timeout: 40000 });
     await P.getByText("You're online").waitFor({ timeout: 15000 });
+    await shot(P, "drive-online");
     await sw(P).first().getByRole("button", { name: "Ride" }).click();
     const dlg = P.getByRole("dialog");
     await dlg.waitFor({ timeout: 5000 });
