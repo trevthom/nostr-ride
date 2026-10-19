@@ -91,6 +91,7 @@ function Idle() {
     <MapPage
       map={<MapView ref={mapRef} me={myPosition} cars={drivers} fitKey={myPosition ? "pos" : "nopos"} padBottom={300} />}
       top={<FloatButton icon="locate" label="Center on my location" onClick={() => mapRef.current?.fit()} className="ml-auto" />}
+      switcher
     >
       <Sheet label="Where to?">
         <button

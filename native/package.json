@@ -3,7 +3,7 @@
   "private": true,
   "description": "Native shell for the NostrRide driver app (background GPS). Separate from the web build on purpose.",
   "scripts": {
-    "sync": "cd .. && npm run build:driver && cd native && cap sync",
+    "sync": "cd .. && npm run build && cd native && cap sync",
     "android": "cap open android",
     "ios": "cap open ios"
   },

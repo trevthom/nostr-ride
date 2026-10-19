@@ -8,6 +8,7 @@
 import { useApp } from "../../state/AppContext.jsx";
 import { useRider } from "../state/RiderContext.jsx";
 import { Screen } from "../../ui/Layout.jsx";
+import { ModeSwitch } from "../../ui/ModeSwitch.jsx";
 import { AccountHeader, ContactMethods, RelaysSection, BlockedSection, LogoutButton } from "../../features/profile/ProfileParts.jsx";
 import VouchesSection from "../../features/profile/VouchesSection.jsx";
 import WalletsSection from "../../features/profile/WalletsSection.jsx";
@@ -15,20 +16,18 @@ import AppearanceSection from "../../features/profile/AppearanceSection.jsx";
 import SafetySection from "../components/SafetySection.jsx";
 import KeysSection from "../../features/profile/KeysSection.jsx";
 import Fold from "../../ui/Fold.jsx";
-import UnitsSection from "../../features/profile/UnitsSection.jsx";
 import { RecoveryFold, RecoveryNotice } from "../../features/ecash/RecoverySection.jsx";
 
 export default function AccountScreen() {
   const { user } = useApp();
   const { activeRide } = useRider();
   return (
-    <Screen title="Account">
+    <Screen title="Account" right={<ModeSwitch />}>
       <div className="space-y-7">
         <AccountHeader />
         <RecoveryNotice />
         <div>
           <Fold id="appearance" title="Appearance"><AppearanceSection /></Fold>
-          <Fold id="units" title="Units"><UnitsSection /></Fold>
           <Fold id="ecash" title="Wallets"><WalletsSection locked={!!activeRide} /></Fold>
           <RecoveryFold />
           <Fold id="safety" title="Trusted contacts"><SafetySection /></Fold>

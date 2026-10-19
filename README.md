@@ -5,12 +5,14 @@ database: every ride is a set of signed Nostr events. The rider pays the driver
 **while the ride runs**, in small **ecash** payments (Cashu) from the rider's wallet. There are
 no cancellations and no cancellation fees: either person taps **Finish ride**.
 
-It is **two separate apps** that find each other through Nostr relays:
+It is **one app with two faces**, chosen with a **Ride | Drive** switch. People using the two faces find each other through Nostr relays:
 
-| App | For | Looks like | Port |
-|---|---|---|---|
-| **Rider** (`apps/rider`) | people who need a ride | Uber / Lyft: "Where to?", fare, driver on the map | 5173 |
-| **Driver** (`apps/driver`) | people who drive | Uber Driver: big GO button, request cards, earnings | 5174 |
+| Face | For | Looks like |
+|---|---|---|
+| **Ride** | people who need a ride | Uber / Lyft: "Where to?", fare, driver on the map |
+| **Drive** | people who drive | Uber Driver: big GO button, request cards, earnings |
+
+The same account, the same ecash wallet and the same settings serve both faces. The switch is at the top of Home, Activity / Earnings and Account. It is closed while a ride is under way.
 
 Full documentation is in [`docs/index.md`](docs/index.md). This guide is written for someone with **no coding experience**. Follow it
 top to bottom.
@@ -28,23 +30,21 @@ one at a time (press Enter after each):
 ```bash
 cd path/to/nostr-ride      # go into the project folder
 npm install                # download building blocks (one time, ~1 min)
-npm run dev                # start BOTH apps
+npm run dev                # start the app
 ```
 
-Then open **two browser windows** side by side:
+Then open **http://localhost:5173/**. To play both sides of a ride, open it in **two browser windows** (make one a private window), sign in with a different account in each,
+and set one of them to **Drive** with the switch.
 
-- Rider app: http://localhost:5173/
-- Driver app: http://localhost:5174/
-
-To stop: `Ctrl + C`. To run only one app: `npm run dev:rider` or `npm run dev:driver`.
+To stop: `Ctrl + C`.
 
 > **Needs internet** for fonts, the map, and the relays.
-> No API keys or accounts required. While you run `npm run dev`, the driver app also
+> No API keys or accounts required. While you run `npm run dev`, the Drive face also
 > shows a couple of fake demo requests (never in a production build).
 
 ---
 
-## 2. Sign in (both apps)
+## 2. Sign in
 
 On the first screen either:
 - **Create account** — makes a fresh Nostr identity, then asks you to save your secret key, or
@@ -52,34 +52,34 @@ On the first screen either:
 
 These are **real Nostr keys**. With **Remember me** (on by default) your key is
 saved on this device, encrypted with a password you choose, so a reload only asks for
-that password. Use a different account in each app window to play both sides.
+that password. Use a different account in each window to play both sides.
 
 ---
 
 ## 3. A ride, step by step
 
-**Driver app** (once):
+**Drive face** (once):
 1. **Account** tab → add a **photo**, your **vehicle** (year, make, model, plate, and photos of the car: up to 3, one is enough) and, in *Account → Wallets*, a
    **Cash out location** (optional: a Lightning address, like `you@wallet.com`; you can cash out there by hand or set *Automatically cash out at*). Check the **ecash mint** you are paid at (*Account → Wallets*).
 2. **Drive** tab → tap the green **GO** button (allow location when asked).
 
-**Rider app:**
+**Ride face:**
 0. **Account** → pick your **currency** and add money to your **ecash wallet** (**Add funds**: pay a Lightning invoice, in one tap with a connected wallet).
 1. **Where to?** → set the pickup (type an address or a business name, or pin it on the map) and the destination → see the suggested fare (each driver charges their own rates) → **Request ride**.
    Optional: show female or male drivers first. (Pick **Schedule** to reserve a ride for later: it waits under *Activity → Upcoming*.)
 2. Wait for **"Finding your driver…"**. Nearby online drivers are shown as cars on the map.
 
-**Driver app:**
+**Drive face:**
 3. A **request card** pops up with the fare, pickup distance and, when someone you vouch for knows and trusts the rider, a vouch badge. Tap **Accept**. Set your own base, per-mile and per-minute rates under *Account → Your rates*; riders see them, and they are frozen once a rider chooses you.
 
-**Rider app:**
+**Ride face:**
 4. Pick a driver (fastest first) → **Confirm driver**. There is **no deposit**; you only need a little ecash at the driver's mint to start.
 5. Watch the car come to you. The driver's exact position is end-to-end encrypted and only you can see it. Nothing is charged yet.
 
-**Driver app:**
+**Drive face:**
 6. Follow the route to the pickup → **I've arrived** (works within 150 m of the pickup).
 
-**Both apps:**
+**Both faces:**
 7. The driver's phone shows a 4-digit code. The rider types it on the rider's phone. Then the driver taps **Start trip**.
 8. **The rider pays as the ride runs**: the base rate at the start, then every mile and every minute. Both screens show the fare so far, what is paid, and an *estimated total* (dashed, "≈"). The rider's screen also shows the **ecash balance** live (red at $5.00 or less) and the trip clock counts seconds. **Add stop / update fare** shows the estimated change in the fare before the rider asks; the driver sees it too.
 9. Either person taps **Finish ride** (and confirms). The rider pays what the ride earned. The driver may waive part of the fare. The trip shows up under *Earnings* (driver) and *Activity* (rider).
@@ -89,12 +89,12 @@ runs. If the rider misses **two payments**, the driver may finish the ride; the 
 and pay what is missed. Adding a stop keeps the meter running at the driver's rates. All charges are shown in your local currency and paid in sats. A **mint** holds the money behind ecash,
 so use one you trust. Full rules: `docs/index.md`, section *Pay as you ride*.
 
-**Wallets:** *Account → Wallets* holds the currency, the ecash you ride with (*Add funds* by Lightning, or on-chain on a mint that supports it, and *Send*), your cash out location (the same in the Rider and Driver apps) and the Lightning wallet: paste a **real**
+**Wallets:** *Account → Wallets* holds the currency, the ecash you ride with (*Add funds* by Lightning, or on-chain on a mint that supports it, and *Send*), your cash out location (the same on every phone you sign in on) and the Lightning wallet: paste a **real**
 Nostr Wallet Connect string (`nostr+walletconnect://...`) from a wallet that supports NWC (Alby Hub, Coinos…) to add funds
 and tip in one tap. The app reads your real balance from that wallet and never shows made-up numbers. Without one you can
 still pay any invoice from another wallet.
 
-**Lost phone?** Your ecash is saved on the device. *Account → Recovery phrase* shows 12 words to write on paper (and asks you to type
+**Lost phone?** Your ecash is saved on the device (one wallet for both faces). *Account → Recovery phrase* shows 12 words to write on paper (and asks you to type
 three back). With them, a new phone finds your ecash again at the mint (*Restore ecash from 12 words*); the money then sits under that phone's own new words, which you write down too. Keep the paper secret: whoever has the words can take the ecash.
 To take the wallet off a phone you are about to lose or sell, use *Account → Wallets → Disconnect ecash from this device* (the coins are swapped and the wallet and its words are erased there; the money comes back with your 12 words).
 Every part of the Account screen opens and closes when you tap its title. *Account → Appearance* has two switches that act at once: *Dark Mode (application)* for the screens and *Dark Mode (map)* for the map only. Your settings are saved to your relays by themselves, encrypted with your secret key. The password box on the sign-in page has an eye button to show what you typed.
@@ -108,8 +108,8 @@ Every part of the Account screen opens and closes when you tap its title. *Accou
   car and driver. Add trusted contacts in *Account*.
 - **Block** a driver or rider from their profile or after a trip. Blocked people no longer show up for you.
 - **Vouch** for people you know and trust (*Account → Your vouches*: paste their npub). There are no star ratings or reviews. When someone you vouch for also vouches for a driver or rider, their card says "N of your vouches know and trust this person". Your list is public.
-- **Disputes:** every payment and confirmation is a signed record. The driver app counts a payment only when its own mint redeemed it, and can copy a **trip record** for whoever settles a dispute.
-- **Offline:** the apps install to your home screen, open offline, and send queued updates when you are back online.
+- **Disputes:** every payment and confirmation is a signed record. The Drive face counts a payment only when its own mint redeemed it, and can copy a **trip record** for whoever settles a dispute.
+- **Offline:** the app installs to your home screen, open offline, and send queued updates when you are back online.
 - **Background GPS** needs the native app in `native/` (see its README); a browser stops location when the screen sleeps.
 
 ## 4. Privacy, in short
@@ -140,8 +140,9 @@ Every part of the Account screen opens and closes when you tap its title. *Accou
 | The bottom sheet, tab bar, page layout | `src/ui/Layout.jsx` |
 | The map (tiles, pins, cars) | `src/ui/MapView.jsx` |
 | Your own map / search / route servers | `.env` (copy `env.example`) |
-| A rider screen | `src/rider/screens/…` |
-| A driver screen | `src/driver/screens/…` |
+| A Ride screen | `src/rider/screens/…` |
+| A Drive screen | `src/driver/screens/…` |
+| The app shell, the tabs, the Ride / Drive switch | `src/app/App.jsx`, `src/ui/ModeSwitch.jsx` |
 | Nostr event types | `src/nostr/eventKinds.js` |
 | The map's starting city | `src/lib/locations.js` (first entry) |
 
@@ -152,18 +153,17 @@ Each file is small (under ~300 lines) and starts with a comment explaining it.
 ## 6. Build for the web
 
 ```bash
-npm run build      # makes dist/rider and dist/driver
+npm run build      # makes dist/nostrride
 npm test           # runs the automated checks
 ```
 
-Put each folder on any static host (they deploy separately, e.g. `ride.example.com` and
-`drive.example.com`). Location needs `https://`. Browsers stop GPS when the tab is in the
-background, so the driver app keeps the screen awake while online (where the browser allows it). The rider app does the same during a ride:
+Put the folder on any static host (e.g. `ride.example.com`). Location needs `https://`. Browsers stop GPS when the tab is in the
+background, so the Drive face keeps the screen awake while online (where the browser allows it). The Ride face does the same during a ride:
 a sleeping page stops paying the ride's ecash ticks. A driver can go
 online with a good GPS fix (about 200 m or better) or an approximate one (up to 25 km), so a phone's "approximate location" works, but a laptop's rough IP position (or a stale one) never shows up as a car.
 
-**One repository per app.** `trevthom/nostr-ride-rider` and `trevthom/nostr-ride-driver` are generated
-from this repository. Edit code here, then run `node scripts/export-apps.mjs --push`.
+**One repository.** The old generated copies `trevthom/nostr-ride-rider` and `trevthom/nostr-ride-driver` are retired: this
+repository builds the one app with both faces.
 
 > **About the map services:** the app uses free public endpoints — OpenStreetMap map tiles, Photon (address search) and OSRM (driving routes). They are fine for development but
 > rate-limited and not meant for heavy traffic. Before a real launch switch to paid or self-hosted

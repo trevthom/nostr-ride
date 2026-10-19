@@ -7,6 +7,7 @@
 import { useApp } from "../../state/AppContext.jsx";
 import Button from "../../ui/Button.jsx";
 import { Screen } from "../../ui/Layout.jsx";
+import { ModeSwitch } from "../../ui/ModeSwitch.jsx";
 import Checklist, { driveSteps } from "../components/Checklist.jsx";
 import { driveGaps, gapsText } from "../../lib/profile.js";
 
@@ -15,6 +16,7 @@ export default function Onboarding() {
   const left = driveSteps(user).filter((s) => !s.done).length;
   return (
     <Screen title="Get ready to drive">
+      <div className="mb-4"><ModeSwitch /></div>
       <p className="text-neutral-600 text-[15px] -mt-1 mb-4">
         {left} step{left === 1 ? "" : "s"} left. Riders need these before they will ride with you.
       </p>

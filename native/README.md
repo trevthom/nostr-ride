@@ -1,7 +1,7 @@
-# Native shell for the driver app (background GPS)
+# Native shell for the app (background GPS for drivers)
 
 A web page cannot read the location once the screen is off or the app is in the
-background. This folder wraps the **driver app** in a native app (Capacitor) that
+background. This folder wraps the **app** (its Drive face needs this) in a native app (Capacitor) that
 can, through an Android foreground service or an iOS background mode. The web build is
 unchanged: `src/lib/nativeGeo.js` looks for the plugin at run time and uses it only
 inside this shell. In a browser nothing changes.
@@ -15,7 +15,7 @@ inside this shell. In a browser nothing changes.
 ```bash
 cd native
 npm install                 # Capacitor and the background-geolocation plugin
-npm run sync                # builds ../dist/driver and copies it in
+npm run sync                # builds ../dist/nostrride and copies it in
 npx cap add android         # once  (and/or: npx cap add ios)
 npm run sync
 npm run android             # opens Android Studio; run on a phone

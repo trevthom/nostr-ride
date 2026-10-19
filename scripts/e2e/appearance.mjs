@@ -48,7 +48,7 @@ try {
     await step(`${role}: Dark Mode (map) is its own switch and only darkens the map`, async () => {
       const first = role === "rider" ? "Ride" : "Drive";
       // The application is dark, the map is not: the tiles have no filter.
-      await P.getByRole("button", { name: first, exact: true }).click({ timeout: 40000 });
+      await P.locator('nav[aria-label="Main"]').getByRole("button", { name: first }).click({ timeout: 40000 });
       await P.locator(".leaflet-tile-pane").first().waitFor({ state: "attached", timeout: 40000 });
       const lightMap = await tileFilter(P);
       if (lightMap && lightMap !== "none") throw new Error("the map is dark with only the application dark: " + lightMap);
@@ -62,7 +62,7 @@ try {
       if ((await P.evaluate(() => localStorage.getItem("nostrride_darkMap"))) !== "true") throw new Error("the map choice was not saved");
       if (!(await isDark(P))) throw new Error("the application should stay dark");
       if ((await bg(P)) !== before) throw new Error("the map switch changed the screens");
-      await P.getByRole("button", { name: first, exact: true }).click({ timeout: 40000 });
+      await P.locator('nav[aria-label="Main"]').getByRole("button", { name: first }).click({ timeout: 40000 });
       await P.locator(".leaflet-tile-pane").first().waitFor({ state: "attached", timeout: 40000 });
       const darkMap = await tileFilter(P);
       if (!darkMap || !darkMap.includes("invert")) throw new Error("the map tiles have no dark filter: " + darkMap);

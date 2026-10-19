@@ -169,6 +169,21 @@ try {
     if (paid < 1000) throw new Error("the base tick was not paid/confirmed: " + paid);
   });
 
+  await step("while the ride runs, the Ride / Drive switch is closed in both faces and says why", async () => {
+    const tabsOf = (p) => p.locator('nav[aria-label="Main"]');
+    const sw = (p, name) => p.getByRole("group", { name: "Ride or drive" }).first().getByRole("button", { name });
+    await tabsOf(D).getByText("Account", { exact: true }).click();
+    await sw(D, "Ride").evaluate((b) => b.click()); // a notice banner may cover the switch for a few seconds: tap it in the page itself
+    await D.getByText("Finish your drive first.").first().waitFor({ timeout: 5000 });
+    await tabsOf(D).getByText("Drive", { exact: true }).click();
+    await openSheet(D); // a trip sheet starts collapsed each time its screen is drawn again
+    await tabsOf(R).getByText("Account", { exact: true }).click();
+    await sw(R, "Drive").evaluate((b) => b.click());
+    await R.getByText("Finish or close your ride first.").first().waitFor({ timeout: 5000 });
+    await tabsOf(R).getByText("Ride", { exact: true }).click();
+    await openSheet(R);
+  });
+
   await step("drive ~1.2 miles for 70 s; a minute tick and a mile tick are paid", async () => {
     const steps = 22; const total = 1950; // metres
     for (let i = 1; i <= steps; i++) {

@@ -2,8 +2,8 @@
 
 Last updated with: **the Wallets section (currency, ecash, cash out location and the Lightning wallet in one place, Add funds by Lightning or on-chain, Send beside it), settings saved to your relays by themselves, two dark switches (application and map), up to 3 vehicle photos, a cash out location that is optional, an address search that shows only what the active box needs (its map button first, its 3 recent places below), sending ecash to another wallet (a token or Lightning), "Automatically cash out at", a live ecash balance, the estimate below Paid, Add stop / update fare with an estimated change, seconds on the trip clock, default rates $1.50 / $1.10 / $0.20, no car-confirmation button (the start-code field is shown at once), dark mode, a password eye, "Cash out location", no flat price or counter-offer, a wide start-code field, phone-sized screens (pinned main buttons), one 4-digit start code typed only by the rider, I've arrived within 150 m, a 12-word recovery phrase for the ecash wallet, collapsible Account sections, vouches ("I know and trust this person") in place of star ratings, pay-as-you-ride ecash payments, Finish ride (no cancellations), start codes, local currency** (see the [changelog](#changelog)).
 
-NostrRide is a decentralized ridesharing system. It is **two web apps** — a rider app and a driver
-app — that find each other through **Nostr relays**. There is no company server and no database.
+NostrRide is a decentralized ridesharing system. It is **one web app with two faces**: **Ride** (a passenger) and **Drive** (a driver). A person switches between them with a switch (*Ride | Drive*);
+people using the two faces find each other through **Nostr relays**. There is no company server and no database.
 The rider pays the driver **while the ride runs**, in small **ecash** payments (Cashu) from the rider's wallet.
 Lightning (through a connected NWC wallet, or any wallet) fills the ecash wallet and pays tips. There are **no cancellations and no cancellation fees**: either person finishes the ride, and the rider pays what the ride earned.
 
@@ -12,10 +12,10 @@ Lightning (through a connected NWC wallet, or any wallet) fills the ecash wallet
 
 ## Contents
 1. [Quick start](#quick-start)
-2. [The two apps](#the-two-apps)
+2. [The app: Ride and Drive](#the-app-ride-and-drive)
 3. [How a ride works](#how-a-ride-works)
 4. [Pay as you ride (ecash) and finishing a ride](#pay-as-you-ride-ecash-and-finishing-a-ride)
-5. [During a trip (both apps)](#during-a-trip-both-apps)
+5. [During a trip (both faces)](#during-a-trip-both-apps)
 6. [Driver rates (each driver sets their own)](#driver-rates-each-driver-sets-their-own)
 7. [The fare (each driver's own rates)](#the-fare-each-drivers-own-rates)
 8. [Tips (optional, any time after the ride)](#tips-optional-any-time-after-the-ride)
@@ -37,7 +37,7 @@ Lightning (through a connected NWC wallet, or any wallet) fills the ecash wallet
 24. [Configuration](#configuration)
 25. [Testing](#testing)
 26. [Deploying](#deploying)
-27. [Separate repositories (generated)](#separate-repositories-generated)
+27. [The old separate repositories (retired)](#the-old-separate-repositories-retired)
 28. [Self-hosting map services](#self-hosting-map-services)
 29. [Trying it on an iPhone](#trying-it-on-an-iphone-without-the-apple-developer-program)
 30. [Known limits and roadmap](#known-limits-and-roadmap)
@@ -46,18 +46,27 @@ Lightning (through a connected NWC wallet, or any wallet) fills the ecash wallet
 ## Quick start
 ```bash
 npm install
-npm run dev        # rider http://localhost:5173 , driver http://localhost:5174
+npm run dev        # http://localhost:5173
 npm test           # automated checks
-npm run build      # dist/rider and dist/driver
+npm run build      # dist/nostrride
 ```
-Open the two apps in two browser windows and sign in with a different account in each.
+To play both sides of a ride, open the app in two browser windows (or one normal and one private window), sign in with a different account in each, and set one to **Drive** with the switch.
 Needs internet for fonts, the map, and the relays. Location needs `https://` or `localhost`.
 
-## The two apps
-| | Rider app (`apps/rider`, `src/rider`) | Driver app (`apps/driver`, `src/driver`) |
+## The app: Ride and Drive
+One app (`apps/nostrride` is the entry page, `src/app/App.jsx` the shell). After signing in, a person uses it as a **passenger** (the *Ride* face) or as a **driver** (the *Drive* face) and switches with the **Ride | Drive** switch.
+The switch is at the top of every main screen (the Home map, Activity / Earnings, Account) and is not drawn during a trip. The choice is saved per account on the device (`lib/mode.js`, `nostrride_mode_<key>`); a new account starts in Ride.
+Only **one face runs at a time**: a switch remounts the role state (`RiderProvider` or `DriverProvider`), so the app never pays ticks as a rider while it sends a driver's car location.
+- **Closed during a ride.** While a ride request is open (waiting, or under way) the Ride face cannot switch; while a drive is under way the Drive face cannot switch. Tapping the other side then shows why ("Finish or close your ride first." / "Finish your drive first.").
+- **Online driver.** Switching away from Drive while online asks first ("You will go offline, and riders will not see your car."): *Stay* keeps them online, *Switch* takes them offline.
+- **One wallet.** The ecash wallet, its 12 recovery words, the key, the profile and all settings belong to the person, not to a face: both faces use the same saved wallet. (Before, the rider and the driver app were two pages with two wallets and two sets of words.)
+  The 12 words are still made on, and kept on, each *device*: the same nsec on a second phone has its own words (restore the money with *Restore ecash from 12 words*).
+- **No rides with yourself.** The Drive face never lists your own requests, a rider ignores an offer signed by the request's own author, and `consentedDrive` refuses a request you wrote.
+
+| | Ride face (`src/rider`) | Drive face (`src/driver`) |
 |---|---|---|
 | Tabs | Ride · Activity · Account | Drive · Earnings · Account |
-| Account | Every setting is a section that opens and closes (closed at first; what you opened is remembered on the device) | The same |
+| Account | Every setting is a section that opens and closes (closed at first; what you opened is remembered on the device). The same sections in both faces: Appearance (dark switches, Units), Wallets, Recovery phrase, Your vouches, Blocked people, Nostr relays, Your keys, Contact methods | Plus Vehicle & plate, Your rates, Gender, Driving |
 | Tab bar | Always visible, on every screen | Always visible, on every screen |
 | Home | "Where to?" → the suggested fare → request | GO button → request cards (accept or decline) |
 | During a trip | Live car, ETA, **your ecash balance**, fare so far, paid, estimated total, start code, contact, **Finish ride**, **Add stop / update fare** | Route, arrived (within 150 m) / start code / **Finish ride**, fare and payments so far |
@@ -86,7 +95,7 @@ The password starts hidden each time the page is drawn.
 
 **Cash out location.** *Account → Wallets → Cash out location* (both apps) is where the person's Lightning address is kept (`lud16` in the profile, checked when saved). It is **optional**: a driver can go online
 without it and keep the ecash in the wallet. With it, a driver or a rider can *Cash out*, a driver can use *Automatically cash out at*, and a rider's tip goes there (without it the tip screen says the driver has no Lightning address).
-The profile (kind 0) is shared by the Rider and Driver apps, so an address saved in one app is the same in the other: the other app reads it at login, every 5 minutes and when it comes back to the front. A profile save writes only the fields it changes
+The profile (kind 0) is shared by every device the person signs in on (and by other Nostr apps), so an address saved on one phone is the same on another: the app reads it at login, every 5 minutes and when it comes back to the front. A profile save writes only the fields it changes
 (`src/lib/profilecontent.js`), so an app that was opened before the other one saved never writes its old copy back over the new address, vehicle, rates or gender. (It was called *Lightning address*.)
 
 **Wallets.** *Account → Wallets* (both apps) holds everything about money, top to bottom: **Currency** (first), the **ecash wallet** ("Add ecash here before you ride.", the balance, **Add funds** and **Send** side by side, *Automatically cash out at* for a driver, the mint),
@@ -94,9 +103,9 @@ The profile (kind 0) is shared by the Rider and Driver apps, so an address saved
 | Money | An ecash wallet (fill it with Lightning) | An ecash wallet (cash out to the **cash out location**, a Lightning address) |
 | Needs | Ecash in the wallet before the ride starts | Face photo, vehicle and vehicle photo, plate (a cash out location is optional) |
 
-Both apps share one code base for Nostr, maps, payments, profiles and UI (`src/nostr`, `src/lib`,
-`src/ui`, `src/features`, `src/state`). The rider app must never import from `src/driver`, and the
-reverse. The Vite *mode* picks the app (`vite --mode rider|driver`).
+Both faces share one code base for Nostr, maps, payments, profiles and UI (`src/nostr`, `src/lib`,
+`src/ui`, `src/features`, `src/state`). The Ride face (`src/rider`) must never import from `src/driver`, and the
+reverse; `src/app` is the only place that knows both. The face is chosen at run time (`lib/mode.js`, `config/app.js setAppRole`), not at build time.
 
 ## How a ride works
 1. The driver taps **GO** (needs a good or an *approximate* GPS fix, see [Location and GPS](#location-and-gps)). The app shares an approximate location.
@@ -405,7 +414,7 @@ user action ─▶ signed Nostr event ─▶ relays (and a local cache)
 relays ─▶ local cache ─▶ screens read it with relay.query()
 ```
 - `src/state/AppContext.jsx` — shared state (`useApp()`): user, tab, ride requests, `publish`, notices, local currency and BTC prices, the ecash wallet, the NWC wallet.
-- `src/rider/state/RiderContext.jsx`, `src/driver/state/DriverContext.jsx` — role state.
+- `src/app/App.jsx` — the shell: sign-in, then one face at a time. `src/rider/state/RiderContext.jsx` (Ride) and `src/driver/state/DriverContext.jsx` (Drive) are the role state; `src/ui/ModeSwitch.jsx` is the switch and `src/lib/mode.js` remembers the face per account.
 - `src/lib/trips.js` — works out the current ride from events (`activeRideFor`, `activeDriveFor`, offers).
 - `src/lib/rides.js` — the **trust rules** (who may finish a ride or mark a stage), and the trip counts.
 - `src/lib/vouches.js`, `src/nostr/vouchSync.js`, `src/ui/VouchBadge.jsx`, `src/features/profile/VouchesSection.jsx` — the vouch list, the one-hop reading of it, the badge, and the Account section.
@@ -497,7 +506,7 @@ Either side can block. The block list is **local to the app on this device**, an
   nobody). A rider's request carries the tokens of the drivers the rider blocked; a driver's presence carries the tokens of the riders the driver blocked. Each app checks its own token and hides what hides it.
   If a rider blocks a driver while a request is open, the request is published again with the new list. This is a courtesy between honest apps, not a lock: someone who changes their app can still read public events.
 - Block from a person's profile (tap their name or photo), or from the receipt or trip summary. Manage the list in Account → Blocked people.
-- Not synced across devices or between the two apps yet.
+- The block list is saved in the encrypted settings backup, so it follows the person to a new phone. It is not a shared Nostr mute list (NIP-51) yet.
 
 ## Vouches ("I know and trust this person")
 The app has **no star ratings and no reviews**, because both are easy to fake. The only kind of reputation is a **vouch**: "I know and trust this person."
@@ -543,7 +552,7 @@ There is no escrow, so the apps keep a signed trail:
 - **Notifications.** While the app is open (even in a background tab) alerts also show as system notifications, through the service worker, which works on phones. **No push when the app is closed:** that needs a push server (self-hosted ntfy or UnifiedPush, or Firebase in the native app). Not built yet.
 
 ## Native app and background GPS
-A web page cannot read the location with the screen off. `native/` wraps the **driver app** in a Capacitor shell that uses a background location plugin (Android foreground service, iOS background mode). Inside the shell the app sends a location on every fix, and skips the wake lock and service worker. In a browser nothing changes. See `native/README.md` for the steps and permissions. **This part is written and unit-tested with a fake plugin but has not been run on a real phone.**
+A web page cannot read the location with the screen off. `native/` wraps the **app** (its Drive face needs this) in a Capacitor shell that uses a background location plugin (Android foreground service, iOS background mode). Inside the shell the app sends a location on every fix, and skips the wake lock and service worker. In a browser nothing changes. See `native/README.md` for the steps and permissions. **This part is written and unit-tested with a fake plugin but has not been run on a real phone.**
 
 ## Configuration
 | What | Where |
@@ -572,26 +581,15 @@ payments, a refill after the ride, and a waiver with a refund. The vouch badge w
 **Never run against a public mint, and never on a real phone.**
 
 ## Deploying
-`npm run build` makes `dist/rider` and `dist/driver`. Put each on any static host (for example
-`ride.example.com` and `drive.example.com`). Use `https://` (location needs it). Each app keeps its own
-saved key in the browser.
+`npm run build` makes `dist/nostrride`. Put it on any static host (for example `ride.example.com`). Use `https://` (location needs it). The app keeps one saved key (`nostrride_key`) and one wallet in the browser.
+**Moving from the old two apps:** the new app starts with an empty browser store at a new address. Deployed at the old *rider* address it keeps that browser's saved key and wallet. The old *driver* address had its own wallet: sign in at the new address, then use
+*Account → Recovery phrase → Restore ecash from 12 words* with the words of that old driver wallet (it moves the money into the new wallet), or *Send* the ecash as a token from the old page first.
 The built pages carry a Content-Security-Policy (`<meta>`, `csp.mjs`). If the host lets you set headers, also send `Content-Security-Policy: frame-ancestors 'none'` (a `<meta>` tag cannot set it) so the pages cannot be framed by another site.
 A host that adds its own scripts to pages (an analytics snippet, for example) will be blocked by the policy: that is on purpose.
 
-## Separate repositories (generated)
-Two repositories hold one app each: `trevthom/nostr-ride-rider` and `trevthom/nostr-ride-driver`.
-They are **generated copies**. This repository (`nostr-ride`) is the source of truth.
-Do not edit code in the copies. Change it here, then run:
-
-```
-node scripts/export-apps.mjs --push            # both apps
-node scripts/export-apps.mjs --push --only rider
-node scripts/export-apps.mjs --out ../out      # write files only, no push
-```
-
-The script copies the shared code and one app, drops the other app, writes a `package.json`,
-`vite.config.js` and docs for that app, then commits and pushes to `main` of the copy.
-Each copy installs, tests and builds on its own.
+## The old separate repositories (retired)
+Until now two generated repositories held one app each: `trevthom/nostr-ride-rider` and `trevthom/nostr-ride-driver`. They are **retired**: this repository now builds ONE app with both faces, `scripts/export-apps.mjs` is removed, and the two copies are no longer updated.
+Their last version is the app as it was before the Ride / Drive switch.
 
 ## Self-hosting map services
 The app uses three free public services. They are fine for development but not for real traffic.
@@ -641,6 +639,7 @@ To switch, copy `env.example` to `.env`, set `VITE_TILE_URL` (and `VITE_PHOTON_U
   and a cancel rate on profiles.
 
 ## Changelog
+- **One app with a Ride / Drive switch; Units under Appearance** — (1) The separate rider and driver apps are now ONE app (`apps/nostrride`, `src/app/App.jsx`). A person signs in once and switches between the **Ride** and **Drive** faces with a switch at the top of Home, Activity / Earnings and Account (`ui/ModeSwitch.jsx`); the face is saved per account on the device (`lib/mode.js`). One face runs at a time; the switch is closed while a ride is under way (and says why), and asks first when a driver is online. The role is no longer a build setting: `config/app.js` has live `APP_ROLE` / `IS_DRIVER_APP` moved by `setAppRole`. One saved key (`nostrride_key`), one wallet and one set of 12 words per device, so the two-wallet problem of two separate pages is gone. The sign-in page is the same for everyone. Removed: `apps/driver`, `src/rider/App.jsx`, `src/driver/App.jsx`, `scripts/dev.mjs`, `scripts/export-apps.mjs` (the two generated repositories are retired), the `rider` and `driver` Vite modes and `__APP_ROLE__`. `npm run dev` starts one server (5173); `npm run build` makes `dist/nostrride`. The service worker cache is `nostrride-v3` (phones drop the old shell). (2) *Units* is now inside *Appearance*. (3) `consentedDrive` refuses a request written by the same key. Tests: `mode`; browser runs: `scripts/e2e/mode.mjs` (new), the others now run the one app (`h.driverUrl` is the same page asking for the Drive face).
 - **Wallets, settings saved for you, two dark switches, on-chain funding, 3 vehicle photos** — (1) *Account → Wallets* (both apps) now holds the currency (first), the ecash wallet with **Add funds** and **Send** side by side ("Add ecash here before you ride."), the cash out location (now in the rider app too, and shared with the other app through the profile), and the Lightning wallet (NWC); the separate Ecash wallet, Currency, Cash out location and Lightning wallet sections are gone. A profile save now writes only the fields it changes (`profileContent`), so the two apps never write an old address, vehicle, rate or gender over each other. (2) The **Backup** section is gone: the encrypted note on the relays is always on (`useBackup` has no switch); the first note is sent when none exists. (3) **Dark Mode (application)** no longer darkens the map and has no description; **Dark Mode (map)** is a second switch for the map only (`dark-map`, `nostrride_darkMap`). (4) **Add funds on-chain** (NUT-30): a bitcoin address from the mint, claimed with a key from the recovery seed, only on mints that support it; addresses are kept in the backup; restore claims unclaimed deposits. (5) A driver can add **up to 3 vehicle photos**; one is needed to drive (`picture` + `morePictures`). (6) The *Your vouches* text is shorter. New: `lib/profilecontent.js`, `features/profile/WalletsSection.jsx`, `features/payments/OnchainFunds.jsx`, `EcashWallet.onchainStart/claimOnchain`, `vehiclePhotos`, `useDarkMap`; tests `onchain`, `profilecontent`, `vehiclephotos`, `appearance`; browser runs `scripts/e2e/wallets.mjs`, `appearance.mjs`. Not changed: the 12 words are still separate for each app (a shared set would have to be made from the nsec, which gives up the rule that a leaked nsec cannot reach the ecash).
 - **Security fixes after an audit** — (1) A driver's answer "refused" no longer makes the rider pay the same payment again: the rider's app first takes its own token back from the mint; if the mint says it is spent, the payment counts as paid. (2) The distance in a finish event (and a distance reported live) is held to what the rider's phone can believe, and to what the clock allows; each ride has a spending cap (3 × the quoted fare, at least 10 US dollars) and stops with "Allow more"; a BTC price far from the last good one waits for confirmation. (3) A request that names a driver puts the driver on a ride only if the driver offered and the rider accepted (before, any stranger could make a driver's app send its live position). (4) The driver cannot start the meter alone: "riding" counts only after the rider typed the start code. (5) Agreed rates and mint never fall back to a newer offer; the estimated fare shown is worked out from the rates, not taken from the driver's number; a mint the rider has not used needs a yes before adding funds; refunds are accepted only at the ride's mint. (6) Requests go to vouched drivers first, then the nearest, then random ones, so fake drivers at the pickup cannot fill every place; presence time is bounded; block tokens can no longer be tested by strangers; a flood of gift wraps cannot freeze the app.
 - **Sealed jobs** — Every job event (requests, offers, stages, ticks, payments…) is sent only inside NIP-44 gift wraps (kind 1059); relays cannot read kind, tags, places or prices. A request goes to the online drivers near the pickup; a driver who comes online later gets it from the rider's app, so the rider keeps the app open while waiting. Relays must accept and keep kind 1059. Also: total miles driven in the profile (self-reported in kind 0 `stats`).

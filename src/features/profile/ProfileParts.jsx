@@ -75,7 +75,7 @@ export function AccountHeader({ photoRequired = false }) {
     }
   };
   const commit = () => {
-    save({ name: draft.trim() || (IS_DRIVER_APP ? "Anonymous Driver" : "Anonymous Rider") });
+    save({ name: draft.trim() || "Anonymous" });
     setEditing(false);
   };
 

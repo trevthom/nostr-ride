@@ -10,6 +10,7 @@ import { relay } from "../../nostr/relay.js";
 import { completedDrives, summarizeEarnings } from "../../lib/earnings.js";
 import { exactTrip } from "../../lib/privacy.js";
 import { Screen } from "../../ui/Layout.jsx";
+import { ModeSwitch } from "../../ui/ModeSwitch.jsx";
 import Money from "../../ui/Money.jsx";
 import Icon from "../../ui/Icon.jsx";
 
@@ -32,7 +33,7 @@ export default function EarningsScreen() {
   const shown = drives.filter((d) => d.at * 1000 >= since);
 
   return (
-    <Screen title="Earnings">
+    <Screen title="Earnings" right={<ModeSwitch />}>
       <div className="flex bg-neutral-100 p-1 rounded-full mb-5" role="tablist">
         {PERIODS.map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={period === id} onClick={() => setPeriod(id)}

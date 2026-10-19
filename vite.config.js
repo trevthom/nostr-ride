@@ -13,41 +13,37 @@ const buildId = () => {
   return new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC" + (sha ? " · " + sha : "");
 };
 
-// One repo, two separate apps. The Vite "mode" picks which one:
-//   vite --mode rider    → apps/rider  (port 5173, builds to dist/rider)
-//   vite --mode driver   → apps/driver (port 5174, builds to dist/driver)
-// Both share the code in src/ (Nostr protocol, libs, UI kit); each has its
-// own entry page, screens, and build output, so they deploy independently.
-// `__APP_ROLE__` is replaced at build time (see src/config/app.js).
-export default defineConfig(({ mode }) => {
-  const role = mode === "driver" ? "driver" : "rider";
+// One app: apps/nostrride (the entry pages) + src/ (the code). It has two faces, Ride and Drive, chosen at run time by a switch in
+// the app (src/app/App.jsx); the role is NOT a build setting any more.
+//   vite            → dev server on port 5173
+//   vite build      → dist/nostrride  (static files; the pages use relative paths)
+//   vite preview    → port 4173
+// The app also ships the "follow a shared trip" page (track.html).
+export default defineConfig(() => {
   return {
-    root: `apps/${role}`,
+    root: "apps/nostrride",
     envDir: fileURLToPath(new URL(".", import.meta.url)), // .env lives at the repo root
     plugins: [react(), cspPlugin()],
     // Tailwind CSS v3 is built into the app's own CSS (src/tailwind.css); no script from a CDN runs in the page.
     css: { postcss: { plugins: [tailwindcss(fileURLToPath(new URL("./tailwind.config.js", import.meta.url))), autoprefixer()] } },
-    define: { __APP_ROLE__: JSON.stringify(role), __BUILD_ID__: JSON.stringify(buildId()) },
+    define: { __BUILD_ID__: JSON.stringify(buildId()) },
     server: {
-      port: role === "driver" ? 5174 : 5173,
-      // The pages live in apps/<role> but import from the repo's src/.
+      port: 5173,
+      // The pages live in apps/nostrride but import from the repo's src/.
       fs: { allow: [fileURLToPath(new URL(".", import.meta.url))] },
     },
-    preview: { port: role === "driver" ? 4174 : 4173 },
+    preview: { port: 4173 },
     build: {
-      outDir: `../../dist/${role}`,
+      outDir: "../../dist/nostrride",
       emptyOutDir: true,
       // The map library (Leaflet) is large; give it its own file so
       // it's cached separately and doesn't bloat the main bundle.
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
-        // The rider app also ships the "follow a shared trip" page (track.html).
-        input: role === "rider"
-          ? {
-              index: fileURLToPath(new URL("./apps/rider/index.html", import.meta.url)),
-              track: fileURLToPath(new URL("./apps/rider/track.html", import.meta.url)),
-            }
-          : undefined,
+        input: {
+          index: fileURLToPath(new URL("./apps/nostrride/index.html", import.meta.url)),
+          track: fileURLToPath(new URL("./apps/nostrride/track.html", import.meta.url)),
+        },
         output: {
           manualChunks: {
             leaflet: ["leaflet"],

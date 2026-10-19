@@ -9,6 +9,7 @@
 import { useApp } from "../../state/AppContext.jsx";
 import { useDriver } from "../state/DriverContext.jsx";
 import { Screen } from "../../ui/Layout.jsx";
+import { ModeSwitch } from "../../ui/ModeSwitch.jsx";
 import { Toggle, inputCls } from "../../ui/Parts.jsx";
 import { AccountHeader, ContactMethods, RelaysSection, BlockedSection, LogoutButton, useSaveProfile } from "../../features/profile/ProfileParts.jsx";
 import VehicleSection from "../../features/profile/VehicleSection.jsx";
@@ -17,7 +18,6 @@ import { driveGaps, gapsText } from "../../lib/profile.js";
 import AppearanceSection from "../../features/profile/AppearanceSection.jsx";
 import VouchesSection from "../../features/profile/VouchesSection.jsx";
 import WalletsSection from "../../features/profile/WalletsSection.jsx";
-import UnitsSection from "../../features/profile/UnitsSection.jsx";
 import { useUnits, distanceIn, milesFrom } from "../../lib/units.js";
 import KeysSection from "../../features/profile/KeysSection.jsx";
 import Icon from "../../ui/Icon.jsx";
@@ -34,7 +34,7 @@ export default function AccountScreen() {
   const save = useSaveProfile();
   const gaps = driveGaps(user);
   return (
-    <Screen title="Account">
+    <Screen title="Account" right={<ModeSwitch />}>
       <div className="space-y-7">
         <AccountHeader photoRequired />
 
@@ -58,7 +58,6 @@ export default function AccountScreen() {
             />
           </Fold>
           <Fold id="appearance" title="Appearance"><AppearanceSection /></Fold>
-          <Fold id="units" title="Units"><UnitsSection /></Fold>
           <Fold id="rates" title="Your rates"><TypicalFareSection rates={user.rates} onSave={(rates) => save({ rates })} locked={onRide} /></Fold>
           <Fold id="ecash" title="Wallets"><WalletsSection locked={onRide} /></Fold>
           <RecoveryFold />

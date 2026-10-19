@@ -1,6 +1,6 @@
 // Shared set-up for the browser end-to-end runs (see README.md in this folder): a local relay, a local Cashu mint that does the
-// real maths, the two production builds served by `vite preview`, and a headless browser with two contexts (rider, driver)
-// whose outside services (geocoder, router, price feed, map tiles) are mocked. The pages are styled exactly as a person sees
+// real maths, the production build of the ONE app served by `vite preview`, and a headless browser with separate contexts
+// (a rider, a driver: the same page, set to the Ride or the Drive face) whose outside services (geocoder, router, price feed, map tiles) are mocked. The pages are styled exactly as a person sees
 // them: Tailwind is built into the app's own CSS file. Every class name that appears on screen during a run is collected, and
 // h.missingStyles(page, role) lists the ones the built CSS has no rule for (a class name built from pieces is not found by
 // Tailwind's scan, and would be unstyled).
@@ -28,8 +28,8 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 const JPEG = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
 
 // The production build, served by `vite preview` (the dev server adds fake demo riders).
-export function startVite(mode, port) {
-  const p = spawn(process.execPath, [`${REPO}/node_modules/vite/bin/vite.js`, "preview", "--mode", mode, "--port", String(port), "--strictPort"], { cwd: REPO, stdio: ["ignore", "pipe", "pipe"] });
+export function startVite(port) {
+  const p = spawn(process.execPath, [`${REPO}/node_modules/vite/bin/vite.js`, "preview", "--port", String(port), "--strictPort"], { cwd: REPO, stdio: ["ignore", "pipe", "pipe"] });
   p.stdout.on("data", () => {}); p.stderr.on("data", (d) => process.env.E2E_VERBOSE && process.stderr.write(d));
   return p;
 }
@@ -42,10 +42,9 @@ export async function boot({ feePpk = 0, driverRates = null } = {}) {
   const relay = await startRelay();
   const mint = await startLocalMint({ feePpk, onchain: true });
   const rider = Keys.generateKeypair(), driver = Keys.generateKeypair();
-  if (!process.env.E2E_NOBUILD) await new Promise((res, rej) => spawn(process.execPath, [`${REPO}/node_modules/vite/bin/vite.js`, "build", "--mode", "rider"], { cwd: REPO, stdio: "ignore" }).on("exit", (c) => (c ? rej(new Error("rider build failed")) : res())));
-  if (!process.env.E2E_NOBUILD) await new Promise((res, rej) => spawn(process.execPath, [`${REPO}/node_modules/vite/bin/vite.js`, "build", "--mode", "driver"], { cwd: REPO, stdio: "ignore" }).on("exit", (c) => (c ? rej(new Error("driver build failed")) : res())));
-  const vr = startVite("rider", 4173), vd = startVite("driver", 4174);
-  await Promise.all([waitHttp("http://localhost:4173/"), waitHttp("http://localhost:4174/")]);
+  if (!process.env.E2E_NOBUILD) await new Promise((res, rej) => spawn(process.execPath, [`${REPO}/node_modules/vite/bin/vite.js`, "build"], { cwd: REPO, stdio: "ignore" }).on("exit", (c) => (c ? rej(new Error("build failed")) : res())));
+  const vr = startVite(4173);
+  await waitHttp("http://localhost:4173/");
   const browser = await chromium.launch({ args: ["--no-sandbox"] });
   const errors = [];
 
@@ -96,7 +95,9 @@ export async function boot({ feePpk = 0, driverRates = null } = {}) {
     return { ctx, page };
   }
 
+  // `appUrl` is riderUrl or driverUrl: the same app. The driver's URL asks for the Drive face (the face is saved per account on the device).
   async function login(page, who, appUrl) {
+    if (appUrl.includes("as=driver")) await page.addInitScript((k) => { try { localStorage.setItem(k, JSON.stringify("drive")); } catch { /* no storage */ } }, "nostrride_mode_" + who.publicKey.slice(0, 16));
     await page.goto(appUrl);
     await page.getByText("I have a key", { exact: true }).click({ timeout: 90000 });
     await page.getByPlaceholder("nsec1...").fill(who.nsec);
@@ -107,16 +108,16 @@ export async function boot({ feePpk = 0, driverRates = null } = {}) {
 
   const stop = async () => {
     await browser.close().catch(() => {});
-    vr.kill(); vd.kill();
+    vr.kill();
     await mint.close(); await relay.close();
   };
   // Class names seen on `page` that the built CSS of `role` has no rule for (marker classes such as "group" have none and are expected).
-  const missingStyles = async (page, role = "rider") => {
-    const dir = `${REPO}/dist/${role}/assets`;
+  const missingStyles = async (page) => {
+    const dir = `${REPO}/dist/nostrride/assets`;
     const css = fs.readdirSync(dir).filter((f) => f.endsWith(".css")).map((f) => fs.readFileSync(`${dir}/${f}`, "utf8")).join("\n");
     const esc = (t) => t.replace(/[^a-zA-Z0-9_-]/g, (c) => "\\" + c);
     const tokens = await page.evaluate(() => [...(window.__seenClasses || [])]);
     return tokens.filter((t) => !css.includes("." + esc(t)) && !/^(group|peer|nr-up)$/.test(t)).sort();
   };
-  return { relay, mint, rider, driver, seedDriver, missingStyles, newKeys: () => Keys.generateKeypair(), browser, errors, newContext, login, stop, riderUrl: "http://localhost:4173/", driverUrl: "http://localhost:4174/" };
+  return { relay, mint, rider, driver, seedDriver, missingStyles, newKeys: () => Keys.generateKeypair(), browser, errors, newContext, login, stop, riderUrl: "http://localhost:4173/", driverUrl: "http://localhost:4173/?as=driver" };
 }

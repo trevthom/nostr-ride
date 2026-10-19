@@ -89,6 +89,7 @@ export default function OnlineHome() {
           <FloatButton icon="locate" label="Center on my location" onClick={() => mapRef.current?.fit()} />
         </>
       }
+      switcher
     >
       {waiting ? (
         <Waiting key={waiting.offer.id} pending={waiting} onStop={() => setIgnored(waiting.offer.id)} />

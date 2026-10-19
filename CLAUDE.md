@@ -4,14 +4,16 @@ Guidance for AI coding agents working in this repo. Read this first; it
 should let you make correct edits without reading every file.
 
 ## What this is
-NostrRide — a decentralized ridesharing system made of **two separate web apps**
-that talk to each other only over **Nostr** (no server, no DB):
+NostrRide — a decentralized ridesharing system: **one web app with two faces**, **Ride** (a passenger) and **Drive** (a driver), chosen with a **Ride | Drive switch** (`src/ui/ModeSwitch.jsx`).
+The people on the two sides talk to each other only over **Nostr** (no server, no DB):
 
-- **Rider app** (`apps/rider`, code in `src/rider`) — Uber/Lyft-style: "Where to?",
+- **Ride face** (`src/rider`) — Uber/Lyft-style: "Where to?",
   fare quote (each driver's own rates), find a driver, watch the car arrive, start with a 4-digit code (shown on the driver's phone, typed by the rider),
   ride while paying in ecash ticks, finish the ride.
-- **Driver app** (`apps/driver`, code in `src/driver`) — Uber-Driver-style: GO online,
+- **Drive face** (`src/driver`) — Uber-Driver-style: GO online,
   incoming request cards, accept, navigate to pickup, arrive (within 150 m) / start code / finish ride, earnings (ecash).
+- **The shell** (`src/app/App.jsx`, entry `apps/nostrride`): sign in once, then ONE face at a time (`RiderProvider` or `DriverProvider`), three tabs per face. See "One app, two faces" below.
+  (Until the Ride / Drive switch there were two separate apps and two generated mirror repos, `nostr-ride-rider` / `nostr-ride-driver`. They are retired: `scripts/export-apps.mjs` is gone and the copies are not updated.)
 
 Stack: **React 18 + Vite**. **Tailwind CSS v3 is built into the app's own CSS** (`src/tailwind.css` + `tailwind.config.js`,
 through PostCSS in `vite.config.js`): no script from another site runs in the page (the apps hold keys and money). Use **v3 only**:
@@ -20,21 +22,15 @@ Full human-readable docs: `docs/index.md` (keep it current).
 Look: white UI, black buttons, bottom sheets over a full-screen map (Inter font).
 
 ## Commands
-- `npm install` then `npm run dev` → starts BOTH apps: rider http://localhost:5173,
-  driver http://localhost:5174 (`scripts/dev.mjs`). Use two browser windows to play both sides.
-  `npm run dev:rider` / `npm run dev:driver` start one.
-- `npm run build` → builds both to `dist/rider` and `dist/driver` (each deploys on its own).
-  `build:rider` / `build:driver` build one. `preview:rider` / `preview:driver` serve a build.
+- `npm install` then `npm run dev` → the app on http://localhost:5173 (`vite`). To play both sides of a ride use two browser windows (one private) with different accounts, one set to **Drive**.
+- `npm run build` → `dist/nostrride` (static files, relative paths). `npm run preview` serves it on 4173.
 - `npm test` → Node's built-in test runner over `test/*.test.mjs` (no extra deps):
   trust rules, ride stages, finishing a ride, fares, trips, earnings, privacy, history, LNURL, geocode, publish,
   event ordering, contact links, GPS quality, payment evidence, blocking, trip sharing, vouches (`vouches`), the recovery phrase and restore (`recovery`, `restore`), native location, outbox, relay health (`relayhealth`), request expiry / blocking both ways / declined offers (`requests`), old flat offers read as standard / driver rates + currencies / exact amounts / tips / pickup change / odometer + 5% rule + GPS gap / stage times / relay filter shape / gender order / driver requirements / **dark mode: application and map (`appearance`), on-chain funding (`onchain`), profile saves that never overwrite the other app (`profilecontent`), up to 3 vehicle photos (`vehiclephotos`), the trip card: low balance / fare-change estimate / trip clock seconds (`tripcard`), ticks, missed payments, final tick, start code, 50 m arrival, silence, waivers, extra stops, frozen rates (`ticks`, `ridepay`, `rideflow`), the ecash wallet incl. paying an invoice and taking a token back (`ecash`), automatic cash out (`autocashout`) and the real `@cashu/cashu-ts` client against a local test mint (`cashu-adapter`, helpers in `test/helpers/`)**. Run it after touching `lib/*`, `nostr/*`, `features/payments/*`.
-- `scripts/e2e/` → optional browser end-to-end run (a rider and a driver, a local relay, the local test mint). Needs `npm i --no-save ws playwright`. Not part of `npm test`.
-- `node scripts/export-apps.mjs [--push] [--only rider|driver] [--out DIR]` → generates the standalone
-  `trevthom/nostr-ride-rider` / `nostr-ride-driver` repos (generated mirrors: never edit them; change code here, re-export).
+- `scripts/e2e/` → optional browser end-to-end runs (a rider and a driver are two browser contexts on the SAME page, the driver's set to the Drive face; a local relay, the local test mint). Needs `npm i --no-save ws playwright`. Not part of `npm test`.
 - No linter configured.
-- The Vite **mode** picks the app (`vite --mode rider|driver`, see `vite.config.js`); it sets
-  `__APP_ROLE__`, read through `src/config/app.js` (`APP_ROLE`, `IS_DRIVER_APP`, `APP_NAME`).
-  Node tests have no such constant and get `"rider"`.
+- The role is NOT a build setting. `src/config/app.js` has `APP_ROLE` ("rider" | "driver"), `IS_DRIVER_APP`, `APP_NAME`, `BUILD_ID`; the first two are **live ES bindings** moved by `setAppRole()`, which `src/app/App.jsx` calls BEFORE it draws a face.
+  Read them while you draw; never copy them into a constant at module level. `IS_DRIVER_APP` = the person is PAID in this face. Node tests never call `setAppRole`, so they get `"rider"`.
 
 ## Architecture (data flow)
 Every user action becomes a **signed Nostr event** → published via
@@ -52,8 +48,8 @@ same screen. Only UI-only things (plan form, which card is open) live in React s
 Shared state: `src/state/AppContext.jsx` (`useApp()`): user, tab (`view`/`setView`),
 `rideRequests`, `publish`, `pullRecent`, notices, `currency`/`prices`/`btcPrice`/`usdPrice`/`priceFor`, `ecash` (the Cashu wallet; loaded on demand), `wallet` (NWC), `liveTick`.
 Role state: `src/rider/state/RiderContext.jsx` (`useRider()`) and
-`src/driver/state/DriverContext.jsx` (`useDriver()`) — mounted only after login, keyed by pubkey.
-No router: each `App.jsx` maps `view` → screen; the tab bar hides during a trip.
+`src/driver/state/DriverContext.jsx` (`useDriver()`) — mounted only after login, ONE at a time (the face on screen; a switch remounts), keyed by pubkey.
+No router: `src/app/App.jsx` maps `view` → screen for the face on screen; the tab bar is always visible.
 Each screen is wrapped in an `ErrorBoundary`.
 
 ## Ride lifecycle (how the two apps connect)
@@ -76,14 +72,13 @@ Reservations (`time` > 30 min away) wait under Activity → Upcoming (`isSchedul
 ## Directory map
 ```
 apps/
-  rider/  index.html main.jsx     # rider entry (Vite root for --mode rider); public/ = manifest, icons, sw.js, theme-init.js
-  driver/ index.html main.jsx     # driver entry; public/ the same (theme-init.js sets the dark look BEFORE the first paint: a plain script from our own files, the CSP allows no inline one)
-scripts/dev.mjs                   # runs both dev servers
-vite.config.js                    # mode → root/outDir/port, defines __APP_ROLE__
+  nostrride/ index.html main.jsx track.html track.jsx   # the one entry (Vite root); track = the "follow a shared trip" page; public/ = manifest, icons, sw.js (cache `nostrride-v3`), theme-init.js (sets the dark look BEFORE the first paint: a plain script from our own files, the CSP allows no inline one)
+vite.config.js                    # root apps/nostrride, port 5173, builds to dist/nostrride; defines __BUILD_ID__
+  app/App.jsx (under src/)        # the shell: sign-in → Session (the saved face) → RideShell | DriveShell, tabs, ModeProvider
 src/
   index.css  theme.js             # font, animations; few colors (THEME)
   config/
-    app.js                        # APP_ROLE / IS_DRIVER_APP / APP_NAME / BUILD_ID (build time + commit, shown in Account)
+    app.js                        # APP_ROLE / IS_DRIVER_APP (live, setAppRole) / APP_NAME / BUILD_ID (build time + commit, shown in Account)
     settings.js                   # tunables: FARE_RATES (USD, no minimum: base 1.50, 1.10/mi, 0.20/min), FALLBACK_BTC_USD, LOW_BALANCE_USD (5),
                                   #   RATE_LIMITS, REQUEST_CARD_SECONDS, OFFER_TTL_SECONDS, DEFAULT_REQUEST_RADIUS_MILES,
                                   #   USE_DEMO_DATA (dev only), CONTACT_PLATFORMS
@@ -91,7 +86,7 @@ src/
     relays.js                     # DEFAULT_RELAYS, getRelays/setRelays/useRelays, getSetting/setSetting (localStorage)
   nostr/
     eventKinds.js                 # EVENT_KINDS + APP_TAG
-    keys.js  keystore.js          # real keys; optional NIP-49 "remember me" (key name differs per app)
+    keys.js  keystore.js          # real keys; optional NIP-49 "remember me" (one saved key: `nostrride_key`)
     events.js                     # createNostrEvent (unsigned, demo) + buildSignedEvent (signed; replaceable kinds get strictly increasing created_at)
     relay.js                      # SimplePool + local cache: publish, publishLocal, query, onEvent, startSync, fetchRecent, fetchProfile, fetchHistory
     replaceable.js  profiles.js   # latestVersions(); getProfile/getMetadata
@@ -133,6 +128,7 @@ src/
     useFareEstimate.js # estimates during a ride: changeRoutes (pure), useChangeEstimate (a new stop / destination: the fare change), useTotalEstimate (the whole ride, re-priced after an accepted change); routes via OSRM (routing.js)
     appearance.js # light/dark look, TWO switches: isDark/setDark (the application, `nostrride_dark`) and isDarkMap/setDarkMap (the map only, `nostrride_darkMap`), saved AT ONCE; applyAppearance (the `dark` and `dark-map` classes on <html> + <meta theme-color>), useDark/useDarkMap
     profilecontent.js # profileContent(base, next, patch): what a kind-0 save writes: ONLY the fields the patch changes, the rest from the newest profile (shared with the other app)
+    mode.js       # the face per account (`nostrride_mode_<pk16>`): getMode/saveMode/roleOf, TABS/FIRST/viewFor (the tab on screen belongs to the face)
     backup.js     # the encrypted settings note (kind 30111, always on; state/useBackup.js sends it)
     recovery.js   # the 12-word recovery phrase (pure): newPhrase/cleanPhrase/checkPhrase/seedOf/pickCheckPositions/checkAnswers/boxKey (@scure/bip39; HKDF)
     vouches.js    # "I know and trust this person": parsePubkey (npub; an nsec is refused), vouchEvent/vouchList (kind 30102), trustFor(target, me) = {direct, via} (ONE hop, only through people I vouch for), trustHeadline/trustDetail (the badge words)
@@ -147,23 +143,24 @@ src/
     MapView.jsx   # Leaflet + OpenStreetMap tiles; pins, OSRM route, cars, "me" dot, price pills, ref.fit(); trip mode (`navigation` + `follow`)
     FareEstimate.jsx # the ESTIMATE look (dashed outline, ≈, muted italic): EstimatedTotal (fare card, both apps), ChangeEstimate (a proposed stop / destination)
     Button.jsx Icon.jsx Avatar.jsx Money.jsx Parts.jsx (Row, Toggle, Field, ConfirmDialog, Modal, Spinner)
+    ModeSwitch.jsx # the Ride | Drive switch + ModeProvider (lock = the closed-switch sentence, warn = ask first); MapPage `switcher` draws it under the map's top row, Screen `right` holds it elsewhere
     Fold.jsx      # a section that opens and closes (Account); openFold(id); FoldTitle/SectionLabel draw nothing inside a Fold (the header has the title)
     AmountInput.jsx (local currency or sats, unit swap; tips, funds, waivers)  PasswordField.jsx (password input with a show/hide eye)  TripMeter.jsx (time + distance card, peekMeter)  VouchBadge.jsx ContactSheet.jsx UserModal.jsx NoticeBanner.jsx ErrorBoundary.jsx RelayEditor.jsx QRCode.jsx SatsAmount.jsx
   features/
     auth/        AuthScreen (role-aware copy) + AuthSteps (unlock, key backup)
     profile/     ProfileParts (useSaveProfile, AccountHeader, ContactMethods, RelaysSection, LogoutButton),
-                 WalletsSection (Account → Wallets: Currency, then the ecash wallet with the cash out location and the Lightning wallet inside), AppearanceSection (Dark Mode (application) and Dark Mode (map)), VehicleSection (up to 3 photos), VouchesSection ("Your vouches": npub in, list out), TypicalFareSection ("Your rates", locked during a ride), CurrencySection, LightningAddressSection, WalletSection, KeysSection
+                 WalletsSection (Account → Wallets: Currency, then the ecash wallet with the cash out location and the Lightning wallet inside), AppearanceSection (Dark Mode (application), Dark Mode (map) and Units), VehicleSection (up to 3 photos), VouchesSection ("Your vouches": npub in, list out), TypicalFareSection ("Your rates", locked during a ride), CurrencySection, LightningAddressSection, WalletSection, KeysSection
     ecash/       EcashSection (balance, Send, mint, paste a token, back up, driver cash out + Automatically cash out), SendEcash (token or Lightning), AutoCashOutField, useAutoCashOut, RecoverySection (RecoveryFold + RecoveryNotice: write down 12 words, show again, I-lost-a-phone) + RestorePanel, myMint.js
     payments/    PayDriver (a Lightning address: tips), AddFunds (Lightning tab: mint invoice → ecash, NWC or any wallet; On-chain tab: OnchainFunds, a bitcoin address from the mint), rideTicks.js (rider: payDue), redeemTicks.js (driver: redeem + reply),
                  redeemWaivers.js (rider: collect refunds), useRideLink.js (quiet phone, sign of life, 10-minute silence)
-  rider/
-    App.jsx  state/RiderContext.jsx
+  rider/                          # the Ride face
+    state/RiderContext.jsx
     screens/ HomeScreen (dispatch) PlanTrip (idle/search/pin/quote) ActiveTrip (searching/choose/confirm driver)
              OnTrip (enroute/arrived/riding) Receipt  ActivityScreen  AccountScreen
     state/ useRiderMeter (rider's own odometers + the 5% rule)
     components/ PlaceSearch, PinPicker (drag the map under a pin → the pickup OR the drop-off: `field`), GenderPref, ChangePickup, AddStop, FareTerms, TipSheet, DriverInfo (+ Plate, useDriverInfo)
-  driver/
-    App.jsx  state/DriverContext.jsx  state/useDriveOdometer.js
+  driver/                         # the Drive face
+    state/DriverContext.jsx  state/useDriveOdometer.js
     screens/ HomeScreen (dispatch) Onboarding OnlineHome (offline GO / online / incoming card / waiting) NearbyRequests (the list)
              DriveTrip  DriveSummary  EarningsScreen  AccountScreen
     components/ RiderInfo, Checklist
@@ -202,6 +199,16 @@ test/*.test.mjs
 `rideStatus` ∈ `requested | in_progress | completed | closed` (an old request marked `cancelled` reads as `closed`). A ride that ends
 after the `riding` marker is `completed`; one that ends before it is `closed` (nothing owed). The rider's `in_progress` version also
 carries `driverPubkey`. Stage is `enroute` (default) → `arrived` → `riding`.
+
+## One app, two faces (read before editing)
+- **One face at a time.** `src/app/App.jsx`: `Gate` (sign-in) → `Session` (state `mode`, saved per account by `lib/mode.js`; calls `setAppRole()` while rendering, BEFORE the face's children draw) → `RideShell` inside `RiderProvider`, or `DriveShell` inside `DriverProvider`. A switch remounts the role state, so the app never pays ticks as a rider while it broadcasts a driver's location.
+  Views: Ride `home | activity | account`, Drive `drive | earnings | account` (`TABS`/`viewFor` in `lib/mode.js`; `account` is in both). `AppProvider` (user, relays, wallet, settings, backup) stays mounted across switches.
+- **The switch (`ui/ModeSwitch.jsx`)**: `ModeProvider` gets `lock` (a sentence: the switch is closed and a tap shows it as a notice; the button is `aria-disabled`, NOT `disabled`, so a tap still explains) and `warn` (switching costs something: a ConfirmDialog first). `RideShell` locks while `activeRide` (waiting or under way); `DriveShell` locks while `activeDrive` and warns while `online`
+  (confirming calls `goOffline()` first). The switch is drawn on Home (`MapPage switcher`, idle plan / driver map only), Activity, Earnings, Account and the driver's Onboarding; never during a trip. Do not offer it on a trip screen.
+- **One wallet, one phrase, one key per device**: both faces use the same saved `ecash_<pk16>` wallet, the same `ecashphrase_<pk16>` words and the same `nostrride_key`. The words are still per DEVICE, not derived from the nsec (see the recovery rule).
+- **No rides with yourself** (the same key has both faces): the driver's `open` list skips own requests, `validOffers` skips the request author's own offers, `AudienceSync`/`audienceFor` and presence skip `me`, and `consentedDrive` refuses a request written by `me`.
+- **src/rider and src/driver never import each other**; `src/app` is the only place that knows both. Role-specific text reads `IS_DRIVER_APP` while drawing (never at module level). Neutral things (the sign-in page, the default name "Anonymous") do not depend on the face.
+- **E2E**: the rider and the driver are two browser contexts on the same page. The harness seeds the Drive face for `h.driverUrl` (`?as=driver`) by writing `nostrride_mode_<pk16>` before the page loads; `scripts/e2e/mode.mjs` covers the switch.
 
 ## Invariants & gotchas (read before editing)
 - **Trust rules (lib/rides.js)**: relay events are signed, but anyone can sign
@@ -319,9 +326,9 @@ carries `driverPubkey`. Stage is `enroute` (default) → `arrived` → `riding`.
   and after reload. Ephemeral kinds are never queued. Pools use `enableReconnect`.
 - **Safety / share**: `RiderContext` holds the share state (`share`, `startShare`, `stopShare`, `shareUpdate`);
   `OnTrip` pushes updates every `LOCATION_PING_MS` (6 s, config/settings.js: the SAME constant as the driver's location pings) with `sharePayload` (lib/safety.js): the RIDER's own phone position (`who:"rider"`,
-  left out when the fix is stale) and the car (`carPos`) only until the ride starts; `sharedPositions` is what `src/rider/Track.jsx` (apps/rider/track.html, built with the rider app, the viewer) draws (an older app's
+  left out when the fix is stale) and the car (`carPos`) only until the ride starts; `sharedPositions` is what `src/rider/Track.jsx` (apps/nostrride/track.html, the viewer) draws (an older app's
   lat/lng is the car). The share key is only ever in the URL fragment.
-- **Service worker** (`apps/*/public/sw.js`, production only): caches the shell and hashed assets; never touches
+- **Service worker** (`apps/nostrride/public/sw.js`, production only): caches the shell and hashed assets; never touches
   relays, tiles or APIs. It cannot receive push while the app is closed. Native shell (`native/`) skips it.
 - **Fares** (`lib/fare.js`): one fare, each driver's own rates (`fareMode:"standard"`; the request's `fareSats` is only an estimate). The rider names no price and a driver does not counter (the flat price was removed on purpose: do not add it back).
   `acceptRequest(request)` sends an offer with `mode:"metered"`. The confirm screen's "Needed to start" is `startParts` in `ActiveTrip.jsx`: base + 2 minutes + 1 mile (a cushion so the first payments are never late; it explains itself on screen).
@@ -396,10 +403,10 @@ carries `driverPubkey`. Stage is `enroute` (default) → `arrived` → `riding`.
   on touch screens (`pointer: coarse`) every field is at least 16px (iOS zooms the page on a smaller one); the desktop look is unchanged (`max-w-md` column). The main button(s) of a sheet go in `<StickyActions>` (Request ride, Accept, Confirm driver, I've arrived / Start trip / Finish ride): they stay at the bottom of the
   sheet's scroll area so a short phone never has them below the fold (they scroll normally on a phone held sideways, `max-height: 480px`). Put what a person needs FIRST (the driver's start code) above the sticky bar's reach, at the top of the sheet. `Button` is `w-full` by default: next to an input in one flex row it squeezes the input (the 4-digit start code once showed two digits), so stack them or pass `full={false}`. Flex rows that hold an input need `min-w-0` on the flex child (the search fields once ran off a 360 px screen);
   below 380 px wide use `max-[380px]:` to drop icons or labels (`sr-only`, so the accessible name stays). At most two notices show at once (`NoticeBanner`). The map's credit line sits just above the sheet (`--nr-sheet`, set by `MapPage`). Check a new screen at 320×568 and 360×640.
-- **No StrictMode** (see apps/*/main.jsx): it double-mounts the map in dev and caused crashes.
+- **No StrictMode** (see apps/nostrride/main.jsx): it double-mounts the map in dev and caused crashes.
   Keep every hook above a screen's early `return null`.
 - **Login persistence**: with "Remember me" the key is saved encrypted with the user's password
-  (NIP-49) under a per-app key (`nostrride_key` rider, `nostrride_driver_key` driver); a reload shows
+  (NIP-49) under one key (`nostrride_key`); a reload shows
   Unlock. Never store the key in clear. Logout removes it. The event cache and the NWC wallet
   connection are in memory only (cleared on reload).
 - **Wallet is live, not faked**: balance/transactions come from the user's real wallet over NIP-47.
@@ -443,10 +450,10 @@ Everything the OTHER person's app sends is a claim. The apps pay by themselves, 
   (Comfort/XL), surge pricing.
 
 ## Adding a screen
-1. Create `src/<rider|driver>/screens/<Name>Screen.jsx` (a full page: `<Screen title=…>`; a map page:
+1. Create `src/<rider|driver>/screens/<Name>Screen.jsx` (a full page: `<Screen title=… right={<ModeSwitch />}>`; a map page:
    `<MapPage map={<MapView/>}><Sheet>…</Sheet></MapPage>`).
-2. Add it to `SCREENS` in that app's `App.jsx`; navigate with `useApp().setView("<id>")`.
-3. Top-level tab? add it to that app's tab list (it hides the tab bar by being "busy" in Shell).
+2. Add it to `RIDE_SCREENS` or `DRIVE_SCREENS` in `src/app/App.jsx`; navigate with `useApp().setView("<id>")`.
+3. Top-level tab? add it to that face's tab list in `src/app/App.jsx` and to `TABS` in `lib/mode.js`.
 4. Role logic goes in that app's context; anything both apps need goes in `src/state`, `src/ui`, `src/features`, `src/lib`.
 
 ## Conventions
@@ -454,7 +461,7 @@ Everything the OTHER person's app sends is a claim. The apps pay by themselves, 
 - **Keep `docs/index.md` current**: when you change behavior, update the matching section and add a line to its changelog in the same commit.
 - One feature per folder; files stay under ~300 lines (WalletSection and nostr/relay.js are slightly
   over — split before growing them); each starts with a comment block explaining its purpose.
-- The rider app must never import from `src/driver` and vice versa. Share via the folders above.
+- The Ride face (`src/rider`) must never import from `src/driver` and vice versa; `src/app` is the only place that knows both. Share via the folders above.
 - Don't introduce a state library, router, or CSS framework build step.
 - Don't commit secrets. `user.nsec`/`user.sk` live in memory; on disk only as the password-encrypted
   ncryptsec (keystore.js).
