@@ -16,7 +16,8 @@ node scripts/e2e/vouches.mjs         # "Your vouches" in both apps: the badge on
 node scripts/e2e/nav.mjs             # tab bar always visible, back arrow, X to cancel, pin the pickup and the drop-off, driver online on an approximate (3 km) location
 node scripts/e2e/recovery.mjs        # Account sections open and close (and are remembered); write down the 12 recovery words; a fresh browser restores the ecash from them; no phrase on any relay
 node scripts/e2e/disconnect.mjs      # the ecash wallet disconnected from the device: a driver's GO is off and says why; Connect makes a new empty wallet
-node scripts/e2e/appearance.mjs      # dark mode saves the moment it is flipped (both apps) and survives a reload without a white flash; the password eye on Remember me and Unlock
+node scripts/e2e/wallets.mjs        # Account → Wallets in both apps (currency on top, Add funds + Send, the new wording, cash out location shared by both apps, NWC inside, no Backup section), On-chain funding, up to 3 vehicle photos, the vouches wording
+node scripts/e2e/appearance.mjs      # Dark Mode (application) and Dark Mode (map) save the moment they are flipped (both apps; the map is separate) and survives a reload without a white flash; the password eye on Remember me and Unlock
 ```
 
 `E2E_VIEWPORT=360x640` runs the same scripts in a phone-sized browser (touch, 2x pixels, the page's viewport meta honoured); with `E2E_SHOTS=/some/dir` a script saves screenshots. Check a new screen at 320x568 and 360x640.

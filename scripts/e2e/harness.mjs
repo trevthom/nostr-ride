@@ -40,7 +40,7 @@ async function waitHttp(url, tries = 60) {
 
 export async function boot({ feePpk = 0, driverRates = null } = {}) {
   const relay = await startRelay();
-  const mint = await startLocalMint({ feePpk });
+  const mint = await startLocalMint({ feePpk, onchain: true });
   const rider = Keys.generateKeypair(), driver = Keys.generateKeypair();
   if (!process.env.E2E_NOBUILD) await new Promise((res, rej) => spawn(process.execPath, [`${REPO}/node_modules/vite/bin/vite.js`, "build", "--mode", "rider"], { cwd: REPO, stdio: "ignore" }).on("exit", (c) => (c ? rej(new Error("rider build failed")) : res())));
   if (!process.env.E2E_NOBUILD) await new Promise((res, rej) => spawn(process.execPath, [`${REPO}/node_modules/vite/bin/vite.js`, "build", "--mode", "driver"], { cwd: REPO, stdio: "ignore" }).on("exit", (c) => (c ? rej(new Error("driver build failed")) : res())));

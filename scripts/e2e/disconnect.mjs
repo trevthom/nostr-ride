@@ -34,7 +34,7 @@ try {
 
   await step("Disconnect ecash from this device: GO is off and says why", async () => {
     await tap(tabs(D).getByText("Account", { exact: true }));
-    await openFold(D, "Ecash wallet");
+    await openFold(D, "Wallets");
     await tap(D.getByRole("button", { name: "Disconnect ecash from this device" }));
     await tap(D.getByRole("button", { name: "Swap coins and disconnect" }));
     await D.getByText(/not connected on this device, so there is no ecash here/).waitFor({ timeout: 20000 });
@@ -46,7 +46,7 @@ try {
 
   await step("Connect ecash wallet: a new empty wallet, and GO works again", async () => {
     await tap(tabs(D).getByText("Account", { exact: true }));
-    await openFold(D, "Ecash wallet");
+    await openFold(D, "Wallets");
     await tap(D.getByRole("button", { name: "Connect ecash wallet" }));
     await D.getByText("Balance").first().waitFor({ timeout: 20000 });
     await tap(tabs(D).getByText("Drive", { exact: true }));

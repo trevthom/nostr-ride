@@ -38,8 +38,8 @@ try {
   await step("Account sections are closed at first; a tap opens and closes one; a closed section keeps what was typed", async () => {
     await h.login(R, h.rider, h.riderUrl);
     await tap(tabs(R).getByText("Account", { exact: true }));
-    await header(R, "Ecash wallet").waitFor({ timeout: 40000 });
-    for (const t of ["Currency", "Ecash wallet", "Recovery phrase", "Your vouches", "Nostr relays"]) {
+    await header(R, "Wallets").waitFor({ timeout: 40000 });
+    for (const t of ["Appearance", "Wallets", "Recovery phrase", "Your vouches", "Nostr relays"]) {
       if ((await header(R, t).getAttribute("aria-expanded")) !== "false") throw new Error(t + " should start closed");
     }
     const input = R.getByLabel("npub of a person you know and trust");
@@ -52,21 +52,21 @@ try {
     if ((await input.inputValue()) !== "npub1typedbutnotsaved") throw new Error("the typed text was lost when the section closed");
     await input.fill("");
     await tap(header(R, "Your vouches"));
-    await openFold(R, "Currency");
+    await openFold(R, "Appearance");
   });
 
   await step("an opened section stays open after a reload; the others stay closed", async () => {
     await R.reload(); // the key lives in memory only, so the person signs in again; what was open is remembered on the device
     await h.login(R, h.rider, h.riderUrl);
     await tap(tabs(R).getByText("Account", { exact: true }));
-    await header(R, "Currency").waitFor({ timeout: 40000 });
-    if ((await header(R, "Currency").getAttribute("aria-expanded")) !== "true") throw new Error("Currency should still be open");
-    if ((await header(R, "Ecash wallet").getAttribute("aria-expanded")) !== "false") throw new Error("Ecash wallet should still be closed");
-    await tap(header(R, "Currency"));
+    await header(R, "Appearance").waitFor({ timeout: 40000 });
+    if ((await header(R, "Appearance").getAttribute("aria-expanded")) !== "true") throw new Error("Appearance should still be open");
+    if ((await header(R, "Wallets").getAttribute("aria-expanded")) !== "false") throw new Error("Wallets should still be closed");
+    await tap(header(R, "Appearance"));
   });
 
   await step("the rider adds funds; a warning says the ecash is not protected", async () => {
-    await openFold(R, "Ecash wallet");
+    await openFold(R, "Wallets");
     await R.getByRole("button", { name: /Add funds/ }).first().click();
     await R.getByRole("button", { name: "Show invoice" }).click();
     for (let i = 0; i < 40 && ![...h.mint.quotes.values()].some((q) => q.state === "UNPAID"); i++) await sleep(250);
@@ -139,7 +139,7 @@ try {
     R2 = (await h.newContext("rider on a new phone", PICKUP)).page;
     await h.login(R2, h.rider, h.riderUrl);
     await tap(tabs(R2).getByText("Account", { exact: true }));
-    await openFold(R2, "Ecash wallet");
+    await openFold(R2, "Wallets");
     await R2.getByText("Balance").first().waitFor({ timeout: 40000 });
     if (/5,000 sats/.test(await balanceText(R2))) throw new Error("the new phone should start empty");
     await openFold(R2, "Recovery phrase");
@@ -181,7 +181,7 @@ try {
   });
 
   await step("the old phone: Disconnect ecash drops the stale coins and erases the wallet and its words from the device", async () => {
-    await openFold(R, "Ecash wallet");
+    await openFold(R, "Wallets");
     await tap(R.getByRole("button", { name: "Disconnect ecash from this device" }));
     await tap(R.getByRole("button", { name: "Swap coins and disconnect" }));
     await R.getByText(/not connected on this device, so there is no ecash here/).waitFor({ timeout: 30000 });

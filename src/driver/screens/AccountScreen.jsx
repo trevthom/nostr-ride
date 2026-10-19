@@ -1,9 +1,9 @@
 // ════════════════════════════════════════════════════════════
-//  ACCOUNT (driver) — Profile, what is needed to drive (vehicle,
-//  Lightning address; the banner names what is still
-//  missing), currency, your rates (frozen while a ride runs), the ecash wallet and the mint you
-//  are paid at, optional gender, driving settings (request radius, alerts), the Lightning wallet,
-//  contact methods, relays, keys, log out. Every setting is a Fold (ui/Fold.jsx): tap its title to open or close it.
+//  ACCOUNT (driver) — Profile, what is needed to drive (vehicle; the banner names what is still missing), your rates
+//  (frozen while a ride runs), Wallets (currency, the ecash wallet and the mint you are paid at, the cash out location, the Lightning
+//  wallet), optional gender, driving settings (request radius, alerts), contact methods, vouches, relays, keys, log out.
+//  Every setting is a Fold (ui/Fold.jsx): tap its title to open or close it. Settings are saved to the person's relays by themselves
+//  (state/useBackup.js): there is no Backup section.
 // ════════════════════════════════════════════════════════════
 
 import { useApp } from "../../state/AppContext.jsx";
@@ -14,18 +14,14 @@ import { AccountHeader, ContactMethods, RelaysSection, BlockedSection, LogoutBut
 import VehicleSection from "../../features/profile/VehicleSection.jsx";
 import TypicalFareSection from "../../features/profile/TypicalFareSection.jsx";
 import { driveGaps, gapsText } from "../../lib/profile.js";
-import LightningAddressSection from "../../features/profile/LightningAddressSection.jsx";
 import AppearanceSection from "../../features/profile/AppearanceSection.jsx";
-import WalletSection from "../../features/profile/WalletSection.jsx";
 import VouchesSection from "../../features/profile/VouchesSection.jsx";
-import EcashSection from "../../features/ecash/EcashSection.jsx";
+import WalletsSection from "../../features/profile/WalletsSection.jsx";
 import UnitsSection from "../../features/profile/UnitsSection.jsx";
 import { useUnits, distanceIn, milesFrom } from "../../lib/units.js";
-import CurrencySection from "../../features/profile/CurrencySection.jsx";
 import KeysSection from "../../features/profile/KeysSection.jsx";
 import Icon from "../../ui/Icon.jsx";
 import Fold from "../../ui/Fold.jsx";
-import BackupSection from "../../features/profile/BackupSection.jsx";
 import { RecoveryFold, RecoveryNotice } from "../../features/ecash/RecoverySection.jsx";
 
 const GENDERS = [["", "Not set"], ["female", "Female"], ["male", "Male"]];
@@ -61,16 +57,11 @@ export default function AccountScreen() {
               gapsFor={(vehicle) => driveGaps({ ...user, vehicle })}
             />
           </Fold>
-          <Fold id="lightning-address" title="Cash out location" status={user.lud16 ? { text: "Set", tone: "ok" } : null}>
-            <LightningAddressSection value={user.lud16 || ""} onSave={(lud16) => save({ lud16 })} />
-          </Fold>
           <Fold id="appearance" title="Appearance"><AppearanceSection /></Fold>
-          <Fold id="currency" title="Currency"><CurrencySection /></Fold>
           <Fold id="units" title="Units"><UnitsSection /></Fold>
           <Fold id="rates" title="Your rates"><TypicalFareSection rates={user.rates} onSave={(rates) => save({ rates })} locked={onRide} /></Fold>
-          <Fold id="ecash" title="Ecash wallet"><EcashSection locked={onRide} /></Fold>
+          <Fold id="ecash" title="Wallets"><WalletsSection locked={onRide} /></Fold>
           <RecoveryFold />
-          <Fold id="backup" title="Backup"><BackupSection /></Fold>
 
           <Fold id="gender" title="Gender (optional)">
             <p className="text-sm text-neutral-500 mb-2">
@@ -108,7 +99,6 @@ export default function AccountScreen() {
             </div>
           </Fold>
 
-          <Fold id="wallet" title="Lightning wallet"><WalletSection /></Fold>
           <Fold id="contacts" title="Contact methods"><ContactMethods /></Fold>
           <Fold id="vouches" title="Your vouches"><VouchesSection /></Fold>
           <Fold id="blocked" title="Blocked people"><BlockedSection /></Fold>

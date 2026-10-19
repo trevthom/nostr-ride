@@ -108,7 +108,7 @@ export function DriverProvider({ children }) {
   // The driver's own odometer (miles to the pickup, miles on the trip), and the distances the rider's app
   // says both screens should show (lib/meter.js: the driver's, unless the rider's differs by more than 5%).
   const odo = useDriveOdometer(activeDrive, myPosition);
-  useAutoCashOut({ locked: !!activeDrive }); // cashes out by itself at the amount set in Account → Ecash wallet
+  useAutoCashOut({ locked: !!activeDrive }); // cashes out by itself at the amount set in Account → Wallets
   const [agreed, setAgreed] = useState(null); // { pm, tm, at }
 
   // ── Online / offline ──

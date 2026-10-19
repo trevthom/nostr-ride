@@ -59,8 +59,8 @@ that password. Use a different account in each app window to play both sides.
 ## 3. A ride, step by step
 
 **Driver app** (once):
-1. **Account** tab → add a **photo**, your **vehicle** (year, make, model, plate, and a photo of the car), and a
-   **Cash out location** (optional: a Lightning address, like `you@wallet.com`; you can cash out there by hand or set *Automatically cash out at*). Check the **ecash mint** you are paid at (*Account → Ecash wallet*).
+1. **Account** tab → add a **photo**, your **vehicle** (year, make, model, plate, and photos of the car: up to 3, one is enough) and, in *Account → Wallets*, a
+   **Cash out location** (optional: a Lightning address, like `you@wallet.com`; you can cash out there by hand or set *Automatically cash out at*). Check the **ecash mint** you are paid at (*Account → Wallets*).
 2. **Drive** tab → tap the green **GO** button (allow location when asked).
 
 **Rider app:**
@@ -89,15 +89,15 @@ runs. If the rider misses **two payments**, the driver may finish the ride; the 
 and pay what is missed. Adding a stop keeps the meter running at the driver's rates. All charges are shown in your local currency and paid in sats. A **mint** holds the money behind ecash,
 so use one you trust. Full rules: `docs/index.md`, section *Pay as you ride*.
 
-**Wallets:** *Account → Ecash wallet* holds the ecash you ride with. *Account → Lightning Wallet*: paste a **real**
+**Wallets:** *Account → Wallets* holds the currency, the ecash you ride with (*Add funds* by Lightning, or on-chain on a mint that supports it, and *Send*), your cash out location (the same in the Rider and Driver apps) and the Lightning wallet: paste a **real**
 Nostr Wallet Connect string (`nostr+walletconnect://...`) from a wallet that supports NWC (Alby Hub, Coinos…) to add funds
 and tip in one tap. The app reads your real balance from that wallet and never shows made-up numbers. Without one you can
 still pay any invoice from another wallet.
 
 **Lost phone?** Your ecash is saved on the device. *Account → Recovery phrase* shows 12 words to write on paper (and asks you to type
 three back). With them, a new phone finds your ecash again at the mint (*Restore ecash from 12 words*); the money then sits under that phone's own new words, which you write down too. Keep the paper secret: whoever has the words can take the ecash.
-To take the wallet off a phone you are about to lose or sell, use *Account → Ecash wallet → Disconnect ecash from this device* (the coins are swapped and the wallet and its words are erased there; the money comes back with your 12 words).
-Every part of the Account screen opens and closes when you tap its title. *Account → Appearance → Dark mode* switches to a dark look at once (saved on the device). The password box on the sign-in page has an eye button to show what you typed.
+To take the wallet off a phone you are about to lose or sell, use *Account → Wallets → Disconnect ecash from this device* (the coins are swapped and the wallet and its words are erased there; the money comes back with your 12 words).
+Every part of the Account screen opens and closes when you tap its title. *Account → Appearance* has two switches that act at once: *Dark Mode (application)* for the screens and *Dark Mode (map)* for the map only. Your settings are saved to your relays by themselves, encrypted with your secret key. The password box on the sign-in page has an eye button to show what you typed.
 
 ---
 
