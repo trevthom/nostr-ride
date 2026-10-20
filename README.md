@@ -65,7 +65,7 @@ that password. Use a different account in each window to play both sides.
 
 **Ride face:**
 0. **Account** → pick your **currency** and add money to your **ecash wallet** (**Add funds**: pay a Lightning invoice, in one tap with a connected wallet).
-1. **Where to?** → set the pickup (type an address or a business name, or pin it on the map) and the destination → see the suggested fare (each driver charges their own rates) → **Request ride**.
+1. **Where to?** → set the pickup (type an address or a business name, or pin it on the map) and the destination → see the estimated fare (each driver charges their own rates) → **Request ride**.
    Optional: show female or male drivers first. (Pick **Schedule** to reserve a ride for later: it waits under *Activity → Upcoming*.)
 2. Wait for **"Finding your driver…"**. Nearby online drivers are shown as cars on the map.
 
@@ -93,7 +93,7 @@ so use one you trust. Full rules: `docs/index.md`, section *Pay as you ride*.
 
 **Lost phone?** Your ecash is saved on the device (one wallet for both faces). *Account → Recovery phrase* shows 12 words to write on paper (and asks you to type
 three back). With them, a new phone finds your ecash again at the mint (*Account → Wallets → Restore my wallet*); the money then sits under the same words, so there is nothing new to write down. Keep the paper secret: whoever has the words can take the ecash.
-To take the wallet off a phone you are about to lose or sell, use *Account → Wallets → Disconnect ecash from this device* (the coins are swapped and the wallet and its words are erased there; the money comes back with your 12 words).
+To take the wallet off a phone you are about to lose or sell, use *Account → Wallets → Disconnect ecash from this device* (the wallet and its words are erased there, nothing is swapped; the money comes back with your 12 words).
 Every part of the Account screen opens and closes when you tap its title. *Account → Appearance* has two switches that act at once: *Dark Mode (application)* for the screens and *Dark Mode (map)* for the map only. Your settings are saved to your relays by themselves, encrypted with your secret key. The password box on the sign-in page has an eye button to show what you typed.
 
 ---

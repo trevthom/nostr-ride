@@ -45,6 +45,18 @@ try {
       log("     page color:", light, "->", dark);
       if (await isDarkMap(P)) throw new Error("the application's dark look must not turn the map dark");
     });
+    await step(`${role}: Units is a switch like the dark ones (off = miles, on = kilometers) and saves at once`, async () => {
+      await P.getByRole("button", { name: "Account" }).click({ timeout: 40000 });
+      await openFold(P, "Appearance");
+      const u = P.getByRole("switch", { name: "Units (kilometers)" });
+      if ((await u.getAttribute("aria-checked")) !== "false") throw new Error("Units should start on miles (switch off)");
+      await u.click();
+      if ((await u.getAttribute("aria-checked")) !== "true") throw new Error("the switch did not turn on");
+      const kept = await P.evaluate(() => localStorage.getItem("nostrride_units"));
+      if (!/km/.test(kept || "")) throw new Error("not saved as kilometers: " + kept);
+      await u.click();
+      if (!/mi/.test((await P.evaluate(() => localStorage.getItem("nostrride_units"))) || "")) throw new Error("back to miles was not saved");
+    });
     await step(`${role}: Dark Mode (map) is its own switch and only darkens the map`, async () => {
       const first = role === "rider" ? "Ride" : "Drive";
       // The application is dark, the map is not: the tiles have no filter.

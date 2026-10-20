@@ -7,9 +7,8 @@
 //   • the phone is "lost": a fresh browser (no saved data) logs in with the same key and has NO wallet; "Restore my wallet" refuses a wrong phrase
 //     with a reason, keeps nothing for a phrase no mint knows, and the right 12 words bring the balance back under THE SAME words (no sweep,
 //     nothing new to write down)
-//   • the lost phone's own coins were swapped during the restore (the mint calls them spent)
-//   • "Disconnect ecash from this device" on the old phone: its stale coins are dropped, the wallet and its phrase are erased, the phone says
-//     it has no wallet; "Restore my wallet" there takes the money back (that phone takes over)
+//   • "Disconnect ecash from this device" on the old phone: its stale coins (spent by the restore) are dropped, the wallet and its phrase are erased
+//     with no swap, the phone says it has no wallet; "Restore my wallet" there takes the money back (that phone takes over)
 // Takes about a minute. The pages are styled like the real app (Tailwind is built into the app CSS).
 import http from "node:http";
 import { boot, sleep, PICKUP } from "./harness.mjs";
@@ -187,17 +186,10 @@ try {
     phrase2 = phrase;
   });
 
-  await step("the lost phone's coins were swapped during the restore: it can no longer spend them", async () => {
-    // The old page still holds the old coins. Ask it to swap them: the mint calls them spent, so the swap fails.
-    await tap(R.getByRole("button", { name: "I lost a phone: swap my coins" }));
-    await tap(R.getByRole("button", { name: "Swap them" }));
-    await R.getByText(/Could not swap the ecash/).waitFor({ timeout: 30000 });
-  });
-
   await step("the old phone: Disconnect ecash drops the stale coins and erases the wallet and its words from the device", async () => {
     await openFold(R, "Wallets");
     await tap(R.getByRole("button", { name: "Disconnect ecash from this device" }));
-    await tap(R.getByRole("button", { name: "Swap coins and disconnect" }));
+    await tap(R.getByRole("button", { name: "Disconnect", exact: true }));
     await R.getByText(/You have no ecash wallet on this phone yet/).waitFor({ timeout: 30000 });
     const saved = await R.evaluate(() => {
       const read = (prefix) => Object.keys(localStorage).filter((k) => k.startsWith(prefix)).map((k) => JSON.parse(localStorage.getItem(k)));

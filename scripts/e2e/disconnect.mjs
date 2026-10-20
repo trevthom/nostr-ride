@@ -53,7 +53,7 @@ try {
     await tap(tabs(D).getByText("Account", { exact: true }));
     await openFold(D, "Wallets");
     await tap(D.getByRole("button", { name: "Disconnect ecash from this device" }));
-    await tap(D.getByRole("button", { name: "Swap coins and disconnect" }));
+    await tap(D.getByRole("button", { name: "Disconnect", exact: true }));
     await D.getByText(/You have no ecash wallet on this phone yet/).waitFor({ timeout: 20000 });
     await tap(tabs(D).getByText("Drive", { exact: true }));
     await go(D).waitFor({ timeout: 10000 });
