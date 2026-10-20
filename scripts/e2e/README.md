@@ -14,9 +14,9 @@ node scripts/e2e/stop.mjs            # an extra stop mid-ride: the rider is told
 SHARE_CHECK=1 node scripts/e2e/ride.mjs   # the rider shares the trip: the shared position is the rider's phone (not the car's), one update every 6 s; a friend's page draws it
 node scripts/e2e/vouches.mjs         # "Your vouches" in both apps: the badge on a request card and on an offer, one hop only, an nsec refused, Remove, the list on the relay; no stars
 node scripts/e2e/nav.mjs             # tab bar always visible, back arrow, X to cancel, pin the pickup and the drop-off, driver online on an approximate (3 km) location
-node scripts/e2e/recovery.mjs        # Account sections open and close (and are remembered); write down the 12 recovery words; a fresh browser restores the ecash from them; no phrase on any relay
+node scripts/e2e/recovery.mjs        # Account sections open and close (and are remembered); write down the 12 recovery words; Create New Wallet warns and shows them; a fresh browser (no wallet) restores the ecash from them under the same words; no phrase on any relay
 node scripts/e2e/disconnect.mjs      # the ecash wallet disconnected from the device: a driver's GO is off and says why; Connect makes a new empty wallet
-node scripts/e2e/wallets.mjs        # Account → Wallets in both apps (currency on top, Add funds + Send, the new wording, cash out location shared by both apps, NWC inside, no Backup section), On-chain funding, up to 3 vehicle photos, the vouches wording
+node scripts/e2e/wallets.mjs        # Account → Wallets in both apps (currency on top, Add funds + Send, the new wording, cash out location shared by both apps, no NWC, no Backup section, a new device has no wallet and offers Create / Restore), On-chain funding, up to 3 vehicle photos, the vouches wording
 node scripts/e2e/mode.mjs           # the Ride / Drive switch: tabs follow the face, one wallet and one set of words, the face is saved per account, an online driver is asked first, the switch is closed while a request is open
 node scripts/e2e/appearance.mjs      # Dark Mode (application) and Dark Mode (map) save the moment they are flipped (both apps; the map is separate) and survives a reload without a white flash; the password eye on Remember me and Unlock
 ```

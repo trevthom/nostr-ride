@@ -1,7 +1,9 @@
 // Account → Wallets and the settings changes, in BOTH apps:
 //   • the Account list has Wallets and no Backup, Currency, Cash out location or Lightning wallet section of its own
+//   • a new device has NO wallet: Wallets offers Create New Wallet and Restore my wallet (nothing is made by itself); there is no NWC field
+//   • Create New Wallet warns first, then shows the 12 words at once
 //   • inside Wallets: Currency first, then the ecash wallet ("Add ecash here before you ride." and nothing about paying a driver),
-//     Add funds and Send side by side, then Cash out location, then the Lightning wallet (NWC)
+//     Add funds and Send side by side, then Cash out location
 //   • Add funds has a Lightning tab and an On-chain tab: the mint gives a bitcoin address; a confirmed payment becomes ecash
 //   • a cash out location saved in one app is the same in the other app (same nsec)
 //   • the driver may add up to 3 vehicle photos and only one is needed to drive
@@ -36,10 +38,46 @@ try {
   const dc = await h.newContext("driver", metersNorth(PICKUP, 25));
   R = rc.page; D = dc.page;
   await lightningServer(rc.ctx); await lightningServer(dc.ctx);
-  await h.login(R, h.rider, h.riderUrl);
-  await h.login(D, h.driver, h.driverUrl);
+  await h.login(R, h.rider, h.riderUrl, { wallet: false });
+  await h.login(D, h.driver, h.driverUrl, { wallet: false });
   await tap(tabs(R).getByText("Account", { exact: true }));
   await tap(tabs(D).getByText("Account", { exact: true }));
+
+  await step("a new device has no wallet: Create New Wallet and Restore my wallet, and no Lightning wallet (NWC)", async () => {
+    await openFold(R, "Wallets");
+    await R.getByRole("button", { name: "Create New Wallet", exact: true }).waitFor({ timeout: 40000 });
+    await R.getByRole("button", { name: "Restore my wallet", exact: true }).waitFor({ timeout: 5000 });
+    const t = await walletsText(R);
+    if (/Add funds|Balance/.test(t)) throw new Error("money buttons are shown without a wallet: " + t.slice(0, 300));
+    if (/Lightning wallet|Nostr Wallet Connect|NWC/i.test(t)) throw new Error("the NWC section is still there: " + t.slice(0, 300));
+    await shot(R, "rider-no-wallet");
+    // The ride and the drive screens say what is missing.
+    await tap(tabs(R).getByText("Ride", { exact: true }));
+    await R.getByText("You have no ecash wallet on this phone.").first().waitFor({ timeout: 10000 });
+    await tap(tabs(R).getByText("Account", { exact: true }));
+  });
+  await step("Create New Wallet warns about the 12 words first, then shows them", async () => {
+    await R.getByRole("button", { name: "Create New Wallet", exact: true }).click();
+    const dlg = R.getByRole("dialog");
+    await dlg.waitFor({ timeout: 5000 });
+    const t = (await dlg.innerText()).replace(/\s+/g, " ");
+    if (!/12 words are the only way to get your money back/.test(t)) throw new Error("no warning: " + t);
+    await shot(R, "rider-create-warning");
+    await dlg.getByRole("button", { name: "Not now" }).click();
+    if (await R.getByRole("dialog").count()) throw new Error("Not now did not close it");
+    if (!(await R.getByRole("button", { name: "Create New Wallet", exact: true }).count())) throw new Error("Not now made a wallet");
+    await R.getByRole("button", { name: "Create New Wallet", exact: true }).click();
+    await R.getByRole("button", { name: "Create wallet", exact: true }).click();
+    await R.getByRole("dialog", { name: "Write down 12 words" }).waitFor({ timeout: 20000 });
+    await R.getByLabel("Your 12 recovery words").waitFor({ timeout: 5000 });
+    await shot(R, "rider-create-words");
+    await R.getByRole("button", { name: "Close", exact: true }).click();
+    await R.getByText("Add ecash here before you ride.").waitFor({ timeout: 15000 });
+  });
+  await step("driver: the same, through the helper", async () => {
+    await h.createWallet(D, "drive");
+    await tap(tabs(D).getByText("Account", { exact: true }));
+  });
 
   for (const [role, P] of [["rider", R], ["driver", D]]) {
     await step(`${role}: Wallets replaces Backup, Currency, Cash out location and Lightning wallet`, async () => {
@@ -50,20 +88,20 @@ try {
         if (list.some((t) => t.startsWith(gone))) throw new Error(`"${gone}" should not be a section of its own: ` + list.join(" | "));
       }
     });
-    await step(`${role}: inside Wallets, in order: Currency, Ecash wallet, Cash out location, Lightning wallet (NWC); the new wording`, async () => {
+    await step(`${role}: inside Wallets, in order: Currency, Ecash wallet, Cash out location; the new wording`, async () => {
       await openFold(P, "Wallets");
       const t = await walletsText(P);
       const low = t.toLowerCase(); // the small headings are drawn in capitals
-      const at = ["Currency", "Ecash wallet", "Add ecash here before you ride.", "Cash out location", "Lightning wallet (NWC)"].map((w) => [w, low.indexOf(w.toLowerCase())]);
+      const at = ["Currency", "Ecash wallet", "Add ecash here before you ride.", "Cash out location"].map((w) => [w, low.indexOf(w.toLowerCase())]);
       for (const [w, i] of at) if (i < 0) throw new Error(`"${w}" is missing: ${t.slice(0, 400)}`);
       for (let i = 1; i < at.length; i++) if (at[i][1] < at[i - 1][1]) throw new Error(`"${at[i][0]}" comes before "${at[i - 1][0]}"`);
       if (/You pay your driver/.test(t)) throw new Error("the old wording is still there");
       await P.getByLabel("Local currency").waitFor({ timeout: 5000 });
       await P.getByLabel("Cash out location (Lightning address)").waitFor({ timeout: 5000 });
-      await P.getByLabel("Nostr Wallet Connect string").waitFor({ timeout: 5000 });
+      if (await P.getByLabel("Nostr Wallet Connect string").count()) throw new Error("the NWC field is still there");
       await P.getByLabel("Local currency").scrollIntoViewIfNeeded();
       await shot(P, `${role}-wallets-top`);
-      await P.getByLabel("Nostr Wallet Connect string").scrollIntoViewIfNeeded();
+      await P.getByLabel("Cash out location (Lightning address)").scrollIntoViewIfNeeded();
       await shot(P, `${role}-wallets-bottom`);
     });
     await step(`${role}: Add funds and Send are side by side`, async () => {
@@ -108,7 +146,7 @@ try {
     await R.getByText("Saved", { exact: true }).first().waitFor({ timeout: 15000 });
     const other = await h.newContext("driver-same-key", metersNorth(PICKUP, 30));
     await lightningServer(other.ctx);
-    await h.login(other.page, h.rider, h.driverUrl); // the RIDER's key, in the DRIVER app
+    await h.login(other.page, h.rider, h.driverUrl, { wallet: false }); // the RIDER's key, in the DRIVER face
     await tap(tabs(other.page).getByText("Account", { exact: true }));
     await openFold(other.page, "Wallets");
     const input = other.page.getByLabel("Cash out location (Lightning address)");

@@ -96,7 +96,23 @@ export async function boot({ feePpk = 0, driverRates = null } = {}) {
   }
 
   // `appUrl` is riderUrl or driverUrl: the same app. The driver's URL asks for the Drive face (the face is saved per account on the device).
-  async function login(page, who, appUrl) {
+  // Nothing makes an ecash wallet by itself (Account → Wallets → Create New Wallet), so by default a login also creates one, through the
+  // screens, closes the write-down dialog and goes back to the face's first tab. `{ wallet: false }` leaves the device without one.
+  async function createWallet(page, face) {
+    const nav = page.locator('nav[aria-label="Main"]');
+    await nav.waitFor({ timeout: 90000 });
+    await nav.getByText("Account", { exact: true }).click();
+    const fold = page.locator("section h2 button", { hasText: "Wallets" }).first();
+    await fold.waitFor({ timeout: 15000 });
+    if ((await fold.getAttribute("aria-expanded")) !== "true") await fold.click();
+    await page.getByRole("button", { name: "Create New Wallet", exact: true }).click({ timeout: 15000 });
+    await page.getByRole("button", { name: "Create wallet", exact: true }).click({ timeout: 15000 });
+    await page.getByRole("dialog", { name: "Write down 12 words" }).waitFor({ timeout: 20000 });
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await nav.getByText(face === "drive" ? "Drive" : "Ride", { exact: true }).click();
+  }
+
+  async function login(page, who, appUrl, { wallet = true } = {}) {
     if (appUrl.includes("as=driver")) await page.addInitScript((k) => { try { localStorage.setItem(k, JSON.stringify("drive")); } catch { /* no storage */ } }, "nostrride_mode_" + who.publicKey.slice(0, 16));
     await page.goto(appUrl);
     await page.getByText("I have a key", { exact: true }).click({ timeout: 90000 });
@@ -104,6 +120,7 @@ export async function boot({ feePpk = 0, driverRates = null } = {}) {
     const remember = page.getByLabel(/Remember me/);
     if (await remember.isChecked()) await remember.uncheck();
     await page.getByRole("button", { name: "Continue" }).click();
+    if (wallet) await createWallet(page, appUrl.includes("as=driver") ? "drive" : "ride");
   }
 
   const stop = async () => {
@@ -119,5 +136,5 @@ export async function boot({ feePpk = 0, driverRates = null } = {}) {
     const tokens = await page.evaluate(() => [...(window.__seenClasses || [])]);
     return tokens.filter((t) => !css.includes("." + esc(t)) && !/^(group|peer|nr-up)$/.test(t)).sort();
   };
-  return { relay, mint, rider, driver, seedDriver, missingStyles, newKeys: () => Keys.generateKeypair(), browser, errors, newContext, login, stop, riderUrl: "http://localhost:4173/", driverUrl: "http://localhost:4173/?as=driver" };
+  return { relay, mint, rider, driver, seedDriver, missingStyles, newKeys: () => Keys.generateKeypair(), browser, errors, newContext, login, createWallet, stop, riderUrl: "http://localhost:4173/", driverUrl: "http://localhost:4173/?as=driver" };
 }

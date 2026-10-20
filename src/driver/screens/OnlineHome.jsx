@@ -34,6 +34,7 @@ import { Spinner } from "../../ui/Parts.jsx";
 import { gpsMessage, canBeOnline, approxNote } from "../../lib/gps.js";
 import RiderInfo, { useRiderInfo } from "../components/RiderInfo.jsx";
 import NearbyRequests from "./NearbyRequests.jsx";
+import { WalletPrompt } from "../../features/ecash/WalletStart.jsx";
 
 const whenText = (time) => (time === "ASAP" ? "Now" : new Date(time).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }));
 
@@ -122,7 +123,7 @@ function OfflineSheet() {
         <h2 className="text-xl font-bold mt-4">You're offline</h2>
         <p className="text-neutral-600 text-[15px] mt-1 max-w-xs" role="status">
           {ecashOff
-            ? "Your ecash wallet is not connected on this device, so you cannot be paid. Connect it in Account."
+            ? "You have no ecash wallet on this phone, so you cannot be paid."
             : !canBeOnline(gps, myPosition)
             ? gpsMessage(gps, myPosition, geoError)
             : gps === "weak"
@@ -131,6 +132,7 @@ function OfflineSheet() {
             ? `${open.length} request${open.length === 1 ? "" : "s"} near you. Go online to see them.`
             : "Go online to start getting ride requests."}
         </p>
+        {ecashOff && <WalletPrompt className="mt-3 text-left" />}
       </div>
     </Sheet>
   );

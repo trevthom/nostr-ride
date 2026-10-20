@@ -70,15 +70,15 @@ try {
 
   await step("the face is saved per account: a new sign-in returns to Drive; another account starts in Ride", async () => {
     await P.reload();
-    await h.login(P, h.driver, h.riderUrl);
+    await h.login(P, h.driver, h.riderUrl, { wallet: false }); // the wallet is already on this phone
     await tabs(P).getByText("Earnings", { exact: true }).waitFor({ timeout: 40000 });
     if ((await face(P)) !== "drive") throw new Error("the saved face was lost");
     await P.reload();
-    await h.login(P, h.rider, h.riderUrl);
+    await h.login(P, h.rider, h.riderUrl, { wallet: false });
     await tabs(P).getByText("Activity", { exact: true }).waitFor({ timeout: 40000 });
     if ((await face(P)) !== "ride") throw new Error("another account should start in Ride");
     await P.reload();
-    await h.login(P, h.driver, h.riderUrl);
+    await h.login(P, h.driver, h.riderUrl, { wallet: false });
     await tabs(P).getByText("Earnings", { exact: true }).waitFor({ timeout: 40000 });
   });
 
