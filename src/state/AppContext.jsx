@@ -195,17 +195,30 @@ export function AppProvider({ initialView, children }) {
       off = w.onChange(() => {
         setEcashTick((t) => t + 1);
         // The browser would not keep the wallet (a full or blocked storage): say so, once, while it lasts.
-        if (!w.saveOk && !warned) { warned = true; pushNotice("This browser will not save your wallet right now (the storage is full or blocked). Free some space. Until then no money moves."); }
+        if (!w.saveOk && !warned) {
+          warned = true;
+          pushNotice(w.saveCritical
+            ? "Money moved at the mint but this browser will not save your wallet. Keep this page open: saving is tried again every couple of seconds."
+            : "This browser will not save your wallet right now (the storage is full or blocked). Free some space. Until then no money moves.");
+        }
         if (w.saveOk) warned = false;
       });
       setEcash(w);
       w.claimAll().catch(() => {});
       w.recoverPending().catch(() => {});
-      // Coins that were moved elsewhere (a restore on another device swaps them) are spent: drop them, so this device shows the truth.
-      w.syncSpent().catch(() => {});
-      timer = setInterval(() => w.syncSpent().catch(() => {}), 5 * 60000);
-      // A Lightning payment the mint was still working on is settled when the mint is done; an unsaved wallet is saved again when it can be.
-      saveTimer = setInterval(() => { w.retrySave(); w.recoverPending().catch(() => {}); }, 30000);
+      // Coins the mint calls spent (moved elsewhere by a restore on another device) are set aside, then checked again before they are
+      // forgotten: the person is told what happened, never silently short of money (EcashWallet.syncSpent).
+      const saySpent = (r) => {
+        if (!r) return;
+        if (r.quarantined) pushNotice(`${r.quarantined} sats were reported spent by the mint. They are set aside while this device checks again.`);
+        if (r.dropped) pushNotice(`${r.dropped} sats were spent on another device and were removed from this wallet.`);
+        if (r.restored) pushNotice(`${r.restored} sats the mint had reported spent are back in your wallet.`);
+      };
+      w.syncSpent().then(saySpent).catch(() => {});
+      timer = setInterval(() => w.syncSpent().then(saySpent).catch(() => {}), 5 * 60000);
+      // A Lightning payment the mint was still working on is settled when the mint is done; a wallet the browser would not save is
+      // saved again soon (a mint answer that is only in memory would be lost on a reload).
+      saveTimer = setInterval(() => { w.retrySave(); w.recoverPending().catch(() => {}); }, 5000);
     }).catch(() => {});
     return () => { alive = false; hold.release(); if (off) off(); if (timer) clearInterval(timer); if (saveTimer) clearInterval(saveTimer); };
   }, [user?.publicKey, ecashOff]); // eslint-disable-line react-hooks/exhaustive-deps

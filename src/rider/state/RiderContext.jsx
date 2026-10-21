@@ -14,7 +14,7 @@
 //  Banners: offers arriving, driver arrived, trip done, driver finished the ride, waived fares.
 // ════════════════════════════════════════════════════════════
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
@@ -37,7 +37,7 @@ import { getProfile } from "../../nostr/profiles.js";
 import { rememberRates } from "../../lib/ratechange.js";
 import { declineEvent } from "../../lib/trips.js";
 import { rideTerms, rideMint } from "../../lib/terms.js";
-import { ledgerSummary } from "../../lib/ridemoney.js";
+import { ridesOwing } from "../../lib/ridemoney.js";
 import { rideSpendCap, allowMoreSpend } from "../../lib/spendcap.js";
 import { payDue } from "../../features/payments/rideTicks.js";
 import { useAutoCashOut } from "../../features/ecash/useAutoCashOut.js";
@@ -138,9 +138,6 @@ export function RiderProvider({ children }) {
     });
   }, []);
 
-  // Cashes out by itself at the amount set in Account → Wallets, but never while a ride runs or its last payments may still be due.
-  useAutoCashOut({ locked: !!activeRide || !!receipt });
-
   // ── "Share my trip": a friend follows a link (see nostr/share.js) ──
   const [shareState, setShareState] = useState(() => getSetting("tripShare", null)); // { key, token, sos }
   const lastShareAt = useRef(0);
@@ -199,6 +196,7 @@ export function RiderProvider({ children }) {
   }, [me, pushNotice, isBlockedPk]);
 
   // ── The ride's money: pay the driver tick by tick, and collect refunds ──
+  // What the SCREENS show is the ride under way, else the receipt. What the payment loop pays is more than that (see below).
   const payRide = activeRide && rideStatus(activeRide) === "in_progress" ? activeRide : receipt;
   // A sleeping phone stops the timer below, so no tick is paid and the driver sees "missed payments" with a full wallet.
   // Keep the screen on for as long as the ride runs; `screenMayDim` is true when the browser would not give us the lock.
@@ -209,6 +207,22 @@ export function RiderProvider({ children }) {
   const payTerms = payRide ? rideTerms(payRide) : null;
   const payMint = payRide ? rideMint(payRide) : null;
   const payKey = payRide ? rideKey(payRide) : null;
+  const reqsRef = useRef(rideRequests);
+  reqsRef.current = rideRequests;
+  const priceRef = useRef(priceFor);
+  priceRef.current = priceFor;
+  // Every ride of mine that still owes money (lib/ridemoney.js ridesOwing): the ride under way AND finished rides, whatever the
+  // receipt says. A dismissed receipt, a second ride that ended within the hour, or a phone that was closed while the wallet was
+  // short must not abandon the rest of a fare (the driver has no way to ask for it again).
+  const owingKey = useMemo(() => {
+    const keys = rideRequests
+      .filter((r) => r.pubkey === me && rideDriver(r) && (rideStatus(r) === "in_progress" || rideStatus(r) === "completed"))
+      .map(rideKey);
+    return [...new Set(keys)].sort().join("|");
+  }, [rideRequests, me]);
+  const [owedRides, setOwedRides] = useState(false); // a ride still owes money: automatic cash out must wait
+  // Cashes out by itself at the amount set in Account → Wallets, but never while a ride runs or its last payments may still be due.
+  useAutoCashOut({ locked: !!activeRide || !!receipt || owedRides });
   const run = useCallback(async (request) => {
     const terms = rideTerms(request);
     if (!terms || !rideTimes(request).startedAt) return null;
@@ -220,14 +234,33 @@ export function RiderProvider({ children }) {
   }, [user, ecash, publish, priceFor, usdPrice]);
   useEffect(() => { setMoney(null); }, [payKey]);
   useEffect(() => {
-    if (!payRide || !payTerms) return;
+    if (!ecash || !owingKey) { setOwedRides(false); return undefined; }
     let alive = true, running = false;
     const tick = async () => {
       if (running) return;
       running = true;
       try {
-        const res = await run(payRide);
-        if (alive && res) setMoney((m) => (m && m.status === res.status && m.owed === res.owed && m.paid === res.paid && m.due === res.due && m.sent === res.sent && m.outstanding === res.outstanding ? m : { ...res, at: Date.now() }));
+        const owing = ridesOwing(reqsRef.current, me, { priceFor: priceRef.current });
+        if (!alive) return;
+        // Only money that still has to leave the wallet blocks an automatic cash out; a tick already sent (waiting for the
+        // driver's answer) is re-offered, not paid again.
+        setOwedRides(owing.some((o) => o.unpaid > 0));
+        for (const item of owing) {
+          let res = await run(item.request);
+          if (!alive) return;
+          // The ride is over and its fare is fixed, but the cap was set from the QUOTE (3× it): a much longer ride can end above
+          // the cap. The ride on screen has its "Allow more" button; an old one has no screen at all, so its ended fare is allowed
+          // through here (never more than one extra cap at a time, up to three).
+          for (let i = 0; res?.status === "capped" && item.key !== payKey && i < 3; i++) {
+            allowMoreSpend(item.request);
+            res = await run(item.request);
+            if (!alive) return;
+          }
+          // Only the ride on screen reports to the fare card; the others are paid quietly.
+          if (res && payKey && item.key === payKey) {
+            setMoney((m) => (m && m.status === res.status && m.owed === res.owed && m.paid === res.paid && m.due === res.due && m.sent === res.sent && m.outstanding === res.outstanding ? m : { ...res, at: Date.now() }));
+          }
+        }
       } finally { running = false; }
     };
     tick();
@@ -237,7 +270,8 @@ export function RiderProvider({ children }) {
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("online", wake);
     return () => { alive = false; clearInterval(id); document.removeEventListener("visibilitychange", wake); window.removeEventListener("online", wake); };
-  }, [payKey, !!ecash, !!payTerms, run]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [owingKey, !!ecash, payKey, run, me]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Pay now, outside the timer (after adding funds): resolves to the result.
   const payNow = useCallback(async (request) => run(request || payRide), [run, payRide]);
   // The rider says: yes, pay more than the cap (one more cap's worth), then pay what was held back.
@@ -441,8 +475,6 @@ export function RiderProvider({ children }) {
 
   // Logging out closes the requests still waiting for a driver (reservations too): the app will not be here to
   // choose a driver or pay, so nobody should be left waiting for it. A ride that is already under way is not touched.
-  const reqsRef = useRef(rideRequests);
-  reqsRef.current = rideRequests;
   useEffect(
     () =>
       onLogout(() => {
