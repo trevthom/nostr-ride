@@ -428,8 +428,10 @@ carries `driverPubkey`. Stage is `enroute` (default) → `arrived` → `riding`.
   The built html carries a CSP `<meta>` (`csp.mjs`, build only): scripts from the app's own files only, no inline script. Do not add a `<script src=…>` from another site, an inline script, or an `eval`.
   `vite build` also writes `_headers` (the same policy with `frame-ancestors 'none'` and `X-Frame-Options: DENY`), and the app refuses to start inside a frame: a clickjacked tap in this app moves money. Colors: black = primary, green
   (`#05944f`) = driver "go"/confirm, amber = warnings, `#f7931a` = Lightning bolt, blue = "you".
-- **Public visibility**: requests/offers are public on the relays (anyone on those relays can read
-  them). That is why exact points and plates are sealed; notes, fares and approximate areas are public.
+- **Visibility**: job events travel only inside gift wraps (see "Sealed jobs"), so a relay cannot read a request, a note or a fare. Their readers are the
+  people they are wrapped for — for a broadcast request the online drivers near the pickup (nearest 60, at most `AUDIENCE_LIMIT`) — and anyone may advertise
+  as a driver there. A note read before accepting is therefore readable by strangers near the pickup; the exact points and the plate stay sealed to ONE person
+  (the rider, then the chosen driver), so a note must never carry them.
 
 ## Browsing drivers (rider)
 - **Quote** (`PlanTrip.jsx`): chips `name · price` from the presence rates (`driverFare`); no app estimate; plain *Request ride*; the box *Notify nearest driver immediately* (`notifyNearest`, saved on the device). **More than one driver nearby and the box unticked** → `plan.step = "drivers"` (`Browse`, `components/DriverBrowser.jsx`: scrolling list, cheapest first, and *See map* with price tags). Asking a driver calls `requestRide({ …, to: [pk], ratesSeen })`; with the box ticked `nearestOf(pickup)` is asked at once. With 0 or 1 driver the request is broadcast as before.

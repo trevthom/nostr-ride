@@ -287,8 +287,8 @@ export function RiderProvider({ children }) {
 
   // ── Actions ──
 
-  // Publish a ride request. Only an approximate area is public; the exact
-  // trip is sealed to the rider (and to the driver after they are chosen).
+  // Publish a ride request. The whole event (note and fare included) goes only inside gift wraps (nostr/sealing.js), to the drivers near the
+  // pickup and the rider; they see an approximate area, and the exact trip is sealed to the rider (and to the chosen driver).
   const requestRide = useCallback(
     ({ pickup, dropoff, when, notes, miles, minutes, fareSats, suggestedSats, to = null, ratesSeen = null }) => {
       // `to` (a list of drivers): the rider chose them (browse list, map, "Notify nearest driver immediately"). The request goes to them only.

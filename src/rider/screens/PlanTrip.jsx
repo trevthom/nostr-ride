@@ -321,9 +321,10 @@ function Quote() {
           maxLength={140}
           className={inputCls}
         />
-        {/* The note is PUBLIC (drivers must read it before they accept), while the exact pickup is sealed. Say so, because a note is
-            the easy place to put the one thing the coarse request is hiding. */}
-        <p className="text-neutral-500 text-xs mt-1">Drivers near you can read this. Do not put your exact address, a gate or door code, or a phone number here.</p>
+        {/* The note travels inside the gift wrap (nostr/sealing.js), so a relay cannot read it, but the drivers near the pickup CAN: they read it
+            before they accept, and anyone may advertise as a driver. So it cannot be sealed to one person, and it is the easy place to put the
+            one thing the coarse request is hiding. Say who reads it. */}
+        <p className="text-neutral-500 text-xs mt-1">Sent encrypted to the drivers near you, who read it before they accept. Keep out your exact address, a gate or door code, or a phone number.</p>
 
         {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
         <StickyActions className="mt-4">
