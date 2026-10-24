@@ -22,7 +22,9 @@ top to bottom.
 ## 1. Run it on your computer
 
 You need **Node.js** installed first. If you don't have it, download the
-"LTS" version from https://nodejs.org and install it (click through).
+"LTS" version from https://nodejs.org and install it (click through). It must be
+**22.23.4 or newer** (24.22.1 on the 24 line): the releases before those have the
+October 2026 security fixes missing. `npm install` says so if yours is older.
 
 Open a **Terminal** (Mac: "Terminal" · Windows: "PowerShell"), then run these
 one at a time (press Enter after each):

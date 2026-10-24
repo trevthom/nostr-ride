@@ -11,6 +11,11 @@ inside this shell. In a browser nothing changes.
 > running with the screen off) must be tried on a real phone. You also need Android Studio
 > (Android) or Xcode on a Mac (iOS) to build.
 
+> **Capacitor 6.2.2 or newer, never lower.** `package.json` asks for `^6.2.2` on purpose:
+> `@capacitor/*` 6.0.0–6.2.1 have **CVE-2026-103922** (a malicious link can load remote
+> content at the app's own origin, with the plugin bridge attached — here, next to the
+> wallet). Do not pin the range back down without checking the advisory.
+
 ## Steps
 ```bash
 cd native
