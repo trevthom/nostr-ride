@@ -15,7 +15,7 @@
 
 import { formatDistance } from "../../lib/units.js";
 import { useEffect, useRef, useState } from "react";
-import { ARRIVE_RADIUS_METERS } from "../../config/settings.js";
+import { ARRIVE_RADIUS_METERS, LOCATION_PING_MS } from "../../config/settings.js";
 import { useApp } from "../../state/AppContext.jsx";
 import { useDriver } from "../state/DriverContext.jsx";
 import { rideConfirm, rideStage, rideTimes, rideKey } from "../../lib/rides.js";
@@ -30,6 +30,7 @@ import { meterView } from "../../lib/meter.js";
 import FareBreakdown from "../../ui/FareBreakdown.jsx";
 import TripMeter, { peekMeter } from "../../ui/TripMeter.jsx";
 import { exactTrip } from "../../lib/privacy.js";
+import { driverSharePayload } from "../../lib/safety.js";
 import { acceptFor, offerFrom } from "../../lib/trips.js";
 import { haversineDistance } from "../../lib/geo.js";
 import { pickupEta } from "../../lib/fare.js";
@@ -43,6 +44,7 @@ import ContactSheet from "../../ui/ContactSheet.jsx";
 import { MapPage, Sheet, StickyActions } from "../../ui/Layout.jsx";
 import { ConfirmDialog } from "../../ui/Parts.jsx";
 import RiderInfo, { useRiderInfo } from "../components/RiderInfo.jsx";
+import ShareSheet from "../components/ShareSheet.jsx";
 import { pickupChange, PICKUP_CHANGE_NOTE } from "../../lib/pickup.js";
 import { readPickup } from "../../lib/privacy.js";
 
@@ -52,7 +54,7 @@ const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 export default function DriveTrip({ request }) {
   const { user, liveTick, pushNotice } = useApp();
-  const { myPosition, gps, arrive, startTrip, finishRide, answerPickup, answerStop, odo, agreed, driveMoney } = useDriver();
+  const { myPosition, gps, arrive, startTrip, finishRide, answerPickup, answerStop, odo, agreed, driveMoney, share, shareUpdate } = useDriver();
   const { btcPrice } = useApp();
   const stage = rideStage(request);
   const exact = exactTrip(request, user);
@@ -61,6 +63,7 @@ export default function DriveTrip({ request }) {
   const accept = acceptFor(request, user.publicKey);
   const paid = accept ? parse(accept) : null;
   const [contact, setContact] = useState(false);
+  const [shareSheet, setShareSheet] = useState(false);
   const [ask, setAsk] = useState(null); // "finish" | "unpaid"
   const [dismissedMissed, setDismissedMissed] = useState(0); // "rider still with me": hide the missed-payments card until it grows
   const [dismissedRefused, setDismissedRefused] = useState(0); // the same for the refused-payment card
@@ -95,6 +98,29 @@ export default function DriveTrip({ request }) {
   const miles = myPosition ? haversineDistance(myPosition.lat, myPosition.lng, target.lat, target.lng) : null;
   // Minutes left: the road route from the car when the router answered, else a straight-line guess.
   const eta = miles == null ? null : routeInfo && !routeInfo.straight ? routeInfo.minutes : pickupEta(miles);
+
+  // Keep a shared drive current for the people following the link: this phone's position (the car), every 6 s,
+  // the same pace as the rider's share. The plate is this driver's own, for the people they chose to tell; the
+  // places are the request's PUBLIC area, never the rider's exact address (see lib/privacy.js).
+  const publicTrip = parse(request) || {};
+  const shareNow = useRef({});
+  shareNow.current = {
+    name: user.name,
+    car: [user.vehicle?.year, user.vehicle?.make, user.vehicle?.model].filter(Boolean).join(" "),
+    plate: [user.vehicle?.plateState, user.vehicle?.plateNumber].filter(Boolean).join(" "),
+    stage, pos: myPosition, gps, eta,
+    from: publicTrip.pickup || pickup, to: publicTrip.dropoff || dropoff,
+  };
+  useEffect(() => {
+    if (!share) return;
+    const send = (force) => {
+      const v = shareNow.current;
+      shareUpdate(driverSharePayload({ ...v, from: { name: v.from.name, lat: v.from.lat, lng: v.from.lng }, to: { name: v.to.name, lat: v.to.lat, lng: v.to.lng } }), { force });
+    };
+    send(true);
+    const id = setInterval(() => send(false), LOCATION_PING_MS);
+    return () => clearInterval(id);
+  }, [share?.token, stage]); // eslint-disable-line react-hooks/exhaustive-deps
   const offer = offerFrom(request, user.publicKey); // the offer this driver made (its rates are frozen for the ride)
   const fare = offer ? parse(offer)?.priceSats : parse(request)?.fareSats;
   // The line always starts at the car, so it shows what is LEFT of the trip (through the stops still ahead).
@@ -303,15 +329,18 @@ export default function DriveTrip({ request }) {
         <div className="mt-4 pt-4 border-t border-neutral-100"><RiderInfo pubkey={request.pubkey} /></div>
 
         <div className="flex gap-3 mt-4">
+          <button type="button" onClick={() => setShareSheet(true)} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-neutral-100 font-semibold text-[15px] active:bg-neutral-200">
+            <Icon name="share" size={18} className="max-[380px]:hidden" /> Share{share ? " ●" : ""}
+          </button>
           <button type="button" onClick={() => setContact(true)} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-neutral-100 font-semibold text-[15px] active:bg-neutral-200">
-            <Icon name="phone" size={18} /> Contact
+            <Icon name="phone" size={18} className="max-[380px]:hidden" /> Contact
           </button>
           {navUrl ? (
             <a href={navUrl} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-neutral-100 font-semibold text-[15px] active:bg-neutral-200">
-              <Icon name="navigation" size={18} /> Navigate
+              <Icon name="navigation" size={18} className="max-[380px]:hidden" /> Navigate
             </a>
           ) : (
-            <span className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-neutral-100 font-semibold text-[15px] text-neutral-400"><Icon name="navigation" size={18} /> Navigate</span>
+            <span className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-neutral-100 font-semibold text-[15px] text-neutral-400"><Icon name="navigation" size={18} className="max-[380px]:hidden" /> Navigate</span>
           )}
         </div>
 
@@ -358,6 +387,7 @@ export default function DriveTrip({ request }) {
       </Sheet>
 
       <ContactSheet open={contact} onClose={() => setContact(false)} pubkey={request.pubkey} name={profile?.name} />
+      <ShareSheet open={shareSheet} onClose={() => setShareSheet(false)} request={request} destination={dropoff.name} />
       <ConfirmDialog
         open={ask === "finish"}
         title="Finish this ride?"

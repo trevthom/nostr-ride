@@ -128,13 +128,14 @@ src/
     bolt11.js     # paymentHash / preimageMatches
     blocks.js     # local block list helpers
     useFareEstimate.js # estimates during a ride: changeRoutes (pure), useChangeEstimate (a new stop / destination: the fare change), useTotalEstimate (the whole ride, re-priced after an accepted change); routes via OSRM (routing.js)
+    useTripShare.js # "Share my trip" state for the active ride, used by BOTH faces (share/startShare/stopShare/shareUpdate/shareUrl)
     appearance.js # light/dark look, TWO switches: isDark/setDark (the application, `nostrride_dark`) and isDarkMap/setDarkMap (the map only, `nostrride_darkMap`), saved AT ONCE; applyAppearance (the `dark` and `dark-map` classes on <html> + <meta theme-color>), useDark/useDarkMap
     profilecontent.js # profileContent(base, next, patch): what a kind-0 save writes: ONLY the fields the patch changes, the rest from the newest profile (shared with the other app)
     mode.js       # the face per account (`nostrride_mode_<pk16>`): getMode/saveMode/roleOf, TABS/FIRST/viewFor (the tab on screen belongs to the face)
     backup.js     # the encrypted settings note (kind 30111, always on; state/useBackup.js sends it)
     recovery.js   # the 12-word recovery phrase (pure): newPhrase/cleanPhrase/checkPhrase/seedOf/pickCheckPositions/checkAnswers/boxKey (@scure/bip39; HKDF)
     vouches.js    # "I know and trust this person": parsePubkey (npub; an nsec is refused), vouchEvent/vouchList (kind 30102), trustFor(target, me) = {direct, via} (ONE hop, only through people I vouch for), trustHeadline/trustDetail (the badge words)
-    safety.js     # trusted contacts, sms link, trip message
+    safety.js     # trusted contacts, sms link, trip message, sharePayload (rider) / driverSharePayload (driver)
     nativeGeo.js  # background location via Capacitor (run-time lookup; web build has no dependency)
     notify.js     # service worker registration + system notifications
     gps.js (gpsStatus/gpsMessage: good|weak|stale; canBeOnline/approxNote) useGeolocation.js (pos, error, status) useWakeLock.js
@@ -151,7 +152,8 @@ src/
   features/
     auth/        AuthScreen (role-aware copy) + AuthSteps (unlock, key backup)
     profile/     ProfileParts (useSaveProfile, AccountHeader, ContactMethods, RelaysSection, LogoutButton),
-                 WalletsSection (Account → Wallets: Currency, then the ecash wallet with the cash out location inside), AppearanceSection (Dark Mode (application), Dark Mode (map) and Units), VehicleSection (up to 3 photos), VouchesSection ("Your vouches": npub in, list out), TypicalFareSection ("Your rates", locked during a ride), CurrencySection, LightningAddressSection, WalletSection, KeysSection
+                 WalletsSection (Account → Wallets: Currency, then the ecash wallet with the cash out location inside), AppearanceSection (Dark Mode (application), Dark Mode (map) and Units), VehicleSection (up to 3 photos), VouchesSection ("Your vouches": npub in, list out), TypicalFareSection ("Your rates", locked during a ride), CurrencySection, LightningAddressSection, WalletSection, KeysSection, SafetySection (trusted contacts, both faces)
+    share/       ShareTrip (the "Share my trip" block both faces use: Start sharing, the link, Send link, Stop, trusted contacts)
     ecash/       EcashSection (balance, Send, mint, paste a token, back up, Cash out + Automatically cash out in both faces), CashOutConfirm + useCashOutTo (the pinned address and its notices), SendEcash (token or Lightning), AutoCashOutField, useAutoCashOut, WalletStart (no wallet yet: Create New Wallet / Restore my wallet, and the WalletPrompt notice), RestoreWallet (the 12 words in, the wallet back), RecoverySection (RecoveryFold + RecoveryNotice: write down 12 words, show again), myMint.js
     payments/    PayDriver (a Lightning address: tips), AddFunds (Lightning tab: a mint invoice → ecash, paid from any wallet; On-chain tab: OnchainFunds, a bitcoin address from the mint), rideTicks.js (rider: payDue), redeemTicks.js (driver: redeem + reply),
                  handoff.js (releaseWhenSafe: a token leaves `pending` only when its event is saved in the outbox or taken by a relay), redeemWaivers.js (rider: collect refunds), useRideLink.js (quiet phone, sign of life, 10-minute silence)
@@ -165,7 +167,7 @@ src/
     state/DriverContext.jsx  state/useDriveOdometer.js
     screens/ HomeScreen (dispatch) Onboarding OnlineHome (offline GO / online / incoming card / waiting) NearbyRequests (the list)
              DriveTrip  DriveSummary  EarningsScreen  AccountScreen
-    components/ RiderInfo, Checklist
+    components/ RiderInfo, Checklist, ShareSheet (the driver's "Share my trip")
 test/*.test.mjs
 ```
 
@@ -338,10 +340,10 @@ carries `driverPubkey`. Stage is `enroute` (default) → `arrived` → `riding`.
 - **Outbox**: `relay.publish` queues an event no relay accepted (`nostrride_outbox` in localStorage) and
   re-sends it with backoff, on `online`/tab wake (`AppContext` → `relay.flushOutbox()` + `reconnectAll()`),
   and after reload. Ephemeral kinds are never queued. Pools use `enableReconnect`.
-- **Safety / share**: `RiderContext` holds the share state (`share`, `startShare`, `stopShare`, `shareUpdate`);
-  `OnTrip` pushes updates every `LOCATION_PING_MS` (6 s, config/settings.js: the SAME constant as the driver's location pings) with `sharePayload` (lib/safety.js): the RIDER's own phone position (`who:"rider"`,
-  left out when the fix is stale) and the car (`carPos`) only until the ride starts; `sharedPositions` is what `src/rider/Track.jsx` (apps/nostrride/track.html, the viewer) draws (an older app's
-  lat/lng is the car). The share key is only ever in the URL fragment.
+- **Safety / share**: `lib/useTripShare.js` holds the share state for the active ride in BOTH faces (`share`, `startShare`, `stopShare`, `shareUpdate`, `shareUrl`; `RiderContext` and `DriverContext` each expose it).
+  `OnTrip` and `DriveTrip` push updates every `LOCATION_PING_MS` (6 s, config/settings.js) with `sharePayload` (rider: the RIDER's own phone, `who:"rider"`, and the car `carPos` only until the ride starts)
+  or `driverSharePayload` (driver: the DRIVER's own phone, `who:"driver"`; the request's PUBLIC places, never the rider's exact address); a stale fix is left out. `sharedPositions` is what `src/rider/Track.jsx` (apps/nostrride/track.html, the viewer) draws:
+  a rider's own dot plus the car, or a driver's own dot (the car). The share key is only ever in the URL fragment. The driver starts it from the **Share** button on `DriveTrip`.
 - **Service worker** (`apps/nostrride/public/sw.js`, production only): caches the shell and hashed assets; never touches
   relays, tiles or APIs. It cannot receive push while the app is closed. Native shell (`native/`) skips it.
 - **Fares** (`lib/fare.js`): one fare, each driver's own rates (`fareMode:"standard"`; the request's `fareSats` is only an estimate). The rider names no price and a driver does not counter (the flat price was removed on purpose: do not add it back).

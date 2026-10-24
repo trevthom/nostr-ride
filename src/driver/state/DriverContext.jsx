@@ -47,6 +47,7 @@ import { getSetting, setSetting } from "../../config/relays.js";
 import { moneyText } from "../../ui/Money.jsx";
 import { useAutoCashOut } from "../../features/ecash/useAutoCashOut.js";
 import { releaseWhenSafe } from "../../features/payments/handoff.js";
+import { useTripShare } from "../../lib/useTripShare.js";
 
 const DriverContext = createContext(null);
 export const useDriver = () => useContext(DriverContext);
@@ -105,6 +106,9 @@ export function DriverProvider({ children }) {
   void liveTick;
   const activeDrive = activeDriveFor(rideRequests, me);
   const pending = pendingOfferFor(me); // { offer, request } | null
+
+  // ── "Share my trip": a friend follows a link (see nostr/share.js), exactly as on the rider's side ──
+  const { share, startShare, stopShare, shareUpdate, shareUrl } = useTripShare(activeDrive);
 
   // The driver's own odometer (miles to the pickup, miles on the trip), and the distances the rider's app
   // says both screens should show (lib/meter.js: the driver's, unless the rider's differs by more than 5%).
@@ -490,6 +494,7 @@ export function DriverProvider({ children }) {
     radius, setRadius, alerts, setAlerts,
     open, decline, skip, skipped,
     activeDrive, pending, receipt, dismissReceipt, odo, agreed, driveMoney, tripMiles,
+    share, startShare, stopShare, shareUpdate, shareUrl,
     acceptRequest, answerPickup, answerStop, arrive, startTrip, finishRide, waiveFare,
   };
   return <DriverContext.Provider value={value}>{children}</DriverContext.Provider>;

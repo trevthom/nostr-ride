@@ -44,7 +44,7 @@ import { useAutoCashOut } from "../../features/ecash/useAutoCashOut.js";
 import { redeemWaiversFor } from "../../features/payments/redeemWaivers.js";
 import { moneyText } from "../../ui/Money.jsx";
 import { getSetting, setSetting } from "../../config/relays.js";
-import { newShareToken, publishShare, shareLink } from "../../nostr/share.js";
+import { useTripShare } from "../../lib/useTripShare.js";
 
 const RiderContext = createContext(null);
 export const useRider = () => useContext(RiderContext);
@@ -139,32 +139,7 @@ export function RiderProvider({ children }) {
   }, []);
 
   // ── "Share my trip": a friend follows a link (see nostr/share.js) ──
-  const [shareState, setShareState] = useState(() => getSetting("tripShare", null)); // { key, token, sos }
-  const lastShareAt = useRef(0);
-  const share = shareState && activeRide && shareState.key === rideKey(activeRide) ? shareState : null;
-  const startShare = useCallback((request, { sos = false } = {}) => {
-    const key = rideKey(request);
-    const next = { key, token: shareState?.key === key ? shareState.token : newShareToken(), sos: sos || (shareState?.key === key && !!shareState.sos) };
-    setShareState(next);
-    setSetting("tripShare", next);
-    return next;
-  }, [shareState]);
-  const stopShare = useCallback(() => {
-    if (shareState) publishShare(shareState.token, { ended: true, ts: Date.now() });
-    setShareState(null);
-    setSetting("tripShare", null);
-  }, [shareState]);
-  // Send the trip's state to viewers (at most one update per 4 s unless forced).
-  const shareUpdate = useCallback((payload, { force = false } = {}) => {
-    if (!share) return;
-    const now = Date.now();
-    if (!force && now - lastShareAt.current < 4000) return;
-    lastShareAt.current = now;
-    publishShare(share.token, { ...payload, sos: share.sos, ts: now });
-  }, [share]);
-  const shareUrl = useCallback((s) => shareLink(new URL("track.html", window.location.href).href, s.token), []);
-  // The ride is over: tell viewers, and forget the key.
-  useEffect(() => { if (shareState && !activeRide) stopShare(); }, [!!activeRide]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { share, startShare, stopShare, shareUpdate, shareUrl } = useTripShare(activeRide);
 
   // While a ride is open, poll so the driver's moves show up even if the
   // live subscription missed them.

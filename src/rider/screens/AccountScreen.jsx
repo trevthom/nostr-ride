@@ -13,7 +13,7 @@ import { AccountHeader, ContactMethods, RelaysSection, BlockedSection, LogoutBut
 import VouchesSection from "../../features/profile/VouchesSection.jsx";
 import WalletsSection from "../../features/profile/WalletsSection.jsx";
 import AppearanceSection from "../../features/profile/AppearanceSection.jsx";
-import SafetySection from "../components/SafetySection.jsx";
+import SafetySection from "../../features/profile/SafetySection.jsx";
 import KeysSection from "../../features/profile/KeysSection.jsx";
 import Fold from "../../ui/Fold.jsx";
 import { RecoveryFold, RecoveryNotice } from "../../features/ecash/RecoverySection.jsx";

@@ -18,6 +18,7 @@ import { driveGaps, gapsText } from "../../lib/profile.js";
 import AppearanceSection from "../../features/profile/AppearanceSection.jsx";
 import VouchesSection from "../../features/profile/VouchesSection.jsx";
 import WalletsSection from "../../features/profile/WalletsSection.jsx";
+import SafetySection from "../../features/profile/SafetySection.jsx";
 import { useUnits, distanceIn, milesFrom } from "../../lib/units.js";
 import KeysSection from "../../features/profile/KeysSection.jsx";
 import Icon from "../../ui/Icon.jsx";
@@ -98,6 +99,7 @@ export default function AccountScreen() {
             </div>
           </Fold>
 
+          <Fold id="safety" title="Trusted contacts"><SafetySection /></Fold>
           <Fold id="contacts" title="Contact methods"><ContactMethods /></Fold>
           <Fold id="vouches" title="Your vouches"><VouchesSection /></Fold>
           <Fold id="blocked" title="Blocked people"><BlockedSection /></Fold>
