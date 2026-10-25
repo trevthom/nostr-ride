@@ -28,8 +28,9 @@ native/
 ```
 
 > **Status: the iOS project has never been compiled** (it was generated on Linux; there is no Xcode
-> here). The Android APK is built and checked to install. Real background behaviour — battery,
-> the OS prompts, whether the page keeps running with the screen off — must be tried on a phone.
+> here). The Android APK builds and its contents are checked. Neither shell has been run on a phone:
+> real background behaviour — battery, the OS prompts, whether the page keeps running with the
+> screen off — must be tried on a device.
 
 > **Capacitor 6.2.2 or newer, never lower.** `package.json` asks for `^6.2.2` on purpose:
 > `@capacitor/*` 6.0.0–6.2.1 have **CVE-2026-103922** (a malicious link can load remote
@@ -59,7 +60,7 @@ Store notes are in **[ios/README.md](ios/README.md)**.
 ## Android
 
 ```bash
-npx cap copy android         # copies dist + the plugin list
+npx cap sync android          # copies dist, and regenerates the plugin list (a fresh clone needs this)
 cd android && ./gradlew assembleDebug
 # → android/app/build/outputs/apk/debug/app-debug.apk
 ```
