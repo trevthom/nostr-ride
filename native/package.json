@@ -1,7 +1,7 @@
 {
   "name": "nostrride-native",
   "private": true,
-  "description": "Native shell for the NostrRide driver app (background GPS). Separate from the web build on purpose.",
+  "description": "Native shells (iOS and Android) for the one app with two faces: background GPS for the driver, and a rider page that keeps paying ticks with the phone locked. Embedded build, separate from the web app on purpose.",
   "scripts": {
     "sync": "cd .. && npm run build && cd native && cap sync",
     "android": "cap open android",

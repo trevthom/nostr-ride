@@ -1,6 +1,8 @@
 {
-  "appId": "app.nostrride.driver",
-  "appName": "NostrRide Driver",
+  "appId": "app.nostrride",
+  "appName": "NostrRide",
   "webDir": "../dist/nostrride",
-  "server": { "androidScheme": "https" }
+  "server": { "androidScheme": "https" },
+  "ios": { "contentInset": "never", "scrollEnabled": false },
+  "android": { "allowMixedContent": false }
 }

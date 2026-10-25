@@ -1,33 +1,85 @@
-# Native shell for the app (background GPS for drivers)
+# Native shells for the app
 
 A web page cannot read the location once the screen is off or the app is in the
-background. This folder wraps the **app** (its Drive face needs this) in a native app (Capacitor) that
-can, through an Android foreground service or an iOS background mode. The web build is
-unchanged: `src/lib/nativeGeo.js` looks for the plugin at run time and uses it only
-inside this shell. In a browser nothing changes.
+background. This folder wraps the **one app with two faces** in two native shells (iOS and
+Android, Capacitor), so that it can, through an iOS background mode or an Android foreground
+service.
 
-> **Status: written but NOT tested on a device.** The adapter is unit-tested with a fake
-> plugin. Real background behavior (battery limits, OS prompts, whether the WebView keeps
-> running with the screen off) must be tried on a real phone. You also need Android Studio
-> (Android) or Xcode on a Mac (iOS) to build.
+It does more than the driver's GPS:
+
+- **Drive face** — the car's position keeps being shared with the rider with the screen off.
+- **Ride face** — during a ride the app measures the trip on the rider's own phone (the 5% meter
+  rule), and the same running session is what keeps its page alive so the **ticks keep being paid
+  with the phone in a pocket**. A web page that iOS suspends stops paying; that is the failure this
+  shell exists to remove. Nothing about the wallet moves into native code: the page still holds
+  the keys, the coins and the relays.
+- Both faces: no service worker, no screen wake lock needed, native icons and splash.
+
+The web build is unchanged. `src/lib/nativeGeo.js` looks the plugin up at run time
+(`window.Capacitor`), and in a browser nothing changes.
+
+```
+native/
+  capacitor.config.json   appId app.nostrride, name NostrRide, webDir ../dist/nostrride
+  package.json            Capacitor ^6.2.2 + @capacitor-community/background-geolocation
+  resources/              icon + splash masters (from apps/nostrride/public/icon.svg)
+  ios/                    the Xcode project — see ios/README.md to build and sign it
+  android/                the Gradle project — build an APK here
+```
+
+> **Status: the iOS project has never been compiled** (it was generated on Linux; there is no Xcode
+> here). The Android APK is built and checked to install. Real background behaviour — battery,
+> the OS prompts, whether the page keeps running with the screen off — must be tried on a phone.
 
 > **Capacitor 6.2.2 or newer, never lower.** `package.json` asks for `^6.2.2` on purpose:
 > `@capacitor/*` 6.0.0–6.2.1 have **CVE-2026-103922** (a malicious link can load remote
 > content at the app's own origin, with the plugin bridge attached — here, next to the
 > wallet). Do not pin the range back down without checking the advisory.
 
-## Steps
+## Build the web app first
+
+Both shells embed the build; they never load the site over the network (an app that holds keys
+and money must not run fetched code).
+
 ```bash
-cd native
-npm install                 # Capacitor and the background-geolocation plugin
-npm run sync                # builds ../dist/nostrride and copies it in
-npx cap add android         # once  (and/or: npx cap add ios)
-npm run sync
-npm run android             # opens Android Studio; run on a phone
+npm ci && npm run build      # from the repo root → dist/nostrride
+cd native && npm install
 ```
 
-## Permissions to add after `cap add`
-**Android** (`android/app/src/main/AndroidManifest.xml`), inside `<manifest>`:
+## iOS
+
+```bash
+npx cap sync ios
+npx cap open ios             # opens ios/App/App.xcworkspace
+```
+
+Needs macOS, Xcode 15+ and CocoaPods. Signing, the location prompts, TestFlight and the App
+Store notes are in **[ios/README.md](ios/README.md)**.
+
+## Android
+
+```bash
+npx cap copy android         # copies dist + the plugin list
+cd android && ./gradlew assembleDebug
+# → android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Install it with `adb install -r app-debug.apk` (or copy it to the phone). Needs a JDK 21 and the
+Android SDK (`ANDROID_HOME`), or just open `native/android` in Android Studio.
+
+A release build needs a keystore you keep yourself — never commit one, and never paste it into a
+chat:
+
+```bash
+keytool -genkey -v -keystore ~/nostrride.keystore -alias nostrride -keyalg RSA -keysize 2048 -validity 10000
+# then signingConfigs in android/app/build.gradle, or:
+./gradlew assembleRelease   # after wiring the keystore in
+```
+
+## Permissions and store answers
+
+**Android** (`android/app/src/main/AndroidManifest.xml`, already present):
+
 ```xml
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -36,18 +88,26 @@ npm run android             # opens Android Studio; run on a phone
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
-**iOS** (`ios/App/App/Info.plist`):
-```xml
-<key>NSLocationWhenInUseUsageDescription</key><string>Shows your car to your rider.</string>
-<key>NSLocationAlwaysAndWhenInUseUsageDescription</key><string>Keeps sharing your location with your rider while the app is in the background.</string>
-<key>UIBackgroundModes</key><array><string>location</string></array>
-```
-Also read the plugin's own README (`@capacitor-community/background-geolocation`) for
-current setup notes; platform rules change often. Google Play and the App Store both ask
-for a reason for background location. Say it is for sharing the driver's position with
-the rider during a trip.
+
+**iOS** (`ios/App/App/Info.plist`, already present): the two `NSLocation…UsageDescription`
+strings and `UIBackgroundModes: location`.
+
+**What both stores ask, and the answer:** the app shares the driver's position with their rider
+during a trip, and measures the ride on the rider's own phone. Say exactly that — it has to stay
+true.
 
 ## What the app does differently inside the shell
-- Location comes from the background watcher, with a persistent "Driving with NostrRide" notification.
-- A location is sent to the rider on each fix (at most every 5 s), not on a timer that the OS may pause.
+
+- Location comes from the background watcher, with a persistent notification on Android.
+- A location is sent to the rider on each fix (at most every 5 s), not on a timer the OS may pause.
+- **While a ride runs, the rider's watcher is in background mode and takes every fix (`heartbeat`).**
+  Each fix is a moment the page is known to be running, so the payment loop pays what fell due
+  right then instead of waiting for a timer iOS may throttle. Outside a ride it is foreground only
+  — "While Using" permission, no notification, no battery use.
 - The screen wake lock and the service worker are skipped.
+
+## The two platform repos
+
+`trevthom/nostr-ride-ios` and `trevthom/nostr-ride-android` are build wrappers around this
+repository: their own README says which folder to sync. This repo stays the single source of
+truth for both shells — do not edit the shells in the wrappers.

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>NostrRide</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	<!-- iPhone is portrait only: the screens are a full-height map with a bottom sheet. -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+	<!-- Location: the Drive face shares the car's position with the rider while the app is in the
+	     background, and the Ride face measures the trip's distance on the rider's own phone.
+	     UIBackgroundModes: location is what lets the app keep running (and the payment loop keep
+	     paying ticks) with the screen off. Both stores ask why; the answer is that sentence. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Shows nearby drivers your pickup, shares your car's position with your rider, and measures the ride.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Keeps sharing your car's position with your rider, and measuring the ride, while the app is in the background.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Keeps sharing your car's position with your rider, and measuring the ride, while the app is in the background.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
+	<!-- Profile and vehicle photos (an <input type="file">, so picking from the library needs no
+	     permission; the strings cover the camera and any future library access). -->
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of yourself or your car for your profile.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a photo of yourself or your car for your profile.</string>
+</dict>
+</plist>

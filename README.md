@@ -109,7 +109,7 @@ Every part of the Account screen opens and closes when you tap its title. *Accou
 - **Vouch** for people you know and trust (*Account → Your vouches*: paste their npub). There are no star ratings or reviews. When someone you vouch for also vouches for a driver or rider, their card says "N of your vouches know and trust this person". Your list is public.
 - **Disputes:** every payment and confirmation is a signed record. The Drive face counts a payment only when its own mint redeemed it, and can copy a **trip record** for whoever settles a dispute.
 - **Offline:** the app installs to your home screen, open offline, and send queued updates when you are back online.
-- **Background GPS** needs the native app in `native/` (see its README); a browser stops location when the screen sleeps.
+- **Background GPS, and paying while the phone is in a pocket,** need the native shells in `native/` (its README, and `native/ios/README.md` to build on a Mac); a browser stops location and timers when the screen sleeps.
 
 ## 4. Privacy, in short
 

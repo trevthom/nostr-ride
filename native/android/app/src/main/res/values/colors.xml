@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher theme's colours. The app itself is white/black (src/index.css); these only
+     paint the window before the first web paint and the system bars, so both are black. -->
+<resources>
+    <color name="colorPrimary">#000000</color>
+    <color name="colorPrimaryDark">#000000</color>
+    <color name="colorAccent">#000000</color>
+</resources>

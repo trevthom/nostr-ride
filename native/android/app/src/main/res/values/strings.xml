@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NostrRide</string>
+    <string name="title_activity_main">NostrRide</string>
+    <string name="package_name">app.nostrride</string>
+    <string name="custom_url_scheme">app.nostrride</string>
+</resources>

@@ -20,6 +20,7 @@ import { relay } from "../../nostr/relay.js";
 import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { subscribePresence } from "../../nostr/live.js";
 import { useGeolocation } from "../../lib/useGeolocation.js";
+import { subscribeNativeFixes } from "../../lib/nativeGeo.js";
 import { useWakeLock } from "../../lib/useWakeLock.js";
 import { reverseGeocode } from "../../lib/geocode.js";
 import { haversineDistance } from "../../lib/geo.js";
@@ -56,7 +57,15 @@ const parse = (e) => { try { return JSON.parse(e.content); } catch { return null
 export function RiderProvider({ children }) {
   const { user, rideRequests, publish, refreshData, pullRecent, pushNotice, liveTick, setView, isBlockedPk, blocked, onLogout, ecash, priceFor, btcPrice, usdPrice } = useApp();
   const me = user.publicKey;
-  const { pos: myPosition, error: geoError, status: gps } = useGeolocation(true);
+  const geo = useGeolocation(true, {
+    // Foreground only until a ride starts: then the watcher goes into the background, which on iOS is what
+    // keeps this page alive with the screen locked so the ticks keep being paid (see below).
+    background: false,
+    heartbeat: true,
+    title: "NostrRide",
+    message: "Measuring this ride and keeping your fare up to date.",
+  });
+  const { pos: myPosition, error: geoError, status: gps } = geo;
 
   // ── Where am I, by name? (one lookup per ~300 m of movement) ──
   const [here, setHere] = useState(null);
@@ -114,6 +123,11 @@ export function RiderProvider({ children }) {
   const [focusId, setFocusId] = useState(null);
   const focused = focusId ? rideRequests.find((r) => r.id === focusId && isOpenRide(r)) : null;
   const activeRide = focused || activeRideFor(rideRequests, me);
+  // While a ride runs, the location watcher goes into the BACKGROUND. Inside the native shell that is what keeps
+  // this page running with the phone in a pocket (iOS does not suspend an app with a running location session),
+  // so the rider keeps paying ticks; it also measures the trip on the rider's own phone (useRiderMeter).
+  const ridingNow = !!activeRide && rideStatus(activeRide) === "in_progress";
+  useEffect(() => { geo.setBackground(ridingNow); }, [ridingNow]); // eslint-disable-line react-hooks/exhaustive-deps
   const upcoming = upcomingRidesFor(rideRequests, me);
 
   // ── The receipt to show after a trip ends ──
@@ -175,10 +189,12 @@ export function RiderProvider({ children }) {
   const payRide = activeRide && rideStatus(activeRide) === "in_progress" ? activeRide : receipt;
   // A sleeping phone stops the timer below, so no tick is paid and the driver sees "missed payments" with a full wallet.
   // Keep the screen on for as long as the ride runs; `screenMayDim` is true when the browser would not give us the lock.
+  // (Inside the native shell the lock is not needed: the background watcher above keeps the page running instead.)
   const screenMayDim = useWakeLock(!!activeRide && rideStatus(activeRide) === "in_progress");
   const milesRef = useRef(null); // the trip distance both screens show, reported by the trip screen
   const reportMiles = useCallback((m) => { milesRef.current = m; }, []);
   const [money, setMoney] = useState(null);
+  const payTickRef = useRef(null); // the payment pass of the loop below, for the native heartbeat to call
   const payTerms = payRide ? rideTerms(payRide) : null;
   const payMint = payRide ? rideMint(payRide) : null;
   const payKey = payRide ? rideKey(payRide) : null;
@@ -239,13 +255,19 @@ export function RiderProvider({ children }) {
       } finally { running = false; }
     };
     tick();
+    payTickRef.current = tick;
     const id = setInterval(tick, 3000);
     // The page just woke up (screen unlocked, app switched back, network back): pay what fell due at once, not at the next timer.
     const wake = () => { if (document.visibilityState === "visible") tick(); };
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("online", wake);
-    return () => { alive = false; clearInterval(id); document.removeEventListener("visibilitychange", wake); window.removeEventListener("online", wake); };
+    return () => { alive = false; clearInterval(id); document.removeEventListener("visibilitychange", wake); window.removeEventListener("online", wake); if (payTickRef.current === tick) payTickRef.current = null; };
   }, [owingKey, !!ecash, payKey, run, me]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Inside the native shell the watcher delivers fixes even while the page is hidden (a `heartbeat` watcher, ~1/s):
+  // every fix is a moment the page is KNOWN to be running, so pay what fell due right then. iOS throttles timers in
+  // a hidden page; this is the path that keeps a pocketed phone paying. In a browser there is no native watcher.
+  useEffect(() => subscribeNativeFixes(() => { const tick = payTickRef.current; if (tick) tick(); }), []);
 
   // Pay now, outside the timer (after adding funds): resolves to the result.
   const payNow = useCallback(async (request) => run(request || payRide), [run, payRide]);
