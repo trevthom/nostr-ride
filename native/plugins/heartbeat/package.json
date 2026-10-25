@@ -1,0 +1,24 @@
+{
+  "name": "nostrride-heartbeat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A native metronome into the page: while the app runs in the background it wakes the rider's payment loop, so a pocketed phone keeps paying the ride's ticks. It never touches the wallet, the keys or the coins.",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/trevthom/nostr-ride",
+  "files": [
+    "ios",
+    "android",
+    "NostrrideHeartbeat.podspec"
+  ],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.2.2"
+  }
+}

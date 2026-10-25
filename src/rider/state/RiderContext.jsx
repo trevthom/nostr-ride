@@ -21,6 +21,7 @@ import { EVENT_KINDS } from "../../nostr/eventKinds.js";
 import { subscribePresence } from "../../nostr/live.js";
 import { useGeolocation } from "../../lib/useGeolocation.js";
 import { subscribeNativeFixes } from "../../lib/nativeGeo.js";
+import { startHeartbeat } from "../../lib/heartbeat.js";
 import { useWakeLock } from "../../lib/useWakeLock.js";
 import { reverseGeocode } from "../../lib/geocode.js";
 import { haversineDistance } from "../../lib/geo.js";
@@ -264,10 +265,16 @@ export function RiderProvider({ children }) {
     return () => { alive = false; clearInterval(id); document.removeEventListener("visibilitychange", wake); window.removeEventListener("online", wake); if (payTickRef.current === tick) payTickRef.current = null; };
   }, [owingKey, !!ecash, payKey, run, me]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Inside the native shell the watcher delivers fixes even while the page is hidden (a `heartbeat` watcher, ~1/s):
-  // every fix is a moment the page is KNOWN to be running, so pay what fell due right then. iOS throttles timers in
-  // a hidden page; this is the path that keeps a pocketed phone paying. In a browser there is no native watcher.
-  useEffect(() => subscribeNativeFixes(() => { const tick = payTickRef.current; if (tick) tick(); }), []);
+  // Inside the native shell, two things wake the payment pass while the page is hidden:
+  //   • a location fix (a `heartbeat` watcher, ~1/s): a fix is a moment the page is KNOWN to be running;
+  //   • the shell's own metronome (lib/heartbeat.js): a native timer that evaluates one line of JS, which is
+  //     what a rider standing still, in traffic or in a tunnel gets — no fix, but the ride still earns.
+  // The metronome holds no key and no coin: the page still pays, native only says when. It runs only while a
+  // ride does, because that is when the app has a reason to keep running in the background at all.
+  // In a browser neither exists and the 3 s timer above is the whole loop.
+  const wakePay = useCallback(() => { const tick = payTickRef.current; if (tick) tick(); }, []);
+  useEffect(() => subscribeNativeFixes(wakePay), [wakePay]);
+  useEffect(() => (ridingNow ? startHeartbeat(wakePay) : undefined), [ridingNow, wakePay]);
 
   // Pay now, outside the timer (after adding funds): resolves to the result.
   const payNow = useCallback(async (request) => run(request || payRide), [run, payRide]);

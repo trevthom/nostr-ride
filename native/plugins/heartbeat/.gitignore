@@ -1,0 +1,11 @@
+# Gradle outputs of the Android library module
+build/
+.gradle/
+local.properties
+*.iml
+.idea/
+
+# CocoaPods, if it is ever run from inside the plugin
+Pods/
+*.xcworkspace/xcuserdata/
+.DS_Store

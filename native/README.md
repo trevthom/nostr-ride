@@ -11,8 +11,10 @@ It does more than the driver's GPS:
 - **Ride face** — during a ride the app measures the trip on the rider's own phone (the 5% meter
   rule), and the same running session is what keeps its page alive so the **ticks keep being paid
   with the phone in a pocket**. A web page that iOS suspends stops paying; that is the failure this
-  shell exists to remove. Nothing about the wallet moves into native code: the page still holds
-  the keys, the coins and the relays.
+  shell exists to remove. A location fix is not enough on its own — a rider standing at a light, in
+  traffic or in a tunnel gets none — so the shell also runs a small **metronome**
+  (`plugins/heartbeat`) that wakes the page every 15 s. Nothing about the wallet moves into native
+  code: the page still holds the keys, the coins and the relays, and the metronome signs nothing.
 - Both faces: no service worker, no screen wake lock needed, native icons and splash.
 
 The web build is unchanged. `src/lib/nativeGeo.js` looks the plugin up at run time
@@ -22,15 +24,17 @@ The web build is unchanged. `src/lib/nativeGeo.js` looks the plugin up at run ti
 native/
   capacitor.config.json   appId app.nostrride, name NostrRide, webDir ../dist/nostrride
   package.json            Capacitor ^6.2.2 + @capacitor-community/background-geolocation
+                          + nostrride-heartbeat (file:./plugins/heartbeat)
+  plugins/heartbeat/      the metronome, in Swift and Kotlin: wakes the page while a ride runs
   resources/              icon + splash masters (from apps/nostrride/public/icon.svg)
   ios/                    the Xcode project — see ios/README.md to build and sign it
   android/                the Gradle project — build an APK here
 ```
 
-> **Status: the iOS project has never been compiled** (it was generated on Linux; there is no Xcode
-> here). The Android APK builds and its contents are checked. Neither shell has been run on a phone:
-> real background behaviour — battery, the OS prompts, whether the page keeps running with the
-> screen off — must be tried on a device.
+> **Status: the iOS project and its Swift plugin have never been compiled** (they were written on Linux;
+> there is no Xcode here). The Android APK builds, with the Kotlin plugin compiled in and registered.
+> Neither shell has been run on a phone: real background behaviour — battery, the OS prompts, whether
+> the page keeps running with the screen off, whether a beat really wakes it — must be tried on a device.
 
 > **Capacitor 6.2.2 or newer, never lower.** `package.json` asks for `^6.2.2` on purpose:
 > `@capacitor/*` 6.0.0–6.2.1 have **CVE-2026-103922** (a malicious link can load remote
@@ -105,6 +109,11 @@ true.
   Each fix is a moment the page is known to be running, so the payment loop pays what fell due
   right then instead of waiting for a timer iOS may throttle. Outside a ride it is foreground only
   — "While Using" permission, no notification, no battery use.
+- **And while a ride runs, the shell beats time.** `plugins/heartbeat` starts a native timer when
+  `lib/heartbeat.js` asks for one and stops it when the last listener goes. Every 15 s it evaluates
+  `window.__nostrRideBeat()`, which resumes a throttled page; that is what covers the stationary
+  phone, when no fix arrives to do it. It is skipped in the foreground (the page's own 3 s loop is
+  running) and it holds nothing worth stealing: no key, no coin, no signing.
 - The screen wake lock and the service worker are skipped.
 
 ## The two platform repos

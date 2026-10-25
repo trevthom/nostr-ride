@@ -20,7 +20,7 @@ not as a release.
 | Orientation | iPhone portrait only; iPad all |
 | Icons | `App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png` — 1024×1024, no alpha (the App Store rejects an icon with an alpha channel) |
 | Splash | white with the app mark, in `Assets.xcassets/Splash.imageset` |
-| Plugin | `@capacitor-community/background-geolocation`, in `Podfile` (CocoaPods) |
+| Plugins | `@capacitor-community/background-geolocation` and the local `nostrride-heartbeat` (`../plugins/heartbeat`), both in `Podfile` (CocoaPods) |
 
 The icon and splash are generated from `../resources/icon.png` / `../resources/icon-foreground.png`,
 which come from the bolt mark in `apps/nostrride/public/icon.svg`. Replace those masters and
@@ -111,6 +111,10 @@ Product → Archive → Distribute App → App Store Connect → Upload
 
 - That the background location session really keeps the page alive with the screen locked (this is
   what the rider's tick payments hang off — see `src/lib/useGeolocation.js`, `heartbeat`).
+- That the metronome really wakes the page: start a ride, lock the phone and **leave it still**
+  (a fix needs movement, a beat does not), then watch the driver's phone receive ticks every
+  minute or so. `native/plugins/heartbeat` is the Swift side; if Xcode reports the pod missing, run
+  `pod install` again — Capacitor renames the pod from the package name (`NostrrideHeartbeat`).
 - Battery use over a real 20-minute trip, and what iOS does to a long background session.
 - The exact wording and timing of the two location prompts on a current iOS version.
 - That the App Store accepts the shell (4.2) and the background-location justification.
