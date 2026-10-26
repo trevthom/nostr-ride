@@ -30,7 +30,7 @@ import { MapPage, Sheet, FloatButton, StickyActions } from "../../ui/Layout.jsx"
 import { Spinner } from "../../ui/Parts.jsx";
 import { gpsMessage, canBeOnline, approxNote } from "../../lib/gps.js";
 import RiderInfo, { useRiderInfo } from "../components/RiderInfo.jsx";
-import NearbyRequests from "./NearbyRequests.jsx";
+import NearbyRequests, { passengerCount } from "./NearbyRequests.jsx";
 import { WalletPrompt } from "../../features/ecash/WalletStart.jsx";
 
 const whenText = (time) => (time === "ASAP" ? "Now" : new Date(time).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }));
@@ -219,6 +219,9 @@ function Incoming({ item, auto, onClose }) {
       </div>
 
       <div className="mt-4 pt-3 border-t border-neutral-100"><RiderInfo pubkey={request.pubkey} compact /></div>
+      {passengerCount(c) > 0 && (
+        <p className="mt-2 text-sm text-neutral-600 flex items-center gap-1.5"><Icon name="user" size={14} /> Rider + {passengerCount(c)} passenger{passengerCount(c) === 1 ? "" : "s"}</p>
+      )}
       {c.notes && <p className="mt-2 text-sm text-neutral-600 bg-neutral-100 rounded-xl px-3 py-2">“{c.notes}”</p>}
 
       <p className="text-xs text-neutral-500 mt-3">

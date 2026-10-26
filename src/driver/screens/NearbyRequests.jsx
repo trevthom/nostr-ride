@@ -18,6 +18,10 @@ import { Screen } from "../../ui/Layout.jsx";
 
 const whenText = (time) => (time === "ASAP" ? "Now" : new Date(time).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }));
 
+// How many people ride along with the rider: the rider's own "Total additional passengers" choice, 0 when they said
+// nothing (older apps). A request is signed by its author, so this is a fact of the request, not a claim by anyone else.
+export const passengerCount = (c) => (Number.isFinite(c?.passengers) && c.passengers > 0 ? Math.min(Math.round(c.passengers), 4) : 0);
+
 // The facts about one open request, for a row. `miles` = straight-line distance from the driver to the pickup (null without GPS).
 export function requestFacts({ request, content: c, miles }, rates, prices, usdPrice) {
   const tripMiles = c.distanceMiles ?? roadMiles(haversineDistance(c.pickup.lat, c.pickup.lng, c.dropoff.lat, c.dropoff.lng));
@@ -28,6 +32,7 @@ export function requestFacts({ request, content: c, miles }, rates, prices, usdP
     tripMin: c.durationMin ?? driveMinutes(tripMiles),
     when: c.time && c.time !== "ASAP" ? whenText(c.time) : null,
     notes: typeof c.notes === "string" ? c.notes.trim() : "",
+    passengers: passengerCount(c),
   };
 }
 
@@ -68,6 +73,9 @@ export default function NearbyRequests({ onBack, onPick }) {
                       <div className="rounded-xl bg-neutral-100 px-2 py-2"><dd className="font-semibold text-[15px]">{f.tripMin} min</dd><dt className="text-[11px] text-neutral-500">trip drive time</dt></div>
                     </dl>
                     {f.when && <p className="text-sm font-semibold mt-2">Reserved for {f.when}</p>}
+                    {f.passengers > 0 && (
+                      <p className="mt-2 text-sm text-neutral-600 flex items-center gap-1.5"><Icon name="user" size={14} /> Rider + {f.passengers} passenger{f.passengers === 1 ? "" : "s"}</p>
+                    )}
                     {f.notes && <p className="mt-2 text-sm text-neutral-600 bg-neutral-100 rounded-xl px-3 py-2">“{f.notes}”</p>}
                   </button>
                 </li>

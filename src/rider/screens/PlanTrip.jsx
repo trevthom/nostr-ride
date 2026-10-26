@@ -6,8 +6,8 @@
 //    pin     the pickup OR the drop-off set by dragging the map under a pin (components/PinPicker; plan.pinField says which)
 //    quote   route on the map and the drivers nearby, each with the cost of THIS trip at their own rates (name · price). The fare is
 //            always the chosen driver's own rates (base, per mile, per minute), paid tick by tick. Now/Later, driver preference,
-//            "Notify nearest driver immediately", notes → Request ride. With more than one driver nearby (and the box not ticked)
-//            Request ride opens
+//            "Notify nearest driver immediately", "Total additional passengers" (the driver is told), "Notes for driver" → Request ride.
+//            With more than one driver nearby (and the box not ticked) Request ride opens
 //    drivers the list of drivers (and "See map") to ask one of them (components/DriverBrowser.jsx)
 //  Going back: the back arrow on the search page returns to where it was opened from (plan.from: the
 //  home screen, or the quote). The close button (X) on the search, pin and quote pages cancels the
@@ -175,7 +175,7 @@ function Quote() {
       if (t > Date.now() + 7 * 86400000) return setError("Scheduled rides can be at most 1 week ahead.");
       if (t < Date.now() - 60000) return setError("Pick a time in the future.");
     }
-    const common = { pickup, dropoff, when: plan.when, notes: plan.notes.trim(), miles: route.miles, minutes: route.minutes };
+    const common = { pickup, dropoff, when: plan.when, notes: plan.notes.trim(), passengers: plan.passengers || 0, miles: route.miles, minutes: route.minutes };
     const ask = (pk) => {
       const d = drivers.find((x) => x.pubkey === pk);
       const sats = d ? driverFare(d, trip, prices) : null;
@@ -312,7 +312,27 @@ function Quote() {
           Notify nearest driver immediately
         </label>
 
-        <p className="text-sm font-semibold mt-4 mb-1.5">Notes</p>
+        {/* How many people get in besides the rider. The driver sees it on the request card before accepting. */}
+        <p className="text-sm font-semibold mt-4 mb-1.5">Total additional passengers:</p>
+        <div className="flex gap-2" role="group" aria-label="Total additional passengers">
+          {[0, 1, 2, 3, 4].map((n) => {
+            const on = (plan.passengers || 0) === n;
+            return (
+              <button
+                key={n}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setPlan({ passengers: n })}
+                className={`flex-1 py-2.5 rounded-full text-sm font-semibold ${on ? "bg-black text-white" : "bg-neutral-100 text-neutral-700"}`}
+              >
+                {n}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-neutral-500 text-xs mt-1">Leave it at 0 when you ride alone.</p>
+
+        <p className="text-sm font-semibold mt-4 mb-1.5">Notes for driver</p>
         <input
           aria-label="Note for the driver"
           value={plan.notes}
@@ -349,7 +369,7 @@ function Browse() {
     const d = drivers.find((x) => x.pubkey === pk);
     if (!d) return;
     const sats = driverFare(d, trip, prices);
-    requestRide({ pickup, dropoff, when: plan.when, notes: plan.notes.trim(), miles: route.miles, minutes: route.minutes, fareSats: sats ?? 0, suggestedSats: sats ?? 0, to: [pk], ratesSeen: { [pk]: ratesOrApp(d.rates) } });
+    requestRide({ pickup, dropoff, when: plan.when, notes: plan.notes.trim(), passengers: plan.passengers || 0, miles: route.miles, minutes: route.minutes, fareSats: sats ?? 0, suggestedSats: sats ?? 0, to: [pk], ratesSeen: { [pk]: ratesOrApp(d.rates) } });
   };
   return (
     <DriverBrowser

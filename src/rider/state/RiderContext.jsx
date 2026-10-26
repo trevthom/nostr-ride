@@ -52,7 +52,7 @@ const RiderContext = createContext(null);
 export const useRider = () => useContext(RiderContext);
 
 const HOUR = 3600000;
-const EMPTY_PLAN = { step: "idle", from: "idle", pinField: "pickup", pickup: null, dropoff: null, when: "ASAP", notes: "" };
+const EMPTY_PLAN = { step: "idle", from: "idle", pinField: "pickup", pickup: null, dropoff: null, when: "ASAP", notes: "", passengers: 0 };
 const parse = (e) => { try { return JSON.parse(e.content); } catch { return null; } };
 
 export function RiderProvider({ children }) {
@@ -294,7 +294,7 @@ export function RiderProvider({ children }) {
   // Publish a ride request. The whole event (note and fare included) goes only inside gift wraps (nostr/sealing.js), to the drivers near the
   // pickup and the rider; they see an approximate area, and the exact trip is sealed to the rider (and to the chosen driver).
   const requestRide = useCallback(
-    ({ pickup, dropoff, when, notes, miles, minutes, fareSats, suggestedSats, to = null, ratesSeen = null }) => {
+    ({ pickup, dropoff, when, notes, passengers = 0, miles, minutes, fareSats, suggestedSats, to = null, ratesSeen = null }) => {
       // `to` (a list of drivers): the rider chose them (browse list, map, "Notify nearest driver immediately"). The request goes to them only.
       const directed = Array.isArray(to) && to.length > 0;
       const d = "ride-" + Date.now();
@@ -308,6 +308,7 @@ export function RiderProvider({ children }) {
           dropoff: publicPlace(dropoff),
           time: when,
           notes,
+          passengers: passengers > 0 ? Math.min(passengers, 4) : 0, // how many people ride along with the rider (the driver is told)
           status: "requested",
           hide: hideList(user.sk, blocked), // drivers I blocked never see this request (lib/blocks.js)
           fareMode: "standard", // every driver's own rates (older apps also knew a "flat" price; it is gone)
