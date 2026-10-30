@@ -1,16 +1,11 @@
 # NostrRide 🚗⚡
 
-A decentralized ridesharing system built on **Nostr**. No central server, no
+A decentralized, permissionless ridesharing system built on **Nostr**. No central server, no
 database: every ride is a set of signed Nostr events. The rider pays the driver
-**while the ride runs**, in small **ecash** payments (Cashu) from the rider's wallet. There are
-no cancellations and no cancellation fees: either person taps **Finish ride**.
+**while the ride runs**, in small **ecash** payments (Cashu) from the rider's wallet. Keep
+100% of your fares and never be unilaterally banned from using the app.
 
 It is **one app with two faces**, chosen with a **Ride | Drive** switch. People using the two faces find each other through Nostr relays:
-
-| Face | For | Looks like |
-|---|---|---|
-| **Ride** | people who need a ride | Uber / Lyft: "Where to?", fare, driver on the map |
-| **Drive** | people who drive | Uber Driver: big GO button, request cards, earnings |
 
 The same account, the same ecash wallet and the same settings serve both faces. The switch is at the top of Home, Activity / Earnings and Account. It is closed while a ride is under way.
 
