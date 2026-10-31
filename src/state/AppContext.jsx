@@ -32,7 +32,7 @@ import { forgetKey } from "../nostr/keystore.js";
 import { loadSession, saveSession, clearSession, saveView, loadView } from "../lib/session.js";
 import { APP_NAME } from "../config/app.js";
 import { getSetting, setSetting, reconnectAll } from "../config/relays.js";
-import { addBlock, removeBlock, isBlocked } from "../lib/blocks.js";
+import { addBlock, removeBlock, isBlocked, setBlockNote as saveBlockNote } from "../lib/blocks.js";
 import { showSystemNotification } from "../lib/notify.js";
 import { PRICE_CODES, PRICE_MAX_AGE_MS, acceptPrices, getCurrency, setCurrency as saveCurrency, onCurrencyChange } from "../lib/currency.js";
 import { FALLBACK_BTC_USD } from "../config/settings.js";
@@ -103,6 +103,7 @@ export function AppProvider({ initialView, children }) {
   const [blocked, setBlocked] = useState(() => getSetting("blocked", []));
   const blockUser = useCallback((pubkey, name) => setBlocked((l) => { const n = addBlock(l, pubkey, name); setSetting("blocked", n); return n; }), []);
   const unblockUser = useCallback((pubkey) => setBlocked((l) => { const n = removeBlock(l, pubkey); setSetting("blocked", n); return n; }), []);
+  const setBlockNote = useCallback((pubkey, note) => setBlocked((l) => { const n = saveBlockNote(l, pubkey, note); setSetting("blocked", n); return n; }), []);
   const isBlockedPk = useCallback((pubkey) => isBlocked(blocked, pubkey), [blocked]);
 
   // The encrypted backup of vouches, blocks and settings (lib/backup.js): checked at login, kept up to date, restored on a new phone.
@@ -499,6 +500,7 @@ export function AppProvider({ initialView, children }) {
     blocked,
     blockUser,
     unblockUser,
+    setBlockNote,
     isBlockedPk,
     liveTick,
   };

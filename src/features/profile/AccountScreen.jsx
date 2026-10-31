@@ -5,10 +5,8 @@
 //
 //    Appearance          Dark Mode (application), Dark Mode (map), Units
 //    Wallets             Currency, the ecash wallet (+ cash out location), the recovery phrase
-//    Driver settings     Vehicle & plate, Your rates
+//    Driver settings     Vehicle & plate and Your rates (required to drive), then Requests (radius, alerts) and Gender (optional)
 //    People & Privacy    Contact methods and Trusted contacts (right here), then Your vouches and Blocked users (screens)
-//    Gender (optional)
-//    Driving             Request radius, New request alerts
 //    Nostr relays
 //    Your keys
 //
@@ -22,7 +20,8 @@ import { useState } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { Screen } from "../../ui/Layout.jsx";
 import { ModeSwitch } from "../../ui/ModeSwitch.jsx";
-import { Row, Toggle, inputCls } from "../../ui/Parts.jsx";
+import Icon from "../../ui/Icon.jsx";
+import { Row, Toggle, SectionLabel, inputCls } from "../../ui/Parts.jsx";
 import { ScreenBody } from "../../ui/Fold.jsx";
 import { useRelays } from "../../config/relays.js";
 import { driveGaps } from "../../lib/profile.js";
@@ -39,7 +38,6 @@ import KeysSection from "./KeysSection.jsx";
 import { RecoveryNotice, startRecoverySetup } from "../ecash/RecoverySection.jsx";
 
 const GENDERS = [["", "Not set"], ["female", "Female"], ["male", "Male"]];
-const genderText = (g) => ({ female: "Female", male: "Male" })[g] || "Not set";
 
 // Where the back arrow goes: the screen the person came from (Your vouches and Blocked users sit inside People & Privacy).
 const PARENT = { vouches: "people", blocked: "people" };
@@ -47,7 +45,6 @@ const PARENT = { vouches: "people", blocked: "people" };
 export default function AccountScreen({ onRide = false, driving }) {
   const { user } = useApp();
   const [page, setPage] = useState(() => loadAccountPage()); // home | appearance | wallets | …
-  const [units] = useUnits();
   const relays = useRelays();
   const go = (next) => { setPage(next); saveAccountPage(next); };
   const back = () => go(PARENT[page] || "home");
@@ -56,12 +53,10 @@ export default function AccountScreen({ onRide = false, driving }) {
     const pages = {
       appearance: { title: "Appearance", body: <ScreenBody><AppearanceSection /></ScreenBody> },
       wallets: { title: "Wallets", body: <WalletsSection locked={onRide} /> },
-      driver: { title: "Driver settings", body: <DriverSettings locked={onRide} /> },
+      driver: { title: "Driver settings", body: <DriverSettings locked={onRide} {...driving} /> },
       people: { title: "People & Privacy", body: <PeoplePage onOpen={go} /> },
       vouches: { title: "Your vouches", body: <ScreenBody><VouchesSection /></ScreenBody> },
       blocked: { title: "Blocked users", body: <ScreenBody><BlockedSection /></ScreenBody> },
-      gender: { title: "Gender (optional)", body: <GenderPage /> },
-      driving: { title: "Driving", body: <DrivingPage {...driving} /> },
       relays: { title: "Nostr relays", body: <ScreenBody><RelaysSection /></ScreenBody> },
       keys: { title: "Your keys", body: <ScreenBody><KeysSection user={user} /></ScreenBody> },
     };
@@ -85,16 +80,15 @@ export default function AccountScreen({ onRide = false, driving }) {
             icon="car"
             title="Driver settings"
             subtitle={gaps.length ? "Vehicle & plate, your rates · setup needed" : "Vehicle & plate, your rates"}
+            right={
+              <span className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 whitespace-nowrap">Required to drive</span>
+                <Icon name="chevron-right" size={18} className="text-neutral-400" />
+              </span>
+            }
             onClick={() => go("driver")}
           />
           <Row icon="shield" title="People & Privacy" subtitle="Contacts, vouches, blocked users" onClick={() => go("people")} />
-          <Row icon="user" title="Gender (optional)" subtitle={genderText(user.gender)} onClick={() => go("gender")} />
-          <Row
-            icon="navigation"
-            title="Driving"
-            subtitle={`${Math.round(distanceIn(driving.radius, units))} ${units} radius · alerts ${driving.alerts ? "on" : "off"}`}
-            onClick={() => go("driving")}
-          />
           <Row icon="zap" title="Nostr relays" subtitle={`${relays.length} relay${relays.length === 1 ? "" : "s"}`} onClick={() => go("relays")} />
           <Row icon="eye" title="Your keys" subtitle="Your npub and nsec" onClick={() => go("keys")} />
         </div>
@@ -119,8 +113,9 @@ function PeoplePage({ onOpen }) {
   );
 }
 
-// The driver's setup: the vehicle and the rates. Both are frozen for a running ride (`locked`).
-function DriverSettings({ locked }) {
+// The driver's setup — this is what makes someone able to drive. The vehicle and the rates are the required parts (both
+// are frozen for a running ride, `locked`); the request radius, the alerts and the gender are optional.
+function DriverSettings({ locked, radius, setRadius, alerts, setAlerts }) {
   const { user } = useApp();
   const save = useSaveProfile();
   const gaps = driveGaps(user);
@@ -133,15 +128,53 @@ function DriverSettings({ locked }) {
         gapsFor={(vehicle) => driveGaps({ ...user, vehicle })}
       />
       <TypicalFareSection rates={user.rates} onSave={(rates) => save({ rates })} locked={locked} />
+      <RequestSettings radius={radius} setRadius={setRadius} alerts={alerts} setAlerts={setAlerts} />
+      <GenderSetting />
     </div>
   );
 }
 
-function GenderPage() {
+// Request radius and new-request alerts. They were the "Driving" screen; there is no separate Driving section any more.
+function RequestSettings({ radius, setRadius, alerts, setAlerts }) {
+  const [units] = useUnits();
+  return (
+    <section>
+      <SectionLabel>Requests</SectionLabel>
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <p className="font-medium">Request radius</p>
+            <p className="text-sm text-neutral-500">Only show pickups this close.</p>
+          </div>
+          <input
+            aria-label={`Request radius in ${units === "km" ? "kilometers" : "miles"}`}
+            type="number"
+            min="1"
+            max={units === "km" ? 160 : 100}
+            value={Math.round(distanceIn(radius, units))}
+            onChange={(e) => setRadius(Math.min(100, Math.max(1, Math.round(milesFrom(parseInt(e.target.value, 10) || 1, units)))))}
+            className={`${inputCls} !w-20 text-center`}
+          />
+          <span className="text-sm text-neutral-500">{units}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <p className="font-medium">New request alerts</p>
+            <p className="text-sm text-neutral-500">Banner and notification while you are online.</p>
+          </div>
+          <Toggle checked={alerts} onChange={setAlerts} label="New request alerts" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GenderSetting() {
   const { user } = useApp();
   const save = useSaveProfile();
   return (
     <section>
+      <SectionLabel>Gender (optional)</SectionLabel>
       <p className="text-sm text-neutral-500 mb-3">
         Some riders ask to see drivers of one gender first. This only changes the order of their list. Nobody is hidden, and you can leave it unset.
       </p>
@@ -159,36 +192,5 @@ function GenderPage() {
         ))}
       </div>
     </section>
-  );
-}
-
-function DrivingPage({ radius, setRadius, alerts, setAlerts }) {
-  const [units] = useUnits();
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <p className="font-medium">Request radius</p>
-          <p className="text-sm text-neutral-500">Only show pickups this close.</p>
-        </div>
-        <input
-          aria-label={`Request radius in ${units === "km" ? "kilometers" : "miles"}`}
-          type="number"
-          min="1"
-          max={units === "km" ? 160 : 100}
-          value={Math.round(distanceIn(radius, units))}
-          onChange={(e) => setRadius(Math.min(100, Math.max(1, Math.round(milesFrom(parseInt(e.target.value, 10) || 1, units)))))}
-          className={`${inputCls} !w-20 text-center`}
-        />
-        <span className="text-sm text-neutral-500">{units}</span>
-      </div>
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <p className="font-medium">New request alerts</p>
-          <p className="text-sm text-neutral-500">Banner and notification while you are online.</p>
-        </div>
-        <Toggle checked={alerts} onChange={setAlerts} label="New request alerts" />
-      </div>
-    </div>
   );
 }

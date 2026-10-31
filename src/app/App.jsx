@@ -67,13 +67,13 @@ function RideShell({ onSwitch }) {
 
 function DriveShell({ onSwitch }) {
   const { view, setView } = useApp();
-  const { open, online, driveReady, alerts, activeDrive, goOffline } = useDriver();
+  const { open, online, alerts, activeDrive, goOffline } = useDriver();
   const shown = viewFor("drive", view);
   const Screen = DRIVE_SCREENS[shown];
   const tabs = [
     { id: "drive", label: "Drive", icon: "car", badge: online && (shown !== "drive" || !alerts) ? open.length : 0 },
     { id: "earnings", label: "Earnings", icon: "chart" },
-    { id: "account", label: "Account", icon: "user", badge: !driveReady ? 1 : 0 },
+    { id: "account", label: "Account", icon: "user" },
   ];
   const leave = useCallback((next) => { goOffline(); onSwitch(next); }, [goOffline, onSwitch]);
   return (

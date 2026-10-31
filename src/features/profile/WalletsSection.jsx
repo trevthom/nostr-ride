@@ -10,7 +10,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { useApp } from "../../state/AppContext.jsx";
-import { SubTitle } from "../../ui/Fold.jsx";
+import { SubTitle, ScreenBody } from "../../ui/Fold.jsx";
 import CurrencySection from "./CurrencySection.jsx";
 import LightningAddressSection from "./LightningAddressSection.jsx";
 import { useSaveProfile } from "./ProfileParts.jsx";
@@ -26,17 +26,19 @@ export default function WalletsSection({ locked = false }) {
     <div className="space-y-6">
       <div>
         <SubTitle>Currency</SubTitle>
-        <CurrencySection />
+        <ScreenBody><CurrencySection /></ScreenBody>
       </div>
       <div>
         <SubTitle>Ecash wallet</SubTitle>
-        <EcashSection locked={locked}>
-          <div className="mt-6">
-            <SubTitle>Cash out location</SubTitle>
-            <LightningAddressSection value={user.lud16 || ""} onSave={(lud16) => { setCashOutTo(user.publicKey, lud16); save({ lud16 }); }} />
-            <CashOutConfirm />
-          </div>
-        </EcashSection>
+        <ScreenBody>
+          <EcashSection locked={locked}>
+            <div className="mt-6">
+              <SubTitle>Cash out location</SubTitle>
+              <LightningAddressSection value={user.lud16 || ""} onSave={(lud16) => { setCashOutTo(user.publicKey, lud16); save({ lud16 }); }} />
+              <CashOutConfirm />
+            </div>
+          </EcashSection>
+        </ScreenBody>
       </div>
       <div>
         <SubTitle>Recovery phrase</SubTitle>

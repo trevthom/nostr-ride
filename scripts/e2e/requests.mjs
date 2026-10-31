@@ -46,7 +46,7 @@ try {
   await step("four drivers go online; D1 turns the new-request alerts off in Account", async () => {
     await Promise.all([online(P1, d1), online(P2, d2), online(P3, d3), online(P4, d4)]);
     await tap(tabs(P1).getByText("Account", { exact: true }));
-    await openFold(P1, "Driving");
+    await openFold(P1, "Driver settings");
     const sw = P1.getByRole("switch", { name: "New request alerts" });
     await sw.waitFor({ timeout: 10000 });
     if ((await sw.getAttribute("aria-checked")) !== "true") throw new Error("alerts should start on");
