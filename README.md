@@ -9,6 +9,8 @@ It is **one app with two faces**, chosen with a **Ride | Drive** switch. People 
 
 The same account, the same ecash wallet and the same settings serve both faces. The switch is at the top of Home, Activity / Earnings and Account. It is closed while a ride is under way.
 
+Two standalone one-face apps, `nostr-ride-rider` and `nostr-ride-driver`, are generated from this source with `npm run export` (see `scripts/export-apps.mjs`).
+
 Full documentation is in [`docs/index.md`](docs/index.md). This guide is written for someone with **no coding experience**. Follow it
 top to bottom.
 

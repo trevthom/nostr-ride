@@ -15,6 +15,8 @@ import { IS_DRIVER_APP } from "../../config/app.js";
 import { ConfirmDialog } from "../../ui/Parts.jsx";
 import Button from "../../ui/Button.jsx";
 import { saveAccountPage } from "../../lib/session.js";
+import { lowBalanceSats } from "../../lib/fare.js";
+import { moneyText } from "../../ui/Money.jsx";
 import RestoreWallet from "./RestoreWallet.jsx";
 import { startRecoverySetup } from "./RecoverySection.jsx";
 
@@ -44,6 +46,24 @@ export default function WalletStart() {
         message="Your wallet is kept on this phone. Its 12 words are the only way to get your money back if you lose the phone, clear the browser or delete the app. You will see the words next. Write them on paper before you add money."
         onConfirm={create} onCancel={() => setAsking(false)} />
       {restoring && <RestoreWallet onClose={() => setRestoring(false)} />}
+    </div>
+  );
+}
+
+// A wallet that exists but has less than a ride needs: say so before the rider starts choosing a pickup.
+export function RideFundsPrompt({ className = "" }) {
+  const { ecash, ecashOff, usdPrice, btcPrice, setView } = useApp();
+  if (ecashOff) return null; // WalletPrompt already explains that there is no wallet on this phone
+  const sats = ecash ? ecash.total() : null;
+  if (sats == null) return null;
+  const need = lowBalanceSats(usdPrice);
+  if (sats >= need) return null;
+  const go = () => { saveAccountPage("wallets"); setView("account"); };
+  return (
+    <div className={`rounded-xl bg-amber-50 text-amber-800 px-3 py-2 ${className}`} role="alert">
+      <p className="text-sm font-semibold">You need at least {moneyText(need, btcPrice)} in your ecash wallet to request a ride.</p>
+      <p className="text-xs mt-0.5">You have {moneyText(sats, btcPrice)}. Add funds before choosing a pickup.</p>
+      <button type="button" onClick={go} className="text-sm font-semibold underline mt-1">Add funds</button>
     </div>
   );
 }

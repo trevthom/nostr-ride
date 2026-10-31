@@ -14,12 +14,12 @@
 //  planning and returns to the home screen (resetPlan).
 // ════════════════════════════════════════════════════════════
 
-import { WalletPrompt } from "../../features/ecash/WalletStart.jsx";
+import { WalletPrompt, RideFundsPrompt } from "../../features/ecash/WalletStart.jsx";
 import { formatDistance } from "../../lib/units.js";
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../../state/AppContext.jsx";
 import { useRider } from "../state/RiderContext.jsx";
-import { quoteFare, typicalSats, ratesOrApp } from "../../lib/fare.js";
+import { quoteFare, typicalSats, ratesOrApp, lowBalanceSats, hasRideFunds } from "../../lib/fare.js";
 import MapView from "../../ui/MapView.jsx";
 import { moneyText } from "../../ui/Money.jsx";
 import Icon from "../../ui/Icon.jsx";
@@ -80,12 +80,19 @@ export default function PlanTrip() {
 
 function Idle() {
   const { setPlan, plan, drivers, myPosition, geoError, gps, recentPlaces, nearestDriverEta, genderPref } = useRider();
+  const { ecash, ecashOff, usdPrice, btcPrice, pushNotice } = useApp();
   const only = genderPref === "female" ? "female" : genderPref === "male" ? "male" : ""; // the driver preference narrows the drivers counted here
   const mapRef = useRef(null);
   const recents = recentPlaces();
   const eta = nearestDriverEta(myPosition);
+  // A ride is planned only when the wallet already holds at least $5 (the amount a ride needs).
+  const minSats = lowBalanceSats(usdPrice);
+  const walletSats = ecash ? ecash.total() : ecashOff ? 0 : null;
+  const fundsOk = walletSats != null && hasRideFunds(walletSats, usdPrice);
 
   const openSearch = (dropoff) => {
+    if (walletSats == null) return pushNotice("Your ecash wallet is still loading. Try again in a moment.");
+    if (!fundsOk) return pushNotice(`You need at least ${moneyText(minSats, btcPrice)} in your ecash wallet to request a ride. Add funds in Account → Wallets.`);
     // The pickup is never filled in for the rider: a recent place only sets the destination, and the search page asks for the pickup.
     const pickup = plan.pickup;
     setPlan({ step: dropoff && pickup ? "quote" : "search", from: "idle", ...(dropoff ? { dropoff } : {}) });
@@ -100,8 +107,9 @@ function Idle() {
       <Sheet label="Where to?">
         <button
           type="button"
+          aria-disabled={!fundsOk}
           onClick={() => openSearch()}
-          className="w-full flex items-center gap-3 bg-neutral-100 rounded-xl px-4 py-4 text-left active:bg-neutral-200"
+          className={`w-full flex items-center gap-3 bg-neutral-100 rounded-xl px-4 py-4 text-left active:bg-neutral-200 ${fundsOk ? "" : "opacity-60"}`}
         >
           <Icon name="search" size={22} />
           <span className="text-lg font-semibold">Where to?</span>
@@ -110,7 +118,7 @@ function Idle() {
         <ul className="mt-2">
           {recents.map((p) => (
             <li key={p.name}>
-              <button type="button" onClick={() => openSearch(p)} className="w-full flex items-center gap-3 py-3 text-left active:bg-neutral-50">
+              <button type="button" aria-disabled={!fundsOk} onClick={() => openSearch(p)} className={`w-full flex items-center gap-3 py-3 text-left active:bg-neutral-50 ${fundsOk ? "" : "opacity-60"}`}>
                 <span className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center shrink-0"><Icon name="clock" size={18} /></span>
                 <span className="min-w-0">
                   <span className="block text-[15px] font-medium truncate">{p.name}</span>
@@ -129,6 +137,7 @@ function Idle() {
             ? `${drivers.length} ${only ? only + " " : ""}driver${drivers.length === 1 ? "" : "s"} online nearby${eta ? ` · about ${eta} min away` : ""}`
             : `No ${only ? only + " " : ""}drivers online nearby right now. You can still request a ride.`}
         </p>
+        <RideFundsPrompt className="mt-3" />
         <WalletPrompt className="mt-3" />
       </Sheet>
     </MapPage>
@@ -136,9 +145,13 @@ function Idle() {
 }
 
 function Quote() {
-  const { btcPrice, usdPrice, prices, currency } = useApp();
+  const { btcPrice, usdPrice, prices, currency, ecash, ecashOff, pushNotice } = useApp();
   const { plan, setPlan, resetPlan, drivers, requestRide, nearestDriverEta, gps, myPosition, geoError, notifyNearest, setNotifyNearest, nearestOf, genderPref } = useRider();
   const { pickup, dropoff } = plan;
+  // The same $5 rule as the home screen: a wallet that fell below it while planning cannot send the request.
+  const minSats = lowBalanceSats(usdPrice);
+  const walletSats = ecash ? ecash.total() : ecashOff ? 0 : null;
+  const fundsOk = walletSats == null || hasRideFunds(walletSats, usdPrice);
   const [route, setRoute] = useState(null); // { miles, minutes, straight }
   const [error, setError] = useState("");
   const mapRef = useRef(null);
@@ -166,6 +179,7 @@ function Quote() {
 
   const request = () => {
     if (!quote) return;
+    if (walletSats != null && !fundsOk) return pushNotice(`You need at least ${moneyText(minSats, btcPrice)} in your ecash wallet to request a ride. Add funds in Account → Wallets.`);
     if (timed) {
       const t = Date.parse(plan.when);
       if (isNaN(t)) return setError("Pick a valid date and time.");
@@ -343,9 +357,11 @@ function Quote() {
             one thing the coarse request is hiding. Say who reads it. */}
         <p className="text-neutral-500 text-xs mt-1">Sent encrypted to the drivers near you, who read it before they accept. Keep out your exact address, a gate or door code, or a phone number.</p>
 
+        <RideFundsPrompt className="mt-3" />
+        <WalletPrompt className="mt-3" />
         {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
         <StickyActions className="mt-4">
-          <Button onClick={request} disabled={!quote}>
+          <Button onClick={request} disabled={!quote || !fundsOk}>
             {!quote ? "Finding route…" : "Request ride"}
           </Button>
         </StickyActions>

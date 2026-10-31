@@ -25,12 +25,12 @@ import { startHeartbeat } from "../../lib/heartbeat.js";
 import { useWakeLock } from "../../lib/useWakeLock.js";
 import { reverseGeocode } from "../../lib/geocode.js";
 import { haversineDistance } from "../../lib/geo.js";
-import { pickupEta } from "../../lib/fare.js";
+import { pickupEta, lowBalanceSats, hasRideFunds, shouldCancelForLowWallet } from "../../lib/fare.js";
 import { publicPlace, seal, exactTrip } from "../../lib/privacy.js";
 import { PICKUP_CHANGE_NOTE } from "../../lib/pickup.js";
 import { stopRequestEvent } from "../../lib/stops.js";
 import { activeRideFor, isOpenRide, upcomingRidesFor } from "../../lib/trips.js";
-import { rideDriver, rideEnding, rideKey, rideStatus, rideVersions, rideTimes, rideExpiryMs, isRideExpired } from "../../lib/rides.js";
+import { rideDriver, rideEnding, rideKey, rideStage, rideStatus, rideVersions, rideTimes, rideExpiryMs, isRideExpired } from "../../lib/rides.js";
 import { hideList } from "../../lib/blocks.js";
 import { onlyPreferred } from "../../lib/gender.js";
 import { nearestDriver } from "../../lib/audience.js";
@@ -56,7 +56,7 @@ const EMPTY_PLAN = { step: "idle", from: "idle", pinField: "pickup", pickup: nul
 const parse = (e) => { try { return JSON.parse(e.content); } catch { return null; } };
 
 export function RiderProvider({ children }) {
-  const { user, rideRequests, publish, refreshData, pullRecent, pushNotice, liveTick, setView, isBlockedPk, blocked, onLogout, ecash, priceFor, btcPrice, usdPrice } = useApp();
+  const { user, rideRequests, publish, refreshData, pullRecent, pushNotice, liveTick, setView, isBlockedPk, blocked, onLogout, ecash, ecashOff, priceFor, btcPrice, usdPrice } = useApp();
   const me = user.publicKey;
   const geo = useGeolocation(true, {
     // Foreground only until a ride starts: then the watcher goes into the background, which on iOS is what
@@ -124,6 +124,8 @@ export function RiderProvider({ children }) {
   const [focusId, setFocusId] = useState(null);
   const focused = focusId ? rideRequests.find((r) => r.id === focusId && isOpenRide(r)) : null;
   const activeRide = focused || activeRideFor(rideRequests, me);
+  // The whole wallet, in sats, across its mints. null while it is loading; 0 when this phone has no wallet.
+  const walletSats = ecash ? ecash.total() : ecashOff ? 0 : null;
   // While a ride runs, the location watcher goes into the BACKGROUND. Inside the native shell that is what keeps
   // this page running with the phone in a pocket (iOS does not suspend an app with a running location session),
   // so the rider keeps paying ticks; it also measures the trip on the rider's own phone (useRiderMeter).
@@ -295,6 +297,12 @@ export function RiderProvider({ children }) {
   // pickup and the rider; they see an approximate area, and the exact trip is sealed to the rider (and to the chosen driver).
   const requestRide = useCallback(
     ({ pickup, dropoff, when, notes, passengers = 0, miles, minutes, fareSats, suggestedSats, to = null, ratesSeen = null }) => {
+      // The home and quote screens check this too; this guard covers a wallet that fell while the person was planning.
+      const funds = ecash ? ecash.total() : ecashOff ? 0 : null;
+      if (funds != null && !hasRideFunds(funds, usdPrice)) {
+        pushNotice(`You need at least ${moneyText(lowBalanceSats(usdPrice), btcPrice)} in your ecash wallet to request a ride. Add funds in Account → Wallets.`);
+        return null;
+      }
       // `to` (a list of drivers): the rider chose them (browse list, map, "Notify nearest driver immediately"). The request goes to them only.
       const directed = Array.isArray(to) && to.length > 0;
       const d = "ride-" + Date.now();
@@ -330,7 +338,7 @@ export function RiderProvider({ children }) {
       }
       return d;
     },
-    [publish, refreshData, resetPlan, user.sk, me, pushNotice, setView, blocked]
+    [publish, refreshData, resetPlan, user.sk, me, pushNotice, setView, blocked, ecash, ecashOff, usdPrice, btcPrice]
   );
 
   // Keep a signed record of a payment (the proof is sealed to the driver, so only
@@ -456,6 +464,19 @@ export function RiderProvider({ children }) {
     },
     [publish, refreshData]
   );
+
+  // A request or a ride that has not started is cancelled by itself when the wallet falls below $5. Once riding, the base
+  // rate has been charged and the ride continues (the normal short-wallet notices take over). One cancel per ride.
+  const walletCancelled = useRef(new Set());
+  useEffect(() => {
+    if (walletSats == null || !activeRide) return;
+    if (!shouldCancelForLowWallet({ status: rideStatus(activeRide), stage: rideStage(activeRide), sats: walletSats, usdPrice })) return;
+    const key = rideKey(activeRide);
+    if (walletCancelled.current.has(key)) return;
+    walletCancelled.current.add(key);
+    pushNotice(`Your ecash balance fell below ${moneyText(lowBalanceSats(usdPrice), btcPrice)}. Your ride request was cancelled. Add funds in Account → Wallets to request again.`);
+    finishRide(activeRide);
+  }, [walletSats, activeRide, usdPrice, btcPrice, finishRide, pushNotice]);
 
   // "Not this driver": turn down ONE driver's offer. The request stays open, so other drivers can still accept it,
   // and that driver's app is told (it stops waiting and does not show this request again).

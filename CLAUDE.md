@@ -13,7 +13,7 @@ The people on the two sides talk to each other only over **Nostr** (no server, n
 - **Drive face** (`src/driver`) — Uber-Driver-style: GO online,
   incoming request cards, accept, navigate to pickup, arrive (within 150 m) / start code / finish ride, earnings (ecash).
 - **The shell** (`src/app/App.jsx`, entry `apps/nostrride`): sign in once, then ONE face at a time (`RiderProvider` or `DriverProvider`), three tabs per face. See "One app, two faces" below.
-  (Until the Ride / Drive switch there were two separate apps and two generated mirror repos, `nostr-ride-rider` / `nostr-ride-driver`. They are retired: `scripts/export-apps.mjs` is gone and the copies are not updated.)
+  (The source also generates two standalone one-face apps, `nostr-ride-rider` / `nostr-ride-driver`, with `scripts/export-apps.mjs`; they are generated copies, not hand-edited.)
 
 Stack: **React 18 + Vite**. **Tailwind CSS v3 is built into the app's own CSS** (`src/tailwind.css` + `tailwind.config.js`,
 through PostCSS in `vite.config.js`): no script from another site runs in the page (the apps hold keys and money). Use **v3 only**:
@@ -24,6 +24,7 @@ Look: white UI, black buttons, bottom sheets over a full-screen map (Inter font)
 ## Commands
 - `npm install` then `npm run dev` → the app on http://localhost:5173 (`vite`). To play both sides of a ride use two browser windows (one private) with different accounts, one set to **Drive**.
 - `npm run build` → `dist/nostrride` (static files, relative paths). `npm run preview` serves it on 4173.
+- `node scripts/export-apps.mjs [--only rider|driver] [--out DIR] [--push]` writes the standalone generated apps (`nostr-ride-rider`, `nostr-ride-driver`). The generated `src/app/App.jsx` mounts one role and no switch; the generated repos are copies, never edited by hand.
 - `npm test` → Node's built-in test runner over `test/*.test.mjs` (no extra deps):
   trust rules, ride stages, finishing a ride, fares, trips, earnings, privacy, history, LNURL, geocode, publish,
   event ordering, contact links, GPS quality, payment evidence, blocking, trip sharing, vouches (`vouches`), the recovery phrase and restore (`recovery`, `restore`), native location, outbox, relay health (`relayhealth`), request expiry / blocking both ways / declined offers (`requests`), old flat offers read as standard / driver rates + currencies / exact amounts / tips / pickup change / odometer + 5% rule + GPS gap / stage times / relay filter shape / gender order / driver requirements / **dark mode: application and map (`appearance`), on-chain funding (`onchain`), profile saves that never overwrite the other app (`profilecontent`), up to 3 vehicle photos (`vehiclephotos`), the trip card: low balance / fare-change estimate / trip clock seconds (`tripcard`), ticks, missed payments, final tick, start code, 50 m arrival, silence, waivers, extra stops, frozen rates (`ticks`, `ridepay`, `rideflow`), the ecash wallet incl. paying an invoice, taking a token back, a browser that will not save, a Lightning payment with an unclear end (`ecash`), the durable outbox / releasing a token only when its event is safe / the wallet lock (`handoff`), automatic cash out and the pinned cash out address (`autocashout`) and the real `@cashu/cashu-ts` client against a local test mint (`cashu-adapter`, helpers in `test/helpers/`)**. Run it after touching `lib/*`, `nostr/*`, `features/payments/*`.
@@ -65,7 +66,7 @@ Each screen is wrapped in an `ErrorBoundary`.
 | 6 | "Your driver has arrived", checks the car by eye (no button), types the 4-digit start code shown on the driver's phone (RIDE_CONFIRM `code`) | shows the start code; the driver types nothing | **Start trip** (after the rider's code) → RIDE_STAGE `riding` (+`codes`) |
 | 7 | "On the way to …"; the rider's app pays ticks: base, each mile, each minute | RIDE_TICK 30095 (token sealed to driver) | redeems each tick at the mint, answers RIDE_TICK_REPLY 30096; sees fare so far, missed payments |
 | 8 | **Finish ride** (confirm) → pays the final tick; receipt | RIDE_FINISH 30081 (either person; time + meter) | **Finish ride** (confirm) or after 2 missed payments; summary; may waive (RIDE_WAIVER 30097) |
-**There are no cancellations and no cancel fees.** Either person finishes the ride (RIDE_FINISH 30081). Before the ride
+**There are no manual cancellations and no cancel fees.** Either person finishes the ride (RIDE_FINISH 30081). A waiting request is also closed by itself when it expires, on logout, or when the rider's wallet falls below $5 before the ride starts (`shouldCancelForLowWallet`). Before the ride
 starts nothing is owed (status `closed`); after it started the rider owes what it earned (status `completed`). A driver with no
 offer taken just sees the ride leave `requested` ("That ride is no longer available").
 Reservations (`time` > 30 min away) wait under Activity → Upcoming (`isScheduledLater`).
@@ -208,6 +209,7 @@ after the `riding` marker is `completed`; one that ends before it is `closed` (n
 carries `driverPubkey`. Stage is `enroute` (default) → `arrived` → `riding`.
 
 ## One app, two faces (read before editing)
+- **Generated one-face apps:** `scripts/export-apps.mjs` writes standalone `nostr-ride-rider` / `nostr-ride-driver` apps whose generated `src/app/App.jsx` mounts one provider and no `ModeProvider`/switch. This repo is the source of truth; change it here and export again.
 - **One face at a time.** `src/app/App.jsx`: `Gate` (sign-in) → `Session` (state `mode`, saved per account by `lib/mode.js`; calls `setAppRole()` while rendering, BEFORE the face's children draw) → `RideShell` inside `RiderProvider`, or `DriveShell` inside `DriverProvider`. A switch remounts the role state, so the app never pays ticks as a rider while it broadcasts a driver's location.
   Views: Ride `home | activity | account`, Drive `drive | earnings | account` (`TABS`/`viewFor` in `lib/mode.js`; `account` is in both). `AppProvider` (user, relays, wallet, settings, backup) stays mounted across switches.
 - **The switch (`ui/ModeSwitch.jsx`)**: `ModeProvider` gets `lock` (a sentence: the switch is closed and a tap shows it as a notice; the button is `aria-disabled`, NOT `disabled`, so a tap still explains) and `warn` (switching costs something: a ConfirmDialog first). `RideShell` locks while `activeRide` (waiting or under way); `DriveShell` locks while `activeDrive` and warns while `online`
@@ -361,6 +363,7 @@ carries `driverPubkey`. Stage is `enroute` (default) → `arrived` → `riding`.
   base + per mile × miles + per minute × minutes (`fareAmount`), **no minimum fare**; no rates → `APP_RATES`. The rider's quote suggests the MEDIAN of nearby drivers' fares IN SATS (`typicalSats`)
   (the app's formula if no driver is near); each offer carries `typicalSats`. The rates in an offer are FROZEN once the rider chooses it, and the Account screen locks the rates during a ride.
   Use the trip as the request publishes it (miles to a tenth) on both sides or the cents differ. Round money to whole cents before showing it.
+  The rider needs at least `LOW_BALANCE_USD` ($5) in the wallet to open the trip planner and to request (`hasRideFunds`); below it, a waiting request or a chosen driver before `riding` is closed by itself (`shouldCancelForLowWallet`).
 - **Gender preference**: drivers MAY set `gender` ("male" | "female") in kind 0 (copied into offers); anything else is ignored.
   A rider's preference (`getSetting("genderPref")`, local only): **Female only** / **Male only** show ONLY the drivers who declared that gender (`lib/gender.js onlyPreferred` for presence, `trips.js onlyPreferredOffers` for offers, and the audience of a broadcast request); a driver with no declared gender is not shown to a rider who asked. Presence carries `gender`.
 - **Drive gating**: `isDriveReady(user)` = `driveGaps(user)` is empty (lib/profile.js): face photo + vehicle year/make/model +
