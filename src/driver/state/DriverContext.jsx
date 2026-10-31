@@ -42,7 +42,8 @@ import { PICKUP_CHANGE_NOTE } from "../../lib/pickup.js";
 import { activeDriveFor, consentedDrive, pendingOfferFor, declinedDrivers, driverDeclines, driverDeclineEvent, isDirected } from "../../lib/trips.js";
 import { hideList, hidesMe } from "../../lib/blocks.js";
 import { isRideExpired, rideEnding, rideKey, rideStatus, rideTimes, rideVersions } from "../../lib/rides.js";
-import { DEFAULT_REQUEST_RADIUS_MILES, LOCATION_PING_MS } from "../../config/settings.js";
+import { LOCATION_PING_MS } from "../../config/settings.js";
+import { useDriverPrefs } from "../../lib/driverprefs.js";
 import { getSetting, setSetting } from "../../config/relays.js";
 import { moneyText } from "../../ui/Money.jsx";
 import { useAutoCashOut } from "../../features/ecash/useAutoCashOut.js";
@@ -93,11 +94,8 @@ export function DriverProvider({ children }) {
   useEffect(() => { posRef.current = myPosition; }, [myPosition]);
   useEffect(() => { gpsRef.current = gps; }, [gps]);
 
-  // ── Settings (saved on this device) ──
-  const [radius, setRadiusState] = useState(() => getSetting("requestRadius", DEFAULT_REQUEST_RADIUS_MILES));
-  const [alerts, setAlertsState] = useState(() => getSetting("requestAlerts", true));
-  const setRadius = useCallback((v) => { setRadiusState(v); setSetting("requestRadius", v); }, []);
-  const setAlerts = useCallback((v) => { setAlertsState(v); setSetting("requestAlerts", v); }, []);
+  // ── Settings (saved on this device; the same hook the Account screen reads on the Ride face) ──
+  const { radius, setRadius, alerts, setAlerts } = useDriverPrefs();
 
   // Demo riders and requests (development builds only; never sent to relays).
   useEffect(() => { seedDemoData(); refreshData(); }, [refreshData]);

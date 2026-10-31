@@ -29,6 +29,7 @@ import { setUnits, getUnits } from "../lib/units.js";
 import { getProfile } from "../nostr/profiles.js";
 import { myVehicle } from "../lib/privacy.js";
 import { forgetKey } from "../nostr/keystore.js";
+import { loadSession, saveSession, clearSession, saveView, loadView } from "../lib/session.js";
 import { APP_NAME } from "../config/app.js";
 import { getSetting, setSetting, reconnectAll } from "../config/relays.js";
 import { addBlock, removeBlock, isBlocked } from "../lib/blocks.js";
@@ -69,13 +70,18 @@ export function useApp() {
 }
 
 export function AppProvider({ initialView, children }) {
-  const [user, setUser] = useState(null); // logged-in keypair + profile
-  const [view, setView] = useState(initialView); // which tab is visible
+  const [user, setUser] = useState(() => loadSession()); // logged-in keypair + profile (this tab's session survives a reload)
+  const [view, setView] = useState(() => loadView(initialView)); // which tab is visible
   const [rideRequests, setRideRequests] = useState([]); // latest version of each
   const [profileModalPubkey, setProfileModalPubkey] = useState(null); // user-info modal
   const [notices, setNotices] = useState([]); // transient swipe-away banners
   const [liveTick, setLiveTick] = useState(0); // bumped on incoming relay events to re-render
   const [settingsEpoch, setSettingsEpoch] = useState(0); // bumped when a backup is put back: the screens are drawn again with the restored settings
+
+  // This tab's session survives a reload (lib/session.js), so refreshing does not log the person out: they stay on the
+  // same tab (and Account screen). It is gone when the tab closes; logging out clears it.
+  useEffect(() => { if (user) saveSession(user); }, [user]);
+  useEffect(() => { saveView(view); }, [view]);
 
   // Show a transient banner. Also fires a system notification when the app
   // isn't the focused tab, so users hear about it off-screen.
@@ -402,6 +408,7 @@ export function AppProvider({ initialView, children }) {
         new Promise((r) => setTimeout(r, 3000)),
       ]);
     } catch { /* log out anyway */ }
+    clearSession();
     forgetKey();
     setUser(null);
     setProfileModalPubkey(null);

@@ -14,7 +14,7 @@ import { useApp } from "../../state/AppContext.jsx";
 import { IS_DRIVER_APP } from "../../config/app.js";
 import { ConfirmDialog } from "../../ui/Parts.jsx";
 import Button from "../../ui/Button.jsx";
-import { openFold } from "../../ui/Fold.jsx";
+import { saveAccountPage } from "../../lib/session.js";
 import RestoreWallet from "./RestoreWallet.jsx";
 import { startRecoverySetup } from "./RecoverySection.jsx";
 
@@ -52,7 +52,7 @@ export default function WalletStart() {
 export function WalletPrompt({ className = "" }) {
   const { ecashOff, setView } = useApp();
   if (!ecashOff) return null;
-  const go = () => { openFold("ecash"); setView("account"); };
+  const go = () => { saveAccountPage("wallets"); setView("account"); };
   return (
     <div className={`rounded-xl bg-amber-50 text-amber-800 px-3 py-2 ${className}`} role="alert">
       <p className="text-sm font-semibold">You have no ecash wallet on this phone.</p>

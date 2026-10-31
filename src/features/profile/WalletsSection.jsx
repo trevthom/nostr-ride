@@ -6,6 +6,7 @@
 //       then, inside it (EcashSection takes it as a child):
 //    3. Cash out location   the Lightning address (`lud16` in the profile, kind 0). It is the same in the Ride and Drive faces. Saving it here also
 //                           PINS it on this device: money is sent only to the pinned address (lib/cashoutto.js, features/ecash/CashOutConfirm.jsx).
+//    4. Recovery phrase     the 12 words of the ecash wallet (they ARE the money: write them down, show them again).
 // ════════════════════════════════════════════════════════════
 
 import { useApp } from "../../state/AppContext.jsx";
@@ -15,6 +16,7 @@ import LightningAddressSection from "./LightningAddressSection.jsx";
 import { useSaveProfile } from "./ProfileParts.jsx";
 import EcashSection from "../ecash/EcashSection.jsx";
 import CashOutConfirm from "../ecash/CashOutConfirm.jsx";
+import { RecoveryPanel } from "../ecash/RecoverySection.jsx";
 import { setCashOutTo } from "../../lib/cashoutto.js";
 
 export default function WalletsSection({ locked = false }) {
@@ -35,6 +37,10 @@ export default function WalletsSection({ locked = false }) {
             <CashOutConfirm />
           </div>
         </EcashSection>
+      </div>
+      <div>
+        <SubTitle>Recovery phrase</SubTitle>
+        <RecoveryPanel />
       </div>
     </div>
   );

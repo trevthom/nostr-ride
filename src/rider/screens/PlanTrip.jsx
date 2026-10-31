@@ -105,9 +105,6 @@ function Idle() {
         >
           <Icon name="search" size={22} />
           <span className="text-lg font-semibold">Where to?</span>
-          <span className="ml-auto inline-flex items-center gap-1.5 bg-white rounded-full px-3 py-1.5 text-sm font-semibold">
-            <Icon name="clock" size={14} /> Now
-          </span>
         </button>
 
         <ul className="mt-2">

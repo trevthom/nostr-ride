@@ -7,11 +7,23 @@ export const num = (s) => Number(String(s).replace(/[^0-9]/g, "")) || 0;
 export const tap = (loc) => loc.dispatchEvent("click");
 export const openSheet = async (p) => { const b = p.getByRole("button", { name: /drag up to open/ }); if (await b.count()) await b.first().click(); await sleep(400); };
 export const satsIn = async (loc) => num(await loc.first().locator(":scope").getByText(/^[\d,]+ sats$/).first().innerText().catch(() => "0"));
-// The Account screen's sections are folds (closed until tapped): open one by its title.
+// Account is a list of rows, and each row opens a screen. Sections that live inside another screen are reached through it.
+const ACCOUNT_PATHS = {
+  "Contact methods": ["People & Privacy"],
+  "Trusted contacts": ["People & Privacy"],
+  "Your vouches": ["People & Privacy", "Your vouches"],
+  "Blocked users": ["People & Privacy", "Blocked users"],
+  "Vehicle & plate": ["Driver settings"],
+  "Your rates": ["Driver settings"],
+  "Recovery phrase": ["Wallets"],
+};
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export const openFold = async (p, title) => {
-  const b = p.locator("section h2 button", { hasText: title }).first();
-  await b.waitFor({ timeout: 15000 });
-  if ((await b.getAttribute("aria-expanded")) !== "true") await b.click();
+  for (const step of ACCOUNT_PATHS[title] || [title]) {
+    const row = p.getByRole("button", { name: new RegExp("^" + escapeRe(step)) }).first();
+    await row.waitFor({ timeout: 15000 });
+    await row.click();
+  }
 };
 export const geo = (c, p) => c.setGeolocation({ latitude: p.lat, longitude: p.lng, accuracy: 10 });
 

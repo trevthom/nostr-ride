@@ -79,9 +79,8 @@ export function AccountHeader({ photoRequired = false }) {
     setEditing(false);
   };
 
-  const trips = IS_DRIVER_APP ? rep.drives : rep.rides;
   const [units] = useUnits();
-  const miles = IS_DRIVER_APP ? user.stats?.miles : 0;
+  const miles = user.stats?.miles || 0;
 
   return (
     <div className="flex items-center gap-4 py-2">
@@ -118,7 +117,10 @@ export function AccountHeader({ photoRequired = false }) {
             </button>
           </div>
         )}
-        <p className="text-sm text-neutral-500">{trips} trip{trips === 1 ? "" : "s"}{miles > 0 && ` · ${formatDistance(miles, { unit: units })} driven`}</p>
+        <p className="text-sm text-neutral-500">
+          {rep.rides} ride{rep.rides === 1 ? "" : "s"} · {rep.drives} drive{rep.drives === 1 ? "" : "s"}
+          {miles > 0 && ` · ${formatDistance(miles, { unit: units })} driven`}
+        </p>
         {photoRequired && !user.picture && <p className="text-amber-700 text-xs mt-1">A face photo is required to drive.</p>}
         {err && <p className="text-red-600 text-xs mt-1">{err}</p>}
         {user.picture && (
@@ -153,7 +155,7 @@ export function ContactMethods() {
     <div>
       <SectionLabel>Contact methods</SectionLabel>
       <p className="text-neutral-500 text-sm mb-3">
-        Your {IS_DRIVER_APP ? "rider" : "driver"} can use these to reach you during a trip.
+        The other person can use these to reach you during a trip.
       </p>
       {comm.map((c, i) => (
         <div key={i} className="flex items-center justify-between py-2 border-b border-neutral-100">
@@ -189,7 +191,7 @@ export function BlockedSection() {
   const { blocked, unblockUser } = useApp();
   return (
     <div>
-      <SectionLabel>Blocked people</SectionLabel>
+      <SectionLabel>Blocked users</SectionLabel>
       {blocked.length === 0 ? (
         <p className="text-neutral-500 text-sm">No one blocked. You can block someone from their profile or after a trip.</p>
       ) : (
